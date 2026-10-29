@@ -1,0 +1,110 @@
+{
+  "mcq": {
+    "kind": "mcq",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\"}",
+    "trace": "click prMCQ__answerLabel:A | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "dnd": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_solved\",\"moves\":7,\"kind\":\"dnd\"}",
+    "trace": "pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "seq": {
+    "kind": "sequence",
+    "r": "{\"did\":\"sequence_unverified\",\"kind\":\"sequence\"}",
+    "trace": "pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "fitb": {
+    "kind": "fitb",
+    "r": "{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500,\"kind\":\"fitb\"}",
+    "trace": "click DDLOptions__selected: | click DDLOptions__listItem:x | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "text": {
+    "kind": "text",
+    "r": "{\"did\":\"text_solved\",\"n\":1,\"long\":false,\"waitDone\":3500,\"kind\":\"text\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "writing": {
+    "kind": "writing",
+    "r": "{\"did\":\"writing_solved\",\"words\":30,\"kind\":\"writing\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "select": {
+    "kind": "select_text",
+    "r": "{\"did\":\"select_text_solved\",\"selectedCount\":0,\"kind\":\"select_text\"}",
+    "trace": "click st learning__selectTxt_st:frase uno | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "speech": {
+    "kind": "open_speech",
+    "r": "{\"did\":\"open_speech\",\"ok\":false,\"state\":\"intro\",\"kind\":\"open_speech\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "testStart": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_started\"}",
+    "trace": "click btnStartTest:Start",
+    "ls": null
+  },
+  "review": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":1,\"saved\":1}",
+    "trace": "click tab:Correct Answer | pointerdown tab:Correct Answer | pointerup tab:Correct Answer | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 1||Step 4: Test\":{\"1\":{\"mcq\":[{\"q\":\"Q1?\",\"a\":[\"B\"]}]}}}"
+  },
+  "score": {
+    "kind": "test_score",
+    "r": "{\"did\":\"opened_review_forced\",\"pct\":40}",
+    "trace": "click learning__testReviewLink:Review",
+    "ls": null
+  },
+  "replay": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"2/3\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3}}",
+    "trace": "pointerdown dnditem:tres | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:dos | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 1||Step 4: Test\":{\"2\":{\"dnd\":[{\"label\":\"x\",\"texts\":[\"tres\"],\"text\":\"tres\"},{\"label\":\"x\",\"texts\":[\"uno\"],\"text\":\"uno\"},{\"label\":\"x\",\"texts\":[\"dos\"],\"text\":\"dos\"}]}}}"
+  },
+  "reviewEndDropdown": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"test_reopened\"}",
+    "trace": "click learning__dropDownListTitleW--lessons:Lesson 5: Meeti | click learning__dropDownList_item:4. Past Form of | click learning__dropDownListTitleW--steps:Step 1: Explora | click learning__dropDownList_item:3. Prueba",
+    "ls": null
+  },
+  "reviewEndPrev": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"test_reopened\"}",
+    "trace": "click tasksBtprev learning__prevItemLink:<",
+    "ls": null
+  },
+  "reviewDnD": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":2,\"saved\":2}",
+    "trace": "click A:Respuesta corre | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 1: Introduction: Ecotourism||Step 5: Repasemos\":{\"2\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"debris\"],\"text\":\"debris\"},{\"label\":\"\",\"texts\":[\"coastline\"],\"text\":\"coastline\"}]}}}"
+  },
+  "reviewClassif": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":5,\"saved\":2}",
+    "trace": "click A:Respuesta corre | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 2: The Experience of a Lifetime||Step 5: Repasemos\":{\"5\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Volunteer vacations help.\",\"Ulithi has turtles.\"],\"text\":\"Volunteer vacations help.\"},{\"label\":\"\",\"texts\":[\"You must snorkel.\"],\"text\":\"You must snorkel.\"}]}}}"
+  },
+  "replayClassif": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"5/6\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3}}",
+    "trace": "pointerdown dnditem draggable:Volunteer vacat | pointerup dndZone: | pointerdown dnditem draggable:Ulithi has turt | pointerup dndZone: | pointerdown dnditem draggable:You must snorke | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 2: The Experience of a Lifetime||Step 5: Repasemos\":{\"5\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Volunteer vacations help.\",\"Ulithi has turtles.\"],\"text\":\"Volunteer vacations help.\"},{\"label\":\"\",\"texts\":[\"You must snorkel.\"],\"text\":\"You must snorkel.\"}]}}}"
+  },
+  "scoreGiveUp": {
+    "kind": "test_score",
+    "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 3 reintentos. Revísalo y vuelve a __ed.auto().\"",
+    "trace": "click learning__testReviewLink:Review | click learning__testReviewLink:Review | click learning__testReviewLink:Review",
+    "ls": null
+  }
+}
