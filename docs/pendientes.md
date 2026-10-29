@@ -6,6 +6,7 @@ Se trabajan **de a uno**, en este orden, y cada uno se valida en ED real antes d
 
 **Hay DOS familias de DnD en los tests:**
 - ✅ `.dndZone/.dnditem/.dndBank` — TextToPic ("Match the words to the pictures") y cloze ("Choose the correct words to complete the e-mail"), confirmado en Lesson 1 · Step 5. Cosecha arreglada en v20.2 (esperar pestaña activa) y replay con scroll en cajas.
+- ✅ v20.4 Ordenar (`prSeq`, `.sequenceZone`, sin banco): reordenar con `placeSequence`; vista correcta = `.seeAnswerMode`.
 - ✅ v20.3 Clasificación True/False (`prCl`, columnas con `.containerHeader`, sin `.dndBank`, usa dragula) — el banco se identifica por no tener encabezado (era H2 + H3).
 - ⬜ Falta confirmar que el arrastre físico funciona en la clasificación: `__ed.dragTest()` en esa pantalla.
 - ⬜ `.droptarget/.draggable/.draggableContainer` — la de abajo.

@@ -44,4 +44,45 @@ class SequenceSolver {
     }
     return { did: 'sequence_unverified' };
   }
+
+  // ---------------------------------------------------------------
+  // SECUENCIA EN TESTS (replay)                               [NUEVA v20.4]
+  // PARA QUÉ: deja las fichas en el orden cosechado del review ("Respuesta correcta").
+  // En ordenar NO hay banco: cada hueco (.sequenceZone) ya tiene una ficha, hay que intercambiarlas.
+  // Método: de izquierda a derecha, si en la posición i no está la ficha correcta, se arrastra
+  // la correcta encima del hueco i y se RELEE el orden (sirve tanto si ED intercambia como si
+  // inserta: las posiciones ya colocadas no se mueven). Hasta 2 intentos por posición.
+  // ---------------------------------------------------------------
+  static isSequenceScreen() { return !!(qv('.prSeq__main') || qv('.sequenceZone')); }
+
+  static seqZones() {
+    const z = qav('.sequenceZone.dndZone');
+    return z.length ? z : qav('.dndZone').filter(e => e.closest('.prSeq__main, .prSeq__container'));
+  }
+
+  static seqOrder() { return this.seqZones().map(z => txt(q('.dnditem', z))); }
+
+  static async placeSequence(wanted) {
+    log('🔢 [Sequence test] Ordenando según lo cosechado...');
+    const W = (wanted || []).map(norm);
+    let moves = 0;
+    for (let i = 0; i < W.length; i++) {
+      for (let intento = 0; intento < 2; intento++) {
+        const zs = this.seqZones();
+        const cur = zs.map(z => norm(txt(q('.dnditem', z))));
+        if (cur[i] === W[i]) break;
+        const j = cur.indexOf(W[i]);
+        if (j < 0 || !zs[i]) break;
+        const src = q('.dnditem', zs[j]);
+        const dst = intento === 0 ? zs[i] : (q('.dnditem', zs[i]) || zs[i]);   // 2.º intento: soltar sobre la ficha
+        await revealInBox(dst); await revealInBox(src);
+        await drag(src, dst); moves++;
+        await sleep(300);
+      }
+    }
+    const final = this.seqOrder().map(norm);
+    const ok = W.length > 0 && W.every((w, k) => final[k] === w);
+    if (!ok) warn('Secuencia: no quedó en el orden cosechado', { esperado: wanted, quedó: this.seqOrder() });
+    return { did: 'seq_replay', moves, ok };
+  }
 }

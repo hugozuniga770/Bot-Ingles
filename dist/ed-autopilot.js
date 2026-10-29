@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v20.3  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v20.4  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '20.3';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '20.4';   // ← ÚNICO lugar donde se cambia la versión
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -657,6 +657,47 @@
       }
       return { did: 'sequence_unverified' };
     }
+
+    // ---------------------------------------------------------------
+    // SECUENCIA EN TESTS (replay)                               [NUEVA v20.4]
+    // PARA QUÉ: deja las fichas en el orden cosechado del review ("Respuesta correcta").
+    // En ordenar NO hay banco: cada hueco (.sequenceZone) ya tiene una ficha, hay que intercambiarlas.
+    // Método: de izquierda a derecha, si en la posición i no está la ficha correcta, se arrastra
+    // la correcta encima del hueco i y se RELEE el orden (sirve tanto si ED intercambia como si
+    // inserta: las posiciones ya colocadas no se mueven). Hasta 2 intentos por posición.
+    // ---------------------------------------------------------------
+    static isSequenceScreen() { return !!(qv('.prSeq__main') || qv('.sequenceZone')); }
+
+    static seqZones() {
+      const z = qav('.sequenceZone.dndZone');
+      return z.length ? z : qav('.dndZone').filter(e => e.closest('.prSeq__main, .prSeq__container'));
+    }
+
+    static seqOrder() { return this.seqZones().map(z => txt(q('.dnditem', z))); }
+
+    static async placeSequence(wanted) {
+      log('🔢 [Sequence test] Ordenando según lo cosechado...');
+      const W = (wanted || []).map(norm);
+      let moves = 0;
+      for (let i = 0; i < W.length; i++) {
+        for (let intento = 0; intento < 2; intento++) {
+          const zs = this.seqZones();
+          const cur = zs.map(z => norm(txt(q('.dnditem', z))));
+          if (cur[i] === W[i]) break;
+          const j = cur.indexOf(W[i]);
+          if (j < 0 || !zs[i]) break;
+          const src = q('.dnditem', zs[j]);
+          const dst = intento === 0 ? zs[i] : (q('.dnditem', zs[i]) || zs[i]);   // 2.º intento: soltar sobre la ficha
+          await revealInBox(dst); await revealInBox(src);
+          await drag(src, dst); moves++;
+          await sleep(300);
+        }
+      }
+      const final = this.seqOrder().map(norm);
+      const ok = W.length > 0 && W.every((w, k) => final[k] === w);
+      if (!ok) warn('Secuencia: no quedó en el orden cosechado', { esperado: wanted, quedó: this.seqOrder() });
+      return { did: 'seq_replay', moves, ok };
+    }
   }
 
   // ▼▼▼ src/exercises/dnd.js ▼▼▼
@@ -1143,6 +1184,10 @@
 
     // NUEVA v20.2: ¿ya se ven respuestas en pantalla? (huecos DnD con fichas, desplegables o droptargets con texto)
     static answersShown() {
+      // AJUSTADA v20.4: ED marca la vista "Tu respuesta" con .checkAnswerMode y la vista
+      // "Respuesta correcta" con .seeAnswerMode (confirmado en dumps de TextToPic, cloze y secuencia).
+      if (qv('.checkAnswerMode')) return false;
+      if (qv('.seeAnswerMode')) return true;
       const m = testDndModel();
       if (m && m.dests.some(d => qa('.dnditem', d).length)) return true;
       if (qav('.DDLOptions__selected').some(e => txt(e))) return true;
@@ -1223,6 +1268,8 @@
       }
       if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
       if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
+      // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+      if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
       if (Object.keys(entry).length) {
         ans2[key][idx] = entry;
         try {
@@ -1342,7 +1389,11 @@
       const out = { did: 'test_replay', idx: c && c.s };
       if (qv('label.prMCQ__answerLabel')) out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null);
       if (qv('.DDLOptions__selected')) out.fitb = await PracticeSolver.solveFITB(scr.fitb && scr.fitb.length ? scr.fitb : null);
-      if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
+      // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
+      // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
+      // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
+      if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
+      else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
       await sleep(500);
       await NavigationManager.goNext();
       return out;

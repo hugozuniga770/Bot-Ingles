@@ -29,6 +29,7 @@ Marca el estado aquí cada vez que lo valides (✅ funciona · ⚠️ falla · �
 | Cosecha DnD clasificación True/False (`prCl`) | `readDnd` + `testDndModel` | ⬜ v20.3 |
 | Cosecha DnD (`.droptarget`) | — | ⚠️ falta dump |
 | Replay MCQ / FITB | `TestManager.replayQuestion` | ⬜ |
+| Ordenar en tests (`prSeq`): cosecha `seq` + replay | `SequenceSolver.placeSequence` | ⬜ v20.4 |
 | Replay DnD | `DnDSolver.placeDndMapping` | ⚠️ ídem (falta `exercises/dnd-test.js`) |
 | Volver al test tras el review | `TestManager.reopenAfterReview` | ⬜ v20.1 (`<` supuesto → desplegables → cabecera) |
 | Detenerse si no llega a 100 % | `MainEngine.step` (rama del puntaje) | ⬜ v20.1 |

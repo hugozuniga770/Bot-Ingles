@@ -123,6 +123,10 @@ class TestManager {
 
   // NUEVA v20.2: ¿ya se ven respuestas en pantalla? (huecos DnD con fichas, desplegables o droptargets con texto)
   static answersShown() {
+    // AJUSTADA v20.4: ED marca la vista "Tu respuesta" con .checkAnswerMode y la vista
+    // "Respuesta correcta" con .seeAnswerMode (confirmado en dumps de TextToPic, cloze y secuencia).
+    if (qv('.checkAnswerMode')) return false;
+    if (qv('.seeAnswerMode')) return true;
     const m = testDndModel();
     if (m && m.dests.some(d => qa('.dnditem', d).length)) return true;
     if (qav('.DDLOptions__selected').some(e => txt(e))) return true;
@@ -203,6 +207,8 @@ class TestManager {
     }
     if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
     if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
+    // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+    if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
     if (Object.keys(entry).length) {
       ans2[key][idx] = entry;
       try {
@@ -322,7 +328,11 @@ class TestManager {
     const out = { did: 'test_replay', idx: c && c.s };
     if (qv('label.prMCQ__answerLabel')) out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null);
     if (qv('.DDLOptions__selected')) out.fitb = await PracticeSolver.solveFITB(scr.fitb && scr.fitb.length ? scr.fitb : null);
-    if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
+    // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
+    // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
+    // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
+    if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
+    else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
     await sleep(500);
     await NavigationManager.goNext();
     return out;

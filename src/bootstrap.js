@@ -7,7 +7,7 @@
 //  EXPONE:     V
 // =====================================================================
 
-const V = '20.3';   // ← ÚNICO lugar donde se cambia la versión
+const V = '20.4';   // ← ÚNICO lugar donde se cambia la versión
 if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
 try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
 try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}

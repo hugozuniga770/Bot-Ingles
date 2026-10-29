@@ -19,6 +19,30 @@ const path = require('path');
 const CODE = fs.readFileSync(path.join(__dirname, '..', 'dist', 'ed-autopilot.js'), 'utf8');
 const SNAP = path.join(__dirname, 'regresion.snapshot.json');
 
+// ---- ayudantes para las pantallas de "ordenar" (v20.4) ----
+const SEQ_OK = ["Dalia asks Gabrielle why she's not ready to go to the party.", "Gabrielle tells Dalia she's not going to the party.", 'Dalia tries to convince Gabrielle to come with her.', 'Gabrielle finally agrees and goes to get ready.', 'Gabrielle and Dalia enter the party.', 'Gabrielle joins the party.'];
+const SEQ_KEY = 'Lesson 3: The Party||Step 5: Repasemos';
+function SEQ_HTML(items, review) {
+  const head = `<div class="learning__dropDownListTitleW--lessons">Lesson 3: The Party</div><div class="learning__dropDownListTitleW--steps">Step 5: Repasemos</div>`;
+  const tabs = review ? `<div class="testResultBtnsW"><ul><li id="liY" class="active"><a>&nbsp;Tu respuesta</a></li><li id="liC"><a id="aC">Respuesta correcta</a></li></ul></div>` : `<a class="tasksBtnext learning__submitTestLink">Submit</a>`;
+  const zones = items.map((t, k) => `<div class="prSeq__containerW"><div class="containerHeader header--x">${k + 1}</div><div class="sequenceZoneWrapper"><div class="sequenceZone prSeq__zone--txt dndZone"><div class="dnditem${review ? ' dnditem--x' : ''}">${t}</div></div></div></div>`).join('');
+  return head + tabs + `<div class="prSeq__main ${review ? 'checkAnswerMode' : ''}">${zones}</div><span>4 / 6</span>` + (review ? `<a class="tasksBtnext learning__nextItemLink">Next</a>` : '');
+}
+const LS_SEQ = { 'ed:testKnown:v1': JSON.stringify([SEQ_KEY]), 'ed:testAns:v2': JSON.stringify({ [SEQ_KEY]: { 4: { seq: SEQ_OK } } }) };
+// Simula cómo ED suelta una ficha sobre otro hueco: 'swap' = intercambia, 'insert' = inserta y corre las demás
+function SEQ_DROP(w, modo) {
+  const d = w.document; let cogida = null;
+  d.addEventListener('mousedown', e => { cogida = e.target.closest && e.target.closest('.dnditem'); });
+  d.addEventListener('mouseup', e => {
+    const z = e.target.closest && e.target.closest('.dndZone'); if (!cogida || !z) return;
+    const zs = [...d.querySelectorAll('.sequenceZone')]; const i = zs.indexOf(cogida.closest('.dndZone')), j = zs.indexOf(z);
+    if (i < 0 || j < 0 || i === j) { cogida = null; return; }
+    if (modo === 'swap') { const otra = z.querySelector('.dnditem'); z.appendChild(cogida); zs[i].appendChild(otra); }
+    else { const its = zs.map(x => x.querySelector('.dnditem')); const [m] = its.splice(i, 1); its.splice(j, 0, m); zs.forEach((x, k) => x.appendChild(its[k])); }
+    cogida = null;
+  });
+}
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -86,6 +110,29 @@ const FIX = {
 <div class="prCl__container prCl__container--bank"><div class="prCl__col"><ed-la-dndzone class="prCl__zone"><div class="dndZone"><div class="dnditem draggable">You must snorkel.</div><div class="dnditem draggable">Volunteer vacations help.</div><div class="dnditem draggable">Ulithi has turtles.</div></div></ed-la-dndzone></div></div>`,
     ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 2: The Experience of a Lifetime||Step 5: Repasemos']),
       'ed:testAns:v2': JSON.stringify({ 'Lesson 2: The Experience of a Lifetime||Step 5: Repasemos': { 5: { dnd: [{ label: '', texts: ['Volunteer vacations help.', 'Ulithi has turtles.'], text: 'Volunteer vacations help.' }, { label: '', texts: ['You must snorkel.'], text: 'You must snorkel.' }] } } }) } },
+  // NUEVO v20.4 — ORDENAR en el review (Lesson 3 · Step 5 · 4/6): "Tu respuesta" (checkAnswerMode) → clic → "Respuesta correcta" (seeAnswerMode), ED tarda 1,2 s
+  reviewSeq: { html: SEQ_HTML(['Gabrielle joins the party.', 'Gabrielle finally agrees and goes to get ready.', "Gabrielle tells Dalia she's not going to the party.", "Dalia asks Gabrielle why she's not ready to go to the party.", 'Dalia tries to convince Gabrielle to come with her.', 'Gabrielle and Dalia enter the party.'], true),
+    setup: w => {
+      const d = w.document;
+      d.getElementById('aC').addEventListener('click', () => {
+        d.getElementById('liC').className = 'active'; d.getElementById('liY').className = '';
+        const t0 = w.Date.now(), st = w.setTimeout;
+        w.setTimeout = (fn, ms) => st(() => {
+          const main = d.querySelector('.prSeq__main');
+          if (w.Date.now() - t0 >= 1200 && main.classList.contains('checkAnswerMode')) {
+            main.className = 'prSeq__main seeAnswerMode';
+            const ok = SEQ_OK; d.querySelectorAll('.sequenceZone .dnditem').forEach((it, k) => { it.textContent = ok[k]; it.className = 'dnditem'; });
+          }
+          fn();
+        }, ms);
+      });
+    } },
+  // NUEVO v20.4 — ORDENAR en el reintento, si ED INTERCAMBIA las fichas al soltar
+  replaySeqSwap: { html: SEQ_HTML(['Gabrielle joins the party.', 'Gabrielle finally agrees and goes to get ready.', "Gabrielle tells Dalia she's not going to the party.", "Dalia asks Gabrielle why she's not ready to go to the party.", 'Dalia tries to convince Gabrielle to come with her.', 'Gabrielle and Dalia enter the party.'], false),
+    ls: LS_SEQ, setup: w => SEQ_DROP(w, 'swap') },
+  // NUEVO v20.4 — ORDENAR en el reintento, si ED INSERTA y corre las demás
+  replaySeqInsert: { html: SEQ_HTML(['Gabrielle joins the party.', 'Gabrielle finally agrees and goes to get ready.', "Gabrielle tells Dalia she's not going to the party.", "Dalia asks Gabrielle why she's not ready to go to the party.", 'Dalia tries to convince Gabrielle to come with her.', 'Gabrielle and Dalia enter the party.'], false),
+    ls: LS_SEQ, setup: w => SEQ_DROP(w, 'insert') },
   // NUEVO v20.1 — 4 visitas al puntaje < 100 % → debe DETENERSE (ED_TEST_NO_100)
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };

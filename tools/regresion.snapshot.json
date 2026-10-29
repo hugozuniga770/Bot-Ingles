@@ -101,6 +101,24 @@
     "trace": "pointerdown dnditem draggable:Volunteer vacat | pointerup dndZone: | pointerdown dnditem draggable:Ulithi has turt | pointerup dndZone: | pointerdown dnditem draggable:You must snorke | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 2: The Experience of a Lifetime||Step 5: Repasemos\":{\"5\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Volunteer vacations help.\",\"Ulithi has turtles.\"],\"text\":\"Volunteer vacations help.\"},{\"label\":\"\",\"texts\":[\"You must snorkel.\"],\"text\":\"You must snorkel.\"}]}}}"
   },
+  "reviewSeq": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":4,\"saved\":7}",
+    "trace": "click A:Respuesta corre | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 3: The Party||Step 5: Repasemos\":{\"4\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\"],\"text\":\"Dalia asks Gabrielle why she's not ready to go to the party.\"},{\"label\":\"\",\"texts\":[\"Gabrielle tells Dalia she's not going to the party.\"],\"text\":\"Gabrielle tells Dalia she's not going to the party.\"},{\"label\":\"\",\"texts\":[\"Dalia tries to convince Gabrielle to come with her.\"],\"text\":\"Dalia tries to convince Gabrielle to come with her.\"},{\"label\":\"\",\"texts\":[\"Gabrielle finally agrees and goes to get ready.\"],\"text\":\"Gabrielle finally agrees and goes to get ready.\"},{\"label\":\"\",\"texts\":[\"Gabrielle and Dalia enter the party.\"],\"text\":\"Gabrielle and Dalia enter the party.\"},{\"label\":\"\",\"texts\":[\"Gabrielle joins the party.\"],\"text\":\"Gabrielle joins the party.\"}],\"seq\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\",\"Gabrielle tells Dalia she's not going to the party.\",\"Dalia tries to convince Gabrielle to come with her.\",\"Gabrielle finally agrees and goes to get ready.\",\"Gabrielle and Dalia enter the party.\",\"Gabrielle joins the party.\"]}}}"
+  },
+  "replaySeqSwap": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"4/6\",\"seq\":{\"did\":\"seq_replay\",\"moves\":5,\"ok\":true}}",
+    "trace": "pointerdown dnditem:Dalia asks Gabr | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle tells | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle final | pointerdown dnditem:Dalia tries to  | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle final | pointerdown dnditem:Gabrielle final | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle and D | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 3: The Party||Step 5: Repasemos\":{\"4\":{\"seq\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\",\"Gabrielle tells Dalia she's not going to the party.\",\"Dalia tries to convince Gabrielle to come with her.\",\"Gabrielle finally agrees and goes to get ready.\",\"Gabrielle and Dalia enter the party.\",\"Gabrielle joins the party.\"]}}}"
+  },
+  "replaySeqInsert": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"4/6\",\"seq\":{\"did\":\"seq_replay\",\"moves\":5,\"ok\":true}}",
+    "trace": "pointerdown dnditem:Dalia asks Gabr | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle tells | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Dalia tries to  | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle final | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle and D | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 3: The Party||Step 5: Repasemos\":{\"4\":{\"seq\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\",\"Gabrielle tells Dalia she's not going to the party.\",\"Dalia tries to convince Gabrielle to come with her.\",\"Gabrielle finally agrees and goes to get ready.\",\"Gabrielle and Dalia enter the party.\",\"Gabrielle joins the party.\"]}}}"
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 3 reintentos. Revísalo y vuelve a __ed.auto().\"",
