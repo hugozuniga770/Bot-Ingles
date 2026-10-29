@@ -27,7 +27,7 @@ Marca el estado aquí cada vez que lo valides (✅ funciona · ⚠️ falla · �
 | Cosecha FITB | `TestManager.readFitb` | ⬜ |
 | Cosecha DnD (`.dndZone`: TextToPic, cloze) | `TestManager.readDnd` | ⬜ v20.2 (espera pestaña activa) |
 | Cosecha DnD clasificación True/False (`prCl`) | `readDnd` + `testDndModel` | ⬜ v20.3 |
-| Cosecha DnD (`.droptarget`) | — | ⚠️ falta dump |
+| DnD viejo (`.droptarget`): cosecha `drop` + replay | `DropTargetSolver.placeDropTargets` | ⬜ v20.5 |
 | Replay MCQ / FITB | `TestManager.replayQuestion` | ⬜ |
 | Ordenar en tests (`prSeq`): cosecha `seq` + replay | `SequenceSolver.placeSequence` | ⬜ v20.4 |
 | Replay DnD | `DnDSolver.placeDndMapping` | ⚠️ ídem (falta `exercises/dnd-test.js`) |

@@ -52,7 +52,7 @@ window.__ed = {
     const sels = ['.openSpeech__AnsW', 'a.chooseCaracterArrow', '.questionInstructionsSR', '.questionAnswersSet.speaker', 'a.button.continue',
       'iframe[id^="mce_"]', 'span.st.learning__selectTxt_st', '.prSeq__container', '.dndZone', '.dndBank', '.dnditem', '.DDLOptions__selected',
       'label.prMCQ__answerLabel', '.prMCQ__qaInnerSet', 'textarea', 'input[type="text"]', '.layout__mediaPlayPause', '.btnStartTest',
-      'a.tasksBtnext.learning__nextItemLink', 'a.tasksBtnext.learning__submitTestLink'];
+      'a.tasksBtnext.learning__nextItemLink', 'a.tasksBtnext.learning__submitTestLink', '.droptarget', '.draggable', '.sequenceZone'];
     const found = {}; sels.forEach(s => { const c = qav(s).length; if (c) found[s] = c; });
     const info = {
       kind: this.kind(), lesson: NavigationManager.lessonLabel(), step: NavigationManager.stepLabel(),
@@ -71,6 +71,17 @@ window.__ed = {
   // y qué elemento hay justo donde suelta (si no es el hueco, algo lo tapa, p. ej. el "Drag Here").
   // Úsalo en una pregunta DnD que puedas ensuciar (práctica, o test antes de enviarlo).
   async dragTest(hueco = 0) {
+    // NUEVO v20.5: DnD viejo (span.droptarget): mueve la 1.ª ficha al hueco y dice si quedó
+    if (PracticeSolver.isDropTargetScreen()) {
+      const t = PracticeSolver.dropTargets()[hueco], tile = PracticeSolver.bankTiles()[0];
+      if (!t || !tile) { warn('dragTest: no hay hueco o ficha libre'); return null; }
+      const ficha = txt(tile), p = dropPoint(t), debajo = document.elementFromPoint(p.x, p.y);
+      await drag(tile, t); await sleep(500);
+      const r = { tipo: 'droptarget', movido: norm(PracticeSolver.dropValue(PracticeSolver.dropTargets()[hueco])) === norm(ficha), ficha,
+        quedóEnElHueco: PracticeSolver.dropValue(PracticeSolver.dropTargets()[hueco]),
+        debajoDelPunto: debajo ? (debajo.tagName.toLowerCase() + '.' + String(debajo.className || '').split(/\s+/).join('.')).slice(0, 90) : null };
+      log('🧪 dragTest', r); return r;
+    }
     const m = testDndModel();
     if (!m || !m.dests.length) { warn('dragTest: no veo DnD (.dndZone) en esta pantalla'); return null; }
     const it = bankItems(m.bank)[0], dst = m.dests[hueco];

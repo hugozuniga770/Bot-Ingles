@@ -39,6 +39,7 @@ const ORDEN = [
   'exercises/text.js',
   'exercises/media.js',
   'exercises/speaking.js',
+  'exercises/droptarget.js',
   'exercises/index.js',
   'tests/test-manager.js',
   'core/engine.js',

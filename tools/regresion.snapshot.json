@@ -119,6 +119,18 @@
     "trace": "pointerdown dnditem:Dalia asks Gabr | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle tells | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Dalia tries to  | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle final | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | pointerdown dnditem:Gabrielle and D | pointerup sequenceZone prSeq__zone--txt dndZone:Gabrielle joins | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 3: The Party||Step 5: Repasemos\":{\"4\":{\"seq\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\",\"Gabrielle tells Dalia she's not going to the party.\",\"Dalia tries to convince Gabrielle to come with her.\",\"Gabrielle finally agrees and goes to get ready.\",\"Gabrielle and Dalia enter the party.\",\"Gabrielle joins the party.\"]}}}"
   },
+  "reviewDrop": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":7,\"saved\":3}",
+    "trace": "click A:Correct Answer | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 5: More Conditionals: Review||Step 3: Test\":{\"7\":{\"drop\":[\"brushed\",\"be sitting\",\"'d be\"]}}}"
+  },
+  "replayDrop": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"7/10\",\"drop\":{\"did\":\"drop_replay\",\"moves\":3,\"ok\":3,\"total\":3}}",
+    "trace": "pointerdown draggable wordBankTile:brushed | pointerup TTpanswerDiv droptarget: | pointerdown draggable wordBankTile:be sitting | pointerup TTpanswerDiv droptarget: | pointerdown draggable wordBankTile:'d be | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 5: More Conditionals: Review||Step 3: Test\":{\"7\":{\"drop\":[\"brushed\",\"be sitting\",\"'d be\"]}}}"
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 3 reintentos. Revísalo y vuelve a __ed.auto().\"",

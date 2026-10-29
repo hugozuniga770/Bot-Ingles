@@ -34,5 +34,6 @@ const PracticeSolver = mixStatics(
   FITBSolver,
   TextSolver,
   MediaSolver,
-  SpeakingSolver
+  SpeakingSolver,
+  DropTargetSolver
 );

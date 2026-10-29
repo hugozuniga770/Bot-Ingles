@@ -9,7 +9,7 @@ Se trabajan **de a uno**, en este orden, y cada uno se valida en ED real antes d
 - ✅ v20.4 Ordenar (`prSeq`, `.sequenceZone`, sin banco): reordenar con `placeSequence`; vista correcta = `.seeAnswerMode`.
 - ✅ v20.3 Clasificación True/False (`prCl`, columnas con `.containerHeader`, sin `.dndBank`, usa dragula) — el banco se identifica por no tener encabezado (era H2 + H3).
 - ⬜ Falta confirmar que el arrastre físico funciona en la clasificación: `__ed.dragTest()` en esa pantalla.
-- ⬜ `.droptarget/.draggable/.draggableContainer` — la de abajo.
+- ✅ v20.5 `.droptarget/.draggable` (DnD viejo, no-Angular): `exercises/droptarget.js`. ⬜ Falta ver en ED real cómo se ve en "Correct Answer" (se lee ficha dentro / texto / atributo `ans`) y si el arrastre simulado entra (`__ed.dragTest()`).
 
 **Causa encontrada (dump del 29/10/2026, Lesson 4 · Step 3: Prueba · 5/10):** en los tests el DnD **no usa** `.dndZone` / `.dnditem` (eso es de las prácticas). Usa `.droptarget` (los huecos, 2 en esa pregunta), `.draggable` (las fichas, 5) y `.draggableContainer` (5). **Ninguna versión, de v17 a v19.8, buscó esas clases**, así que el bot no lo detecta: no lo cosecha en el review ni lo coloca en el replay. La instrucción es "Drag the correct answer/s into place." (no contiene "Drag Here").
 

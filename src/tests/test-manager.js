@@ -81,6 +81,7 @@ class TestManager {
 
     const wasActive = this.tabIsActive(tab);
     const verifiable = qa('.prMCQ__qaInnerSet').length > 0;
+    const sig0 = this.contentSig();   // NUEVO v20.5: contenido en la vista "Your Answer", para ver que cambie
 
     const strategies = [
       el => click(el),
@@ -104,7 +105,8 @@ class TestManager {
       if (!verifiable) {
         const act = await waitFor(() => { const t2 = this.findTab(RE_TAB_CORRECT); return !!(t2 && this.tabIsActive(t2)); }, 2000, 200);
         if (!act && i < strategies.length - 1) { tab = this.findTab(RE_TAB_CORRECT) || tab; continue; }
-        await waitFor(() => this.answersShown(), 2500, 250);
+        // AJUSTADA v20.5: también espera que el contenido CAMBIE (en un 2.º review "Your Answer" ya trae palabras)
+        await waitFor(() => this.answersShown() && (wasActive || this.contentSig() !== sig0), 2500, 250);
         await sleep(CFG.harvestPause);
         return tab;
       }
@@ -133,6 +135,18 @@ class TestManager {
     if (qav('.droptarget').some(e => txt(e))) return true;
     return false;
   }
+
+  // NUEVA v20.5: "foto" de lo que hay en huecos, desplegables y droptargets (para saber si la vista cambió)
+  static contentSig() {
+    return JSON.stringify([
+      qav('.dndZone').map(z => qa('.dnditem', z).map(txt).join('|')),
+      qav('.DDLOptions__selected').map(txt),
+      qav('.droptarget').map(t => PracticeSolver.dropValue(t))
+    ]);
+  }
+
+  // NUEVA v20.5: lee los huecos del DnD viejo (span.droptarget) en "Correct Answer"
+  static readDropTargets() { return PracticeSolver.dropTargets().map(t => PracticeSolver.dropValue(t)); }
 
   // ESTAS DOS NO SE TOCAN: entrada a Score y a Review (congeladas)
   static isScore() {
@@ -208,6 +222,8 @@ class TestManager {
     if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
     if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
     // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+    // NUEVO v20.5: DnD viejo (span.droptarget)
+    if (PracticeSolver.isDropTargetScreen() || qv('.droptarget')) { const drop = this.readDropTargets(); if (drop.some(Boolean)) { entry.drop = drop; saved += drop.filter(Boolean).length; } }
     if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
     if (Object.keys(entry).length) {
       ans2[key][idx] = entry;
@@ -331,7 +347,9 @@ class TestManager {
     // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
     // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
     // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
-    if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
+    // NUEVO v20.5: DnD viejo (span.droptarget) — antes ninguna rama lo veía y quedaba vacío
+    if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
+    else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
     else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
     await sleep(500);
     await NavigationManager.goNext();

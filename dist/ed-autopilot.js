@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v20.4  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v20.5  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '20.4';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '20.5';   // ← ÚNICO lugar donde se cambia la versión
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -1018,6 +1018,62 @@
     }
   }
 
+  // ▼▼▼ src/exercises/droptarget.js ▼▼▼
+  // =====================================================================
+  //  DROPTARGET — "Drag the correct answer/s into place." (componente VIEJO de ED, no-Angular)
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.5. Confirmado con dumps (Lesson 4 y 5 · Step 3: Test):
+  //    huecos:  span.TTpanswerDiv.droptarget[data-id="1_1"] dentro del texto (cloze o globos)
+  //    fichas:  #TTpTablePlaceHolder .draggableContainer > div.draggable.wordBankTile
+  //  NO usa .dndZone/.dnditem → ninguna versión anterior lo veía. Hoy se usa SOLO en tests:
+  //    cosecha  → TestManager.readDropTargets()
+  //    replay   → DropTargetSolver.placeDropTargets(valores)
+  //  Cada ficha: 1) arrastre normal  2) arrastre otra vez  3) clic en la ficha + clic en el hueco.
+  //  Tras cada intento se comprueba que el hueco quedó con esa palabra.
+  //  DEPENDE DE: utils/dom.js, utils/drag.js, utils/scroll.js
+  //  EXPONE:     DropTargetSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class DropTargetSolver {
+    static isDropTargetScreen() { return !!(qv('.droptarget') && qa('.draggable, .wordBankTile').some(vis)); }
+
+    static dropTargets() { return qav('.droptarget'); }
+
+    // Qué dice un hueco: ficha dentro → su texto; si no, texto del hueco; si no, atributo ans
+    static dropValue(t) {
+      const tile = q('.draggable, .wordBankTile', t);
+      return txt(tile) || txt(t) || (t.getAttribute('ans') || '').trim();
+    }
+
+    static bankTiles() { return qa('.draggable, .wordBankTile').filter(e => vis(e) && !e.closest('.droptarget')); }
+
+    static async placeDropTargets(values) {
+      log('🎯 [DropTarget] Colocando palabras cosechadas en los huecos...');
+      let moves = 0, ok = 0;
+      for (let i = 0; i < values.length; i++) {
+        const want = norm(values[i]);
+        if (!want) continue;
+        for (let intento = 0; intento < 3; intento++) {
+          const t = this.dropTargets()[i];
+          if (!t) break;
+          if (norm(this.dropValue(t)) === want) break;
+          const tile = this.bankTiles().find(x => norm(txt(x)) === want);
+          if (!tile) { warn('DropTarget: no encuentro la ficha', values[i]); break; }
+          await revealInBox(t); await revealInBox(tile);
+          if (intento < 2) await drag(tile, t);
+          else { click(tile); await sleep(300); click(t); await sleep(500); }
+          moves++;
+          await sleep(300);
+        }
+        const t = this.dropTargets()[i];
+        if (t && norm(this.dropValue(t)) === want) ok++;
+      }
+      const total = values.filter(v => norm(v)).length;
+      if (ok < total) warn(`DropTarget: quedaron ${ok}/${total} huecos bien`, { esperado: values, quedó: this.dropTargets().map(t => this.dropValue(t)) });
+      return { did: 'drop_replay', moves, ok, total };
+    }
+  }
+
   // ▼▼▼ src/exercises/index.js ▼▼▼
   // =====================================================================
   //  EXERCISES INDEX — junta todos los solvers en PracticeSolver
@@ -1055,7 +1111,8 @@
     FITBSolver,
     TextSolver,
     MediaSolver,
-    SpeakingSolver
+    SpeakingSolver,
+    DropTargetSolver
   );
 
   // ▼▼▼ src/tests/test-manager.js ▼▼▼
@@ -1142,6 +1199,7 @@
 
       const wasActive = this.tabIsActive(tab);
       const verifiable = qa('.prMCQ__qaInnerSet').length > 0;
+      const sig0 = this.contentSig();   // NUEVO v20.5: contenido en la vista "Your Answer", para ver que cambie
 
       const strategies = [
         el => click(el),
@@ -1165,7 +1223,8 @@
         if (!verifiable) {
           const act = await waitFor(() => { const t2 = this.findTab(RE_TAB_CORRECT); return !!(t2 && this.tabIsActive(t2)); }, 2000, 200);
           if (!act && i < strategies.length - 1) { tab = this.findTab(RE_TAB_CORRECT) || tab; continue; }
-          await waitFor(() => this.answersShown(), 2500, 250);
+          // AJUSTADA v20.5: también espera que el contenido CAMBIE (en un 2.º review "Your Answer" ya trae palabras)
+          await waitFor(() => this.answersShown() && (wasActive || this.contentSig() !== sig0), 2500, 250);
           await sleep(CFG.harvestPause);
           return tab;
         }
@@ -1194,6 +1253,18 @@
       if (qav('.droptarget').some(e => txt(e))) return true;
       return false;
     }
+
+    // NUEVA v20.5: "foto" de lo que hay en huecos, desplegables y droptargets (para saber si la vista cambió)
+    static contentSig() {
+      return JSON.stringify([
+        qav('.dndZone').map(z => qa('.dnditem', z).map(txt).join('|')),
+        qav('.DDLOptions__selected').map(txt),
+        qav('.droptarget').map(t => PracticeSolver.dropValue(t))
+      ]);
+    }
+
+    // NUEVA v20.5: lee los huecos del DnD viejo (span.droptarget) en "Correct Answer"
+    static readDropTargets() { return PracticeSolver.dropTargets().map(t => PracticeSolver.dropValue(t)); }
 
     // ESTAS DOS NO SE TOCAN: entrada a Score y a Review (congeladas)
     static isScore() {
@@ -1269,6 +1340,8 @@
       if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
       if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
       // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+      // NUEVO v20.5: DnD viejo (span.droptarget)
+      if (PracticeSolver.isDropTargetScreen() || qv('.droptarget')) { const drop = this.readDropTargets(); if (drop.some(Boolean)) { entry.drop = drop; saved += drop.filter(Boolean).length; } }
       if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
       if (Object.keys(entry).length) {
         ans2[key][idx] = entry;
@@ -1392,7 +1465,9 @@
       // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
       // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
       // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
-      if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
+      // NUEVO v20.5: DnD viejo (span.droptarget) — antes ninguna rama lo veía y quedaba vacío
+      if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
+      else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
       else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
       await sleep(500);
       await NavigationManager.goNext();
@@ -1630,7 +1705,7 @@
       const sels = ['.openSpeech__AnsW', 'a.chooseCaracterArrow', '.questionInstructionsSR', '.questionAnswersSet.speaker', 'a.button.continue',
         'iframe[id^="mce_"]', 'span.st.learning__selectTxt_st', '.prSeq__container', '.dndZone', '.dndBank', '.dnditem', '.DDLOptions__selected',
         'label.prMCQ__answerLabel', '.prMCQ__qaInnerSet', 'textarea', 'input[type="text"]', '.layout__mediaPlayPause', '.btnStartTest',
-        'a.tasksBtnext.learning__nextItemLink', 'a.tasksBtnext.learning__submitTestLink'];
+        'a.tasksBtnext.learning__nextItemLink', 'a.tasksBtnext.learning__submitTestLink', '.droptarget', '.draggable', '.sequenceZone'];
       const found = {}; sels.forEach(s => { const c = qav(s).length; if (c) found[s] = c; });
       const info = {
         kind: this.kind(), lesson: NavigationManager.lessonLabel(), step: NavigationManager.stepLabel(),
@@ -1649,6 +1724,17 @@
     // y qué elemento hay justo donde suelta (si no es el hueco, algo lo tapa, p. ej. el "Drag Here").
     // Úsalo en una pregunta DnD que puedas ensuciar (práctica, o test antes de enviarlo).
     async dragTest(hueco = 0) {
+      // NUEVO v20.5: DnD viejo (span.droptarget): mueve la 1.ª ficha al hueco y dice si quedó
+      if (PracticeSolver.isDropTargetScreen()) {
+        const t = PracticeSolver.dropTargets()[hueco], tile = PracticeSolver.bankTiles()[0];
+        if (!t || !tile) { warn('dragTest: no hay hueco o ficha libre'); return null; }
+        const ficha = txt(tile), p = dropPoint(t), debajo = document.elementFromPoint(p.x, p.y);
+        await drag(tile, t); await sleep(500);
+        const r = { tipo: 'droptarget', movido: norm(PracticeSolver.dropValue(PracticeSolver.dropTargets()[hueco])) === norm(ficha), ficha,
+          quedóEnElHueco: PracticeSolver.dropValue(PracticeSolver.dropTargets()[hueco]),
+          debajoDelPunto: debajo ? (debajo.tagName.toLowerCase() + '.' + String(debajo.className || '').split(/\s+/).join('.')).slice(0, 90) : null };
+        log('🧪 dragTest', r); return r;
+      }
       const m = testDndModel();
       if (!m || !m.dests.length) { warn('dragTest: no veo DnD (.dndZone) en esta pantalla'); return null; }
       const it = bankItems(m.bank)[0], dst = m.dests[hueco];

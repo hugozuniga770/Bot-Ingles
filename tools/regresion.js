@@ -43,6 +43,23 @@ function SEQ_DROP(w, modo) {
   });
 }
 
+// ---- ayudantes para el DnD viejo "span.droptarget" (v20.5), HTML real de Lesson 5 · Step 3 · 7/10 ----
+const DROP_KEY = 'Lesson 5: More Conditionals: Review||Step 3: Test';
+const DROP_OK = ['brushed', 'be sitting', "'d be"];
+function DROP_HTML(review) {
+  const head = `<div class="learning__dropDownListTitleW--lessons">Lesson 5: More Conditionals: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>`;
+  const tabs = review ? `<div class="testResultTools"><ul><li id="liY" class="active"><a index="0">Your Answer</a></li><li id="liC"><a index="1" id="aC">Correct Answer</a></li></ul></div>` : `<a class="tasksBtnext learning__submitTestLink">Submit</a>`;
+  const hueco = n => `<span qnum="1" data-id="1_${n}" class="TTpanswerDiv droptarget" ans="">&nbsp;&nbsp;&nbsp;&nbsp;</span>`;
+  const fichas = ['have sat', "'d be", 'be sitting', 'brushed', "'re"].map((t, k) => `<div id="${k}" class="draggableContainer"><div data-id="${50 + k}" class="draggable wordBankTile">${t}</div></div>`).join('');
+  return head + tabs + `<div class="ClozeTxtDiv"><div class="TextDiv" id="1_1">If you'd ${hueco(1)} your teeth, you wouldn't still ${hueco(2)} here. You ${hueco(3)} done.</div></div><div class="wordsBankWrapper"><div class="wordsBankTable" id="TTpTablePlaceHolder">${fichas}</div></div><span>7 / 10</span>` + (review ? `<a class="tasksBtnext learning__nextItemLink">Next</a>` : '');
+}
+// Simula el arrastre viejo de ED: mousedown en la ficha, mouseup sobre un hueco → la ficha entra al hueco
+function DROP_DRAG(w) {
+  const d = w.document; let cogida = null;
+  d.addEventListener('mousedown', e => { cogida = e.target.closest && e.target.closest('.draggable'); });
+  d.addEventListener('mouseup', e => { const t = e.target.closest && e.target.closest('.droptarget'); if (cogida && t && !t.querySelector('.draggable')) { t.innerHTML = ''; t.appendChild(cogida); } cogida = null; });
+}
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -133,6 +150,24 @@ const FIX = {
   // NUEVO v20.4 — ORDENAR en el reintento, si ED INSERTA y corre las demás
   replaySeqInsert: { html: SEQ_HTML(['Gabrielle joins the party.', 'Gabrielle finally agrees and goes to get ready.', "Gabrielle tells Dalia she's not going to the party.", "Dalia asks Gabrielle why she's not ready to go to the party.", 'Dalia tries to convince Gabrielle to come with her.', 'Gabrielle and Dalia enter the party.'], false),
     ls: LS_SEQ, setup: w => SEQ_DROP(w, 'insert') },
+  // NUEVO v20.5 — DnD viejo en el REVIEW: "Your Answer" vacía → clic → "Correct Answer" pone las fichas en los huecos (1,2 s)
+  reviewDrop: { html: DROP_HTML(true), setup: w => {
+      const d = w.document;
+      d.getElementById('aC').addEventListener('click', () => {
+        d.getElementById('liC').className = 'active'; d.getElementById('liY').className = '';
+        const t0 = w.Date.now(), st = w.setTimeout;
+        w.setTimeout = (fn, ms) => st(() => {
+          if (w.Date.now() - t0 >= 1200 && !d.querySelector('.droptarget .draggable')) {
+            const ts = d.querySelectorAll('.droptarget'), tiles = [...d.querySelectorAll('.wordBankTile')];
+            DROP_OK.forEach((v, k) => { ts[k].innerHTML = ''; ts[k].appendChild(tiles.find(x => x.textContent === v)); });
+          }
+          fn();
+        }, ms);
+      });
+    } },
+  // NUEVO v20.5 — DnD viejo en el REINTENTO: coloca las 3 palabras cosechadas
+  replayDrop: { html: DROP_HTML(false), setup: DROP_DRAG,
+    ls: { 'ed:testKnown:v1': JSON.stringify([DROP_KEY]), 'ed:testAns:v2': JSON.stringify({ [DROP_KEY]: { 7: { drop: DROP_OK } } }) } },
   // NUEVO v20.1 — 4 visitas al puntaje < 100 % → debe DETENERSE (ED_TEST_NO_100)
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };
