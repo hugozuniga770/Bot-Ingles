@@ -13,14 +13,24 @@ Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prác
 En la pestaña de English Discoveries, abre la consola (**F12 → Console**) y pega:
 
 ```js
-fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-autopilot.js?t='+Date.now()).then(r=>r.text()).then(eval)
+fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-autopilot.js?t='+Date.now()).then(r=>{if(!r.ok)throw new Error('GitHub respondió '+r.status+' (¿repo privado o archivo no subido?)');return r.text()}).then(eval).catch(e=>console.error('[ED loader]',e.message))
 ```
 
 Luego `__ed.auto()` para arrancar (o el botón **Iniciar** de la cajita flotante).
 
-- El repo tiene que ser **público** para que esto funcione.
+- El repo tiene que ser **público** para que esto funcione. Si es privado, GitHub responde 404 (ver opción C).
 - Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v20.5 OOP`).
 - La primera vez Chrome pide escribir `allow pasting` en la consola.
+
+### Opción C — repo PRIVADO, con un token de solo lectura
+
+1. GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate.
+2. Repository access: **Only select repositories → Bot-Ingles**. Permissions → Repository → **Contents: Read-only**. Pon una fecha de vencimiento.
+3. Carga con esta línea (reemplaza `TU_TOKEN`; **nunca** subas el token al repo):
+
+```js
+fetch('https://api.github.com/repos/hugozuniga770/Bot-Ingles/contents/dist/ed-autopilot.js?ref=main&t='+Date.now(),{headers:{Authorization:'Bearer TU_TOKEN',Accept:'application/vnd.github.raw'}}).then(r=>{if(!r.ok)throw new Error('GitHub respondió '+r.status);return r.text()}).then(eval).catch(e=>console.error('[ED loader]',e.message))
+```
 
 ### Opción B — pegar el archivo a mano
 
