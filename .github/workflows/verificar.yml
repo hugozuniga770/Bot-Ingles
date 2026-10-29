@@ -1,0 +1,13 @@
+# En cada push: comprueba que dist/ está al día con src/ y que el comportamiento no cambió.
+name: verificar
+on: [push, pull_request]
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node build.js --check
+      - run: npm install --no-audit --no-fund
+      - run: npm test
