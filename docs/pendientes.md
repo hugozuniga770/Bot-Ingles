@@ -25,6 +25,12 @@ Se trabajan **de a uno**, en este orden, y cada uno se valida en ED real antes d
 - ⬜ Falta saber adónde lleva `<` desde la pantalla del puntaje (¿Start Test?). Si es así, `retakeIfScore()` debería pulsarla cuando no hay botón Retake.
 - ⬜ Sospecha: en los tests TODOS los tipos de pregunta podrían usar componentes distintos a los de práctica (en el replay, 2/10–4/10 no se rellenaron). `probes/test-dump.js` v2 lo revela (sección `pregunta`).
 
+## 1c. Por confirmar en ED real (v20.7)
+- ⬜ Desplegable viejo (`.fillInBlank .questionText`): estructura supuesta → `probes/dropdown-dump.js` en esa pregunta, y `probes/test-dump.js` en su review con "Correct Answer".
+- ⬜ MCQ viejo en tests: `probes/test-dump.js` en su review con "Correct Answer".
+- ⬜ Test exprés: ¿ED deja saltar con los numeritos a la última pregunta?
+- ⬜ Prácticas con UNA acción: ¿ED marca la tarea como hecha tras una acción en todos los tipos?
+
 ## 2. Funciones de versiones anteriores que la v19.7 perdió
 
 **Grupo 2 (siguiente):** verificar tarea + reintentar + saltar a pendiente, detección de atasco, fin de unidad, modos, `requiredWords`. Todos cambian el bucle `auto()`, por eso van juntos y aparte.

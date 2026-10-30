@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v20.5  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v20.7  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '20.5';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '20.7';   // ← ÚNICO lugar donde se cambia la versión
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -48,14 +48,19 @@
     useAIFeedback: true,
     maxTaskAttempts: 4,
     maxTestAttempts: 3,        // ahora SÍ se usa: tope de reintentos de un test que no llega a 100 %
-    tickMs: 1200,
+    tickMs: 700,               // AJUSTADA v20.7: era 1200 (las esperas ahora son "hasta que cambie la pantalla")
     maxIterations: 1500,
     correctTabSelector: '',
     retakeAfterReview: true,   // NUEVO: tras cosechar el review, usar la flechita atrás para reabrir el test
     solveWithoutTaskNav: true, // NUEVO: resolver ejercicios aunque no haya navegador de tareas (como v17)
     stopIfNot100: true,        // NUEVO v20.1: si tras maxTestAttempts no llega a 100 % → DETENERSE y avisar
-    harvestPause: 600          // RECUPERADO v20.2 (v17.1/17.3): pausa extra antes de leer el review en pantallas no-MCQ
+    harvestPause: 600,         // RECUPERADO v20.2 (v17.1/17.3): pausa extra antes de leer el review en pantallas no-MCQ
+    testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
+    practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
+    cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
+  // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
+  if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
 
   const K_ANS = 'ed:answers:v1';
   const K_ANS2 = 'ed:testAns:v2';
@@ -298,6 +303,26 @@
     return dndModel();
   }
 
+  // ▼▼▼ src/utils/practice.js ▼▼▼
+  // =====================================================================
+  //  PRÁCTICAS — "con UNA acción basta"
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.7. En las prácticas ED marca la tarea como hecha apenas haces UNA acción
+  //  (una ficha, un desplegable, una casilla...). practiceEnough(tn) se llama después de la
+  //  1.ª acción: si ED ya marcó la tarea (máx. 1,5 s) → el solver se detiene ahí.
+  //  Si NO la marcó → devuelve false y el solver sigue como antes (completa todo). Blindado.
+  //  Nunca se activa en tests (ahí cada respuesta cuenta).
+  //  Apagar: __ed.cfg({ practiceOneAction: false })
+  //  DEPENDE DE: core/config.js, core/navigation.js, tests/test-manager.js (en tiempo de ejecución)
+  //  EXPONE:     practiceEnough
+  // =====================================================================
+
+  async function practiceEnough(tn) {
+    if (!CFG.practiceOneAction || !tn) return false;
+    try { if (TestManager.inTest()) return false; } catch (e) { return false; }
+    return !!(await waitFor(() => NavigationManager.taskDone(tn), 1500, 200));
+  }
+
   // ▼▼▼ src/core/storage.js ▼▼▼
   // =====================================================================
   //  STORAGE — respuestas cosechadas, puntajes y estado del test en curso
@@ -373,7 +398,9 @@
         if (!b) b = d.querySelector('input.okButton, a.okButton');
         if (!b) break;
         clickInFrame(b); handled = true;
-        await sleep(1500);
+        // AJUSTADA v20.7: antes 1,5 s fijos; ahora hasta que el popup se cierre (mismo tope) + respiro
+        await waitFor(() => !qa('iframe#colorBoxIframe, iframe[id*="colorBox"]').some(x => x.getBoundingClientRect().height > 50), 1500, 150);
+        await sleep(300);
       }
       if (await this.handleBootstrapModals()) handled = true;
       return handled;
@@ -391,13 +418,24 @@
       return did;
     }
 
+    // NUEVA v20.7: "foto" de la pantalla (lección, step, contador, tarea actual) para saber si ya cambió
+    static screenSig() { const c = this.counter(), t = this.curTask(); return [this.lessonLabel(), this.stepLabel(), c && c.s, t && t.n].join('|'); }
+    static modalOpen() {
+      return qa('iframe#colorBoxIframe, iframe[id*="colorBox"]').some(x => x.getBoundingClientRect().height > 50) ||
+        qa('.modalW_confirm, .modalW_alert, #alertModal, .confirmPopup__main').some(vis);
+    }
+
     static async goNext() {
       await this.handleModals();
       const nx = this.nextBtn();
       if (!nx) return false;
       const isSubmit = /submitTest|submit/i.test(nx.className || '') || /submitTest|submit/i.test(nx.parentElement?.className || '') || /submit/i.test(txt(nx));
+      const sig = this.screenSig();
       click(nx);
-      await sleep(isSubmit ? 2500 : 1800);
+      // AJUSTADA v20.7: antes espera FIJA de 1,8 s (2,5 s en Submit). Ahora espera solo hasta que la
+      // pantalla cambie o aparezca un popup (mismo tope), + un respiro corto para que termine de dibujarse.
+      const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 2500 : 1800, 150);
+      if (cambio) await sleep(isSubmit ? 700 : 350);
       await this.handleModals();
       return true;
     }
@@ -602,9 +640,11 @@
       const spans = qav('span.st.learning__selectTxt_st').filter(s => !/--selected/.test(s.className) && txt(s).length > 1);
       if (!spans.length) return { did: 'select_text_no_spans' };
       let selectedCount = 0;
+      const tn = NavigationManager.curTask()?.n;
       for (const s of spans) {
         click(s); await sleep(400);
         if (/--selected/.test(s.className)) selectedCount++;
+        if (selectedCount === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: con uno basta
       }
       return { did: 'select_text_solved', selectedCount };
     }
@@ -630,7 +670,9 @@
     // ---------------------------------------------------------------
     static async solveSequence() {
       log('🔢 [Sequence / Ordering] Ordenando pasos secuenciales...');
-      const box = qv('.prSeq__container');
+      // AJUSTADA v20.7: antes box = el PRIMER .prSeq__container; en el diseño nuevo cada recuadro tiene
+      // 1 sola ficha → "seq_no_items" y no ordenaba (dump: Lesson 1 · Step 2: Practice · 2/2).
+      const box = qv('.prSeq__main') || qv('.prSeq__mainIW') || qv('.prSeq__container');
       if (!box) return { did: 'seq_not_found' };
       const items0 = () => qa('.dnditem', box).filter(vis);
       const zones0 = () => qa('.dndZone', box).filter(vis);
@@ -742,6 +784,7 @@
         if (!dst) break;
         await drag(items[0], dst); moves++;
         if (stopWhenDone && tn && NavigationManager.taskDone(tn)) break;
+        if (moves === 1 && await practiceEnough(tn)) return { did: 'dnd_one_action', moves };   // NUEVO v20.7
       }
       return { did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves };
     }
@@ -811,8 +854,10 @@
 
       if (!sets.length) {
         const checkboxes = qav('input[type="checkbox"]');
+        const tn0 = NavigationManager.curTask()?.n;
         for (const cb of checkboxes) {
           if (!cb.checked) { click(cb); marked++; await sleep(250); }
+          if (marked === 1 && await practiceEnough(tn0)) break;   // NUEVO v20.7
         }
         return { did: 'checkboxes_solved', marked };
       }
@@ -837,6 +882,7 @@
         if (targets.length) fromKnown++; else targets = [labels[0]];
 
         for (const l of targets) { click(l); marked++; await sleep(300); }
+        if (!fallback && !fromKnown && marked && await practiceEnough(NavigationManager.curTask()?.n)) break;   // NUEVO v20.7
       }
       return { did: 'mcq_solved', marked, fromKnown };
     }
@@ -861,6 +907,7 @@
     static async solveFITB(values = null) {
       log('🔽 [FITB] Rellenando desplegables...');
       const drops = qav('.DDLOptions__selected');
+      const tn = NavigationManager.curTask()?.n;
       let n = 0;
       for (let i = 0; i < drops.length; i++) {
         const d = drops[i];
@@ -871,6 +918,7 @@
         const o = (want && opts.find(x => norm(txt(x)) === norm(want))) || opts[0];
         if (o) { click(o); n++; }
         await sleep(250);
+        if (!values && n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: práctica → con uno basta
       }
       return { did: 'fitb_solved', n, waitDone: 3500 };
     }
@@ -900,11 +948,13 @@
       log('⌨️ [Texto] Rellenando campos de texto...');
       const isLong = !!qv('.prOpenEnded__main--isLongInput');
       let n = 0;
+      const tn = NavigationManager.curTask()?.n;
       for (const t of this.textInputs()) {
         if ((t.value || '').trim()) continue;
         const long = isLong || (t.tagName === 'TEXTAREA' && t.getBoundingClientRect().height > 60);
         setNative(t, long ? CFG.writingText : CFG.shortText); n++;
         await sleep(150);
+        if (n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: con uno basta
       }
       return { did: 'text_solved', n, long: isLong, waitDone: 3500 };
     }
@@ -1025,9 +1075,9 @@
   //  NUEVO v20.5. Confirmado con dumps (Lesson 4 y 5 · Step 3: Test):
   //    huecos:  span.TTpanswerDiv.droptarget[data-id="1_1"] dentro del texto (cloze o globos)
   //    fichas:  #TTpTablePlaceHolder .draggableContainer > div.draggable.wordBankTile
-  //  NO usa .dndZone/.dnditem → ninguna versión anterior lo veía. Hoy se usa SOLO en tests:
-  //    cosecha  → TestManager.readDropTargets()
-  //    replay   → DropTargetSolver.placeDropTargets(valores)
+  //  NO usa .dndZone/.dnditem → ninguna versión anterior lo veía.
+  //    tests:     cosecha → TestManager.readDropTargets() · replay → placeDropTargets(valores)
+  //    prácticas: solveDropTarget() (v20.6) — antes se detectaba como "media" por el video de al lado
   //  Cada ficha: 1) arrastre normal  2) arrastre otra vez  3) clic en la ficha + clic en el hueco.
   //  Tras cada intento se comprueba que el hueco quedó con esa palabra.
   //  DEPENDE DE: utils/dom.js, utils/drag.js, utils/scroll.js
@@ -1046,6 +1096,25 @@
     }
 
     static bankTiles() { return qa('.draggable, .wordBankTile').filter(e => vis(e) && !e.closest('.droptarget')); }
+
+    // ---------------------------------------------------------------
+    // PRÁCTICA (sin respuestas conocidas)                       [NUEVA v20.6]
+    // PARA QUÉ: llena cada hueco vacío con una ficha distinta del banco (como el DnD de práctica).
+    // Usa el mismo placeDropTargets() que el replay de tests (arrastre → 2.º arrastre → clic+clic).
+    // ---------------------------------------------------------------
+    static async solveDropTarget() {
+      const libres = this.bankTiles().map(t => txt(t));
+      const values = this.dropTargets().map(t => (norm(this.dropValue(t)) ? '' : libres.shift() || ''));
+      if (!values.some(Boolean)) return { did: 'drop_nothing_to_do' };
+      // NUEVO v20.7: primero UNA ficha; si ED ya marcó la tarea, listo. Si no, el resto.
+      const k = values.findIndex(Boolean);
+      const uno = values.map((v, i) => (i === k ? v : ''));
+      let r = await this.placeDropTargets(uno);
+      if (await practiceEnough(NavigationManager.curTask()?.n)) return Object.assign(r, { did: 'drop_one_action' });
+      const resto = values.map((v, i) => (i === k ? '' : v));
+      if (resto.some(Boolean)) { const r2 = await this.placeDropTargets(resto); r = { moves: r.moves + r2.moves, ok: r.ok + r2.ok, total: r.total + r2.total }; }
+      return Object.assign(r, { did: 'drop_practice' });
+    }
 
     static async placeDropTargets(values) {
       log('🎯 [DropTarget] Colocando palabras cosechadas en los huecos...');
@@ -1072,6 +1141,133 @@
       if (ok < total) warn(`DropTarget: quedaron ${ok}/${total} huecos bien`, { esperado: values, quedó: this.dropTargets().map(t => this.dropValue(t)) });
       return { did: 'drop_replay', moves, ok, total };
     }
+  }
+
+  // ▼▼▼ src/exercises/mcq-legacy.js ▼▼▼
+  // =====================================================================
+  //  MCQ VIEJO — casillas / radios "lessonMultipleAnswer" (componente no-Angular)
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.7. Confirmado con dump (Lesson 2: Call-in · Step 2: Practice · 1/2,
+  //  "select the sentences that are true"):
+  //    div.ADUMClass.lessonMultipleAnswer > ... input.lessonMultipleCheck + span.multiTextInline
+  //  Antes NO se detectaba: con audio al lado caía en 'media' y la tarea quedaba sin hacer.
+  //  Práctica: marca UNA (prefiere las que ED marca con clase "c") y comprueba.
+  //  Test: cosecha `lmcq` (textos marcados en "Correct Answer") y los marca en el reintento.
+  //       ⚠ La parte de test está SIN CONFIRMAR en ED real (falta dump del review de este tipo).
+  //  DEPENDE DE: utils/dom.js, utils/practice.js
+  //  EXPONE:     LegacyMCQSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class LegacyMCQSolver {
+    static isLegacyMCQ() { return qav('.lessonMultipleAnswer').length > 0; }
+    static legacyOptions() { return qav('.lessonMultipleAnswer'); }
+    static legacyText(o) { return txt(q('.multiTextInline', o) || q('.multiText', o) || o); }
+    static legacyChecked(o) {
+      const i = q('input', o);
+      return !!(i && (i.checked || /\bselected\b/.test(i.className))) || /\b(check|selected|checked)\b/.test(o.className);
+    }
+
+    // Marca una opción probando: clic en el bloque → clic en la etiqueta encima → clic en el input
+    static async markLegacy(o) {
+      for (const el of [o, q('label.overlayCheckbox, label', o), q('input', o)]) {
+        if (!el) continue;
+        click(el); await sleep(300);
+        if (this.legacyChecked(o)) return true;
+      }
+      return false;
+    }
+
+    static async solveLegacyMCQ(wanted = null) {
+      log('☑️ [MCQ viejo] Marcando opciones...');
+      const opts = this.legacyOptions();
+      if (!opts.length) return { did: 'mcq_legacy_none' };
+      const tn = NavigationManager.curTask()?.n;
+      let targets;
+      if (wanted && wanted.length) {
+        const W = wanted.map(norm);
+        targets = opts.filter(o => W.includes(norm(this.legacyText(o))));
+        opts.filter(o => this.legacyChecked(o) && !W.includes(norm(this.legacyText(o)))).forEach(o => targets.push(o));   // desmarcar sobrantes
+      } else {
+        targets = [opts.find(o => o.classList.contains('c')) || opts[0]];
+      }
+      let marked = 0;
+      for (const o of targets) {
+        const debe = !wanted || wanted.map(norm).includes(norm(this.legacyText(o)));
+        if (this.legacyChecked(o) === debe) continue;
+        if (debe) { if (await this.markLegacy(o)) marked++; } else { click(o); await sleep(300); }
+        if (!wanted && marked === 1 && await practiceEnough(tn)) break;
+      }
+      return { did: wanted ? 'mcq_legacy_replay' : 'mcq_legacy', marked };
+    }
+
+    // Lectura para la cosecha del review: textos marcados
+    static readLegacyMCQ() { return this.legacyOptions().filter(o => this.legacyChecked(o)).map(o => this.legacyText(o)); }
+  }
+
+  // ▼▼▼ src/exercises/ddl-legacy.js ▼▼▼
+  // =====================================================================
+  //  DESPLEGABLES VIEJOS — "Select the correct answer from the drop-down list." (no-Angular)
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.7. Visto en dump (Lesson 3: Present Simple: Review · Step 3: Test · 12/15):
+  //    .answersWrapper.fillInBlank.fitb con 4 huecos (.questionText, .arrowWrapper, .answered)
+  //    y NINGÚN .DDLOptions__selected → el solver de desplegables de siempre no lo veía.
+  //  ⚠ SIN CONFIRMAR: el dump no traía el HTML interno ni la lista que aparece al pulsar.
+  //    Por eso: se abre el hueco, se buscan los elementos que APARECEN (la lista) y se elige
+  //    por texto; tras cada elección se comprueba que el hueco quedó con ese texto.
+  //    Para confirmarlo: probes/dropdown-dump.js en esa pantalla.
+  //  DEPENDE DE: utils/dom.js, utils/practice.js
+  //  EXPONE:     LegacyDDLSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class LegacyDDLSolver {
+    static isLegacyDDL() { return !qv('.DDLOptions__selected') && this.legacyBlanks().length > 0; }
+    static legacyBlanks() { return qav('.fillInBlank .questionText, .answersWrapper.fitb .questionText'); }
+
+    // Texto elegido en un hueco (sin la flechita ni los íconos ✓/✗)
+    static legacyBlankValue(b) {
+      const c = b.cloneNode(true);
+      qa('.arrowWrapper, .vCheck, .xCheck, [class*="Check"], [class*="icon" i]', c).forEach(e => e.remove());
+      return txt(c);
+    }
+
+    static optionCandidates() { return qa('li, [class*="option" i], [class*="Option"], [role="option"]').filter(vis); }
+
+    // Abre el hueco y devuelve las opciones que aparecieron
+    static async openLegacy(b) {
+      const antes = new Set(this.optionCandidates());
+      for (const el of [q('.arrowWrapper', b), b]) {
+        if (!el) continue;
+        click(el); await sleep(400);
+        let nuevas = this.optionCandidates().filter(e => !antes.has(e) && txt(e) && !e.contains(b) && !b.contains(e));
+        nuevas = nuevas.filter(e => !nuevas.some(o => o !== e && e.contains(o)));   // solo las hojas
+        if (nuevas.length) return nuevas;
+      }
+      return [];
+    }
+
+    static async solveLegacyDDL(values = null) {
+      log('🔽 [Desplegable viejo] Eligiendo opciones...');
+      const tn = NavigationManager.curTask()?.n;
+      const blanks = this.legacyBlanks();
+      let n = 0, ok = 0;
+      for (let i = 0; i < blanks.length; i++) {
+        const b = this.legacyBlanks()[i]; if (!b) break;
+        const want = values ? values[i] : null;
+        if (values && !want) continue;
+        if (!values && this.legacyBlankValue(b)) continue;
+        if (want && norm(this.legacyBlankValue(b)) === norm(want)) { ok++; continue; }
+        const opts = await this.openLegacy(b);
+        if (!opts.length) { warn('Desplegable viejo: no apareció la lista de opciones (hueco', i + 1, ')'); continue; }
+        const o = (want && opts.find(x => norm(txt(x)) === norm(want))) || (!want ? opts[0] : null);
+        if (!o) { warn('Desplegable viejo: no encuentro la opción', want, 'entre', opts.map(txt)); try { document.body.click(); } catch (e) {} continue; }
+        click(o); n++; await sleep(350);
+        if (!want || norm(this.legacyBlankValue(this.legacyBlanks()[i] || b)) === norm(want)) ok++;
+        if (!values && n === 1 && await practiceEnough(tn)) break;
+      }
+      return { did: values ? 'ddl_legacy_replay' : 'ddl_legacy', n, ok, total: values ? values.filter(Boolean).length : blanks.length };
+    }
+
+    static readLegacyDDL() { return this.legacyBlanks().map(b => this.legacyBlankValue(b)); }
   }
 
   // ▼▼▼ src/exercises/index.js ▼▼▼
@@ -1112,7 +1308,9 @@
     TextSolver,
     MediaSolver,
     SpeakingSolver,
-    DropTargetSolver
+    DropTargetSolver,
+    LegacyMCQSolver,
+    LegacyDDLSolver
   );
 
   // ▼▼▼ src/tests/test-manager.js ▼▼▼
@@ -1251,6 +1449,8 @@
       if (m && m.dests.some(d => qa('.dnditem', d).length)) return true;
       if (qav('.DDLOptions__selected').some(e => txt(e))) return true;
       if (qav('.droptarget').some(e => txt(e))) return true;
+      if (PracticeSolver.readLegacyDDL().some(Boolean)) return true;   // NUEVO v20.7
+      if (PracticeSolver.readLegacyMCQ().length) return true;           // NUEVO v20.7
       return false;
     }
 
@@ -1259,7 +1459,8 @@
       return JSON.stringify([
         qav('.dndZone').map(z => qa('.dnditem', z).map(txt).join('|')),
         qav('.DDLOptions__selected').map(txt),
-        qav('.droptarget').map(t => PracticeSolver.dropValue(t))
+        qav('.droptarget').map(t => PracticeSolver.dropValue(t)),
+        PracticeSolver.readLegacyDDL(), PracticeSolver.readLegacyMCQ()   // NUEVO v20.7
       ]);
     }
 
@@ -1340,6 +1541,9 @@
       if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
       if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
       // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+      // NUEVO v20.7: desplegables viejos y MCQ viejo (lessonMultipleAnswer)  ⚠ sin confirmar en ED real
+      if (PracticeSolver.isLegacyDDL()) { const l = PracticeSolver.readLegacyDDL(); if (l.some(Boolean)) { entry.lddl = l; saved += l.filter(Boolean).length; } }
+      if (PracticeSolver.isLegacyMCQ()) { const l = PracticeSolver.readLegacyMCQ(); if (l.length) { entry.lmcq = l; saved += l.length; } }
       // NUEVO v20.5: DnD viejo (span.droptarget)
       if (PracticeSolver.isDropTargetScreen() || qv('.droptarget')) { const drop = this.readDropTargets(); if (drop.some(Boolean)) { entry.drop = drop; saved += drop.filter(Boolean).length; } }
       if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
@@ -1465,6 +1669,9 @@
       // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
       // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
       // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
+      // NUEVO v20.7: desplegables viejos y MCQ viejo
+      if (PracticeSolver.isLegacyDDL() && scr.lddl && scr.lddl.some(Boolean)) out.lddl = await PracticeSolver.solveLegacyDDL(scr.lddl);
+      if (PracticeSolver.isLegacyMCQ() && scr.lmcq && scr.lmcq.length) out.lmcq = await PracticeSolver.solveLegacyMCQ(scr.lmcq);
       // NUEVO v20.5: DnD viejo (span.droptarget) — antes ninguna rama lo veía y quedaba vacío
       if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
       else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
@@ -1472,6 +1679,29 @@
       await sleep(500);
       await NavigationManager.goNext();
       return out;
+    }
+
+    // ---------------------------------------------------------------
+    // TEST EXPRÉS (1.er intento, sin respuestas todavía)              [NUEVA v20.7]
+    // PARA QUÉ: llegar al Submit lo antes posible. 1) Si el Submit ya está, se pulsa.
+    // 2) Si no, se salta con los numeritos de tareas a la ÚLTIMA pregunta. 3) Si eso no
+    // funciona, Next normal (sin resolver nada). El popup "no respondiste todo" se acepta solo.
+    // ---------------------------------------------------------------
+    static submitBtn() { return qv('a.tasksBtnext.learning__submitTestLink') || qv('.learning__submitTest a') || qv('.learning__submitTest'); }
+
+    static async expressSubmit() {
+      let salto = false;
+      if (!this.submitBtn()) {
+        const ts = NavigationManager.tasks(), last = ts[ts.length - 1], cur = NavigationManager.curTask();
+        if (last && (!cur || cur.n !== last.n)) {
+          log('⚡ Test exprés: salto a la última pregunta (' + last.n + ')');
+          salto = await DropdownNav.gotoTask(last.n);
+        }
+      }
+      const sub = !!this.submitBtn();
+      if (sub) log('⚡ Test exprés: Submit');
+      await NavigationManager.goNext();
+      return { did: 'test_express', salto, submit: sub };
     }
 
     // NUEVA: tope de reintentos. Cuenta las veces que se ve la pantalla de puntaje < 100 %.
@@ -1506,9 +1736,12 @@
       if (qv('.openSpeech__AnsW')) return 'open_speech';
       if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
       if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
+      if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
       if (PracticeSolver.isDragAndDrop()) return 'dnd';
       if (qv('.DDLOptions__selected')) return 'fitb';
+      if (PracticeSolver.isLegacyDDL()) return 'ddl_legacy';   // NUEVO v20.7 (antes caía en 'media')
       if (qv('label.prMCQ__answerLabel') || qv('.prMCQ__qaInnerSet')) return 'mcq';
+      if (PracticeSolver.isLegacyMCQ()) return 'mcq_legacy';   // NUEVO v20.7 (antes caía en 'media')
       if (PracticeSolver.textInputs().length) return 'text';
       if (qv('.layout__mediaPlayPause')) return 'media';
       return 'mcq_default';   // nada reconocido: se comporta como v19.6 (solveMCQ → checkboxes sueltos)
@@ -1523,8 +1756,11 @@
         case 'open_speech': return PracticeSolver.solveOpenSpeech();
         case 'interactive_speaking': return PracticeSolver.solveInteractive();
         case 'sr_choice': return PracticeSolver.solveSRChoice();
+        case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
         case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
         case 'fitb': return PracticeSolver.solveFITB();
+        case 'ddl_legacy': return PracticeSolver.solveLegacyDDL();      // NUEVO v20.7
+        case 'mcq_legacy': return PracticeSolver.solveLegacyMCQ();      // NUEVO v20.7
         case 'text': return PracticeSolver.solveText();
         case 'media': return PracticeSolver.solveMedia();
         default: return PracticeSolver.solveMCQ();                   // 'mcq' y 'mcq_default'
@@ -1539,7 +1775,8 @@
         const key = NavigationManager.testKey();
         log('🚀 [Test Start] Iniciando test:', key);
         click(qv('.btnStartTest'));
-        await sleep(3000);
+        // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que desaparezca el botón Start (mismo tope)
+        if (await waitFor(() => !TestManager.isTestStart(), 3000, 200)) await sleep(600);
         return { did: 'test_started' };
       }
 
@@ -1581,7 +1818,8 @@
           }
           if (rv) {
             click(rv);
-            await sleep(3000);
+            // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que aparezcan las pestañas del review (tope 4 s)
+            if (await waitFor(() => TestManager.hasReviewTabs(), 4000, 250)) await sleep(400);
             return { did: 'opened_review_forced', pct };
           }
           throw new Error('ED_REVIEW_LINK_MISSING');
@@ -1618,6 +1856,9 @@
       if (TestManager.inTest()) {
         const rp = await TestManager.replayQuestion();
         if (rp) return rp;
+        // NUEVO v20.7 — TEST EXPRÉS: 1.er intento (aún sin respuestas cosechadas) → no se resuelve nada,
+        // se va directo al Submit. Lo que importa es el review y el reintento. Apagar: cfg({testExpress:false})
+        if (CFG.testExpress && !TestManager.hasAnswers(NavigationManager.testKey())) return await TestManager.expressSubmit();
       }
 
       const t = NavigationManager.curTask();
@@ -1644,7 +1885,7 @@
       // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
       if (res.waitDone) await waitFor(() => NavigationManager.taskDone(t.n), res.waitDone, 300);
 
-      await sleep(800);
+      await sleep(400);   // AJUSTADA v20.7: era 800
       await NavigationManager.goNext();
       return res;
     }

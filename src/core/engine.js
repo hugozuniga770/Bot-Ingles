@@ -22,9 +22,12 @@ class MainEngine {
     if (qv('.openSpeech__AnsW')) return 'open_speech';
     if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
     if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
+    if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
     if (PracticeSolver.isDragAndDrop()) return 'dnd';
     if (qv('.DDLOptions__selected')) return 'fitb';
+    if (PracticeSolver.isLegacyDDL()) return 'ddl_legacy';   // NUEVO v20.7 (antes caía en 'media')
     if (qv('label.prMCQ__answerLabel') || qv('.prMCQ__qaInnerSet')) return 'mcq';
+    if (PracticeSolver.isLegacyMCQ()) return 'mcq_legacy';   // NUEVO v20.7 (antes caía en 'media')
     if (PracticeSolver.textInputs().length) return 'text';
     if (qv('.layout__mediaPlayPause')) return 'media';
     return 'mcq_default';   // nada reconocido: se comporta como v19.6 (solveMCQ → checkboxes sueltos)
@@ -39,8 +42,11 @@ class MainEngine {
       case 'open_speech': return PracticeSolver.solveOpenSpeech();
       case 'interactive_speaking': return PracticeSolver.solveInteractive();
       case 'sr_choice': return PracticeSolver.solveSRChoice();
+      case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
       case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
       case 'fitb': return PracticeSolver.solveFITB();
+      case 'ddl_legacy': return PracticeSolver.solveLegacyDDL();      // NUEVO v20.7
+      case 'mcq_legacy': return PracticeSolver.solveLegacyMCQ();      // NUEVO v20.7
       case 'text': return PracticeSolver.solveText();
       case 'media': return PracticeSolver.solveMedia();
       default: return PracticeSolver.solveMCQ();                   // 'mcq' y 'mcq_default'
@@ -55,7 +61,8 @@ class MainEngine {
       const key = NavigationManager.testKey();
       log('🚀 [Test Start] Iniciando test:', key);
       click(qv('.btnStartTest'));
-      await sleep(3000);
+      // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que desaparezca el botón Start (mismo tope)
+      if (await waitFor(() => !TestManager.isTestStart(), 3000, 200)) await sleep(600);
       return { did: 'test_started' };
     }
 
@@ -97,7 +104,8 @@ class MainEngine {
         }
         if (rv) {
           click(rv);
-          await sleep(3000);
+          // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que aparezcan las pestañas del review (tope 4 s)
+          if (await waitFor(() => TestManager.hasReviewTabs(), 4000, 250)) await sleep(400);
           return { did: 'opened_review_forced', pct };
         }
         throw new Error('ED_REVIEW_LINK_MISSING');
@@ -134,6 +142,9 @@ class MainEngine {
     if (TestManager.inTest()) {
       const rp = await TestManager.replayQuestion();
       if (rp) return rp;
+      // NUEVO v20.7 — TEST EXPRÉS: 1.er intento (aún sin respuestas cosechadas) → no se resuelve nada,
+      // se va directo al Submit. Lo que importa es el review y el reintento. Apagar: cfg({testExpress:false})
+      if (CFG.testExpress && !TestManager.hasAnswers(NavigationManager.testKey())) return await TestManager.expressSubmit();
     }
 
     const t = NavigationManager.curTask();
@@ -160,7 +171,7 @@ class MainEngine {
     // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
     if (res.waitDone) await waitFor(() => NavigationManager.taskDone(t.n), res.waitDone, 300);
 
-    await sleep(800);
+    await sleep(400);   // AJUSTADA v20.7: era 800
     await NavigationManager.goNext();
     return res;
   }

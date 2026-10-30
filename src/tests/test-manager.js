@@ -133,6 +133,8 @@ class TestManager {
     if (m && m.dests.some(d => qa('.dnditem', d).length)) return true;
     if (qav('.DDLOptions__selected').some(e => txt(e))) return true;
     if (qav('.droptarget').some(e => txt(e))) return true;
+    if (PracticeSolver.readLegacyDDL().some(Boolean)) return true;   // NUEVO v20.7
+    if (PracticeSolver.readLegacyMCQ().length) return true;           // NUEVO v20.7
     return false;
   }
 
@@ -141,7 +143,8 @@ class TestManager {
     return JSON.stringify([
       qav('.dndZone').map(z => qa('.dnditem', z).map(txt).join('|')),
       qav('.DDLOptions__selected').map(txt),
-      qav('.droptarget').map(t => PracticeSolver.dropValue(t))
+      qav('.droptarget').map(t => PracticeSolver.dropValue(t)),
+      PracticeSolver.readLegacyDDL(), PracticeSolver.readLegacyMCQ()   // NUEVO v20.7
     ]);
   }
 
@@ -222,6 +225,9 @@ class TestManager {
     if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
     if (dnd.some(d => d.texts.length)) { entry.dnd = dnd; saved += dnd.filter(d => d.texts.length).length; }
     // NUEVO v20.4: en "ordenar" se guarda el ORDEN correcto (texto de cada hueco, de arriba a abajo)
+    // NUEVO v20.7: desplegables viejos y MCQ viejo (lessonMultipleAnswer)  ⚠ sin confirmar en ED real
+    if (PracticeSolver.isLegacyDDL()) { const l = PracticeSolver.readLegacyDDL(); if (l.some(Boolean)) { entry.lddl = l; saved += l.filter(Boolean).length; } }
+    if (PracticeSolver.isLegacyMCQ()) { const l = PracticeSolver.readLegacyMCQ(); if (l.length) { entry.lmcq = l; saved += l.length; } }
     // NUEVO v20.5: DnD viejo (span.droptarget)
     if (PracticeSolver.isDropTargetScreen() || qv('.droptarget')) { const drop = this.readDropTargets(); if (drop.some(Boolean)) { entry.drop = drop; saved += drop.filter(Boolean).length; } }
     if (PracticeSolver.isSequenceScreen()) { const seq = PracticeSolver.seqOrder(); if (seq.length && seq.every(Boolean)) { entry.seq = seq; saved++; } }
@@ -347,6 +353,9 @@ class TestManager {
     // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
     // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista
     // "Tu respuesta" (orden equivocado). Sin `seq` se deja como está → el review vuelve a cosechar bien.
+    // NUEVO v20.7: desplegables viejos y MCQ viejo
+    if (PracticeSolver.isLegacyDDL() && scr.lddl && scr.lddl.some(Boolean)) out.lddl = await PracticeSolver.solveLegacyDDL(scr.lddl);
+    if (PracticeSolver.isLegacyMCQ() && scr.lmcq && scr.lmcq.length) out.lmcq = await PracticeSolver.solveLegacyMCQ(scr.lmcq);
     // NUEVO v20.5: DnD viejo (span.droptarget) — antes ninguna rama lo veía y quedaba vacío
     if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
     else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
@@ -354,6 +363,29 @@ class TestManager {
     await sleep(500);
     await NavigationManager.goNext();
     return out;
+  }
+
+  // ---------------------------------------------------------------
+  // TEST EXPRÉS (1.er intento, sin respuestas todavía)              [NUEVA v20.7]
+  // PARA QUÉ: llegar al Submit lo antes posible. 1) Si el Submit ya está, se pulsa.
+  // 2) Si no, se salta con los numeritos de tareas a la ÚLTIMA pregunta. 3) Si eso no
+  // funciona, Next normal (sin resolver nada). El popup "no respondiste todo" se acepta solo.
+  // ---------------------------------------------------------------
+  static submitBtn() { return qv('a.tasksBtnext.learning__submitTestLink') || qv('.learning__submitTest a') || qv('.learning__submitTest'); }
+
+  static async expressSubmit() {
+    let salto = false;
+    if (!this.submitBtn()) {
+      const ts = NavigationManager.tasks(), last = ts[ts.length - 1], cur = NavigationManager.curTask();
+      if (last && (!cur || cur.n !== last.n)) {
+        log('⚡ Test exprés: salto a la última pregunta (' + last.n + ')');
+        salto = await DropdownNav.gotoTask(last.n);
+      }
+    }
+    const sub = !!this.submitBtn();
+    if (sub) log('⚡ Test exprés: Submit');
+    await NavigationManager.goNext();
+    return { did: 'test_express', salto, submit: sub };
   }
 
   // NUEVA: tope de reintentos. Cuenta las veces que se ve la pantalla de puntaje < 100 %.

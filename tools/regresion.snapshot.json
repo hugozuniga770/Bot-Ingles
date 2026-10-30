@@ -131,6 +131,42 @@
     "trace": "pointerdown draggable wordBankTile:brushed | pointerup TTpanswerDiv droptarget: | pointerdown draggable wordBankTile:be sitting | pointerup TTpanswerDiv droptarget: | pointerdown draggable wordBankTile:'d be | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 5: More Conditionals: Review||Step 3: Test\":{\"7\":{\"drop\":[\"brushed\",\"be sitting\",\"'d be\"]}}}"
   },
+  "practiceDrop": {
+    "kind": "droptarget",
+    "r": "{\"did\":\"drop_practice\",\"moves\":1,\"ok\":1,\"total\":1,\"kind\":\"droptarget\"}",
+    "trace": "pointerdown draggable wordBankTile:feel | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "practiceSeq": {
+    "kind": "sequence",
+    "r": "{\"did\":\"sequence_solved\",\"attempt\":1,\"verified\":true,\"kind\":\"sequence\"}",
+    "trace": "pointerdown dnditem draggable:Alex walked fro | pointerup dndZone:The reception c | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "practiceLegacyMCQ": {
+    "kind": "mcq_legacy",
+    "r": "{\"did\":\"mcq_legacy\",\"marked\":1,\"kind\":\"mcq_legacy\"}",
+    "trace": "click c ADUMClass lessonMultipleAnswer:The announcer's | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "practiceDnDOne": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\"}",
+    "trace": "pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "testExpress": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_express\",\"salto\":true,\"submit\":true}",
+    "trace": "click learning__tasksNav_task:5 | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": null
+  },
+  "replayLegacyDDL": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"12/15\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2}}",
+    "trace": "click arrowWrapper: | click LI:starts | click arrowWrapper: | click LI:don't | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 3: Present Simple: Review||Step 3: Test\":{\"12\":{\"lddl\":[\"starts\",\"don't\"]}}}"
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 3 reintentos. Revísalo y vuelve a __ed.auto().\"",

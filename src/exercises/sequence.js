@@ -17,7 +17,9 @@ class SequenceSolver {
   // ---------------------------------------------------------------
   static async solveSequence() {
     log('🔢 [Sequence / Ordering] Ordenando pasos secuenciales...');
-    const box = qv('.prSeq__container');
+    // AJUSTADA v20.7: antes box = el PRIMER .prSeq__container; en el diseño nuevo cada recuadro tiene
+    // 1 sola ficha → "seq_no_items" y no ordenaba (dump: Lesson 1 · Step 2: Practice · 2/2).
+    const box = qv('.prSeq__main') || qv('.prSeq__mainIW') || qv('.prSeq__container');
     if (!box) return { did: 'seq_not_found' };
     const items0 = () => qa('.dnditem', box).filter(vis);
     const zones0 = () => qa('.dndZone', box).filter(vis);

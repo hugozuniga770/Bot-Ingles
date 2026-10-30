@@ -1,5 +1,25 @@
 # Changelog
 
+## v20.7 — más velocidad + prácticas con UNA acción + tipos viejos (MCQ, desplegable)
+**Velocidad**
+- **Test exprés** (`TestManager.expressSubmit`, `CFG.testExpress`): 1.er intento sin respuestas → no resuelve nada; salta a la última pregunta con los numeritos y pulsa Submit (si no puede saltar, Next sin resolver). Antes resolvía todo "a ciegas" (~4–10 s por pregunta).
+- **Next con espera inteligente** (`NavigationManager.goNext`): antes 1,8 s fijos (2,5 s en Submit); ahora hasta que cambie la pantalla o aparezca un popup, con el mismo tope.
+- Popups, Start Test y abrir Review: de esperas fijas a "hasta que cambie". Pausa antes de Next: 800 → 400 ms.
+- `tickMs` por defecto 1200 → 700 (se migra solo si tenías guardado 1200).
+- NO se tocó: la cosecha del review, los arrastres, audio/speaking/writing.
+
+**Prácticas: con UNA acción basta** (`utils/practice.js`, `CFG.practiceOneAction`)
+- DnD, droptarget, desplegables, texto, subrayar, MCQ y casillas: tras la 1.ª acción, si ED marca la tarea como hecha (máx. 1,5 s), se detiene. Si no la marca → completa todo como antes. Nunca en tests.
+
+**Tipos que fallaban**
+- **Ordenar en práctica** (diseño nuevo, 1 ficha por recuadro): buscaba fichas solo en el 1.er recuadro → `seq_no_items`. Ahora busca en todo `.prSeq__main`.
+- **MCQ viejo** (`lessonMultipleAnswer`, "select the sentences that are true"): antes se tomaba como `media`. Nuevo `exercises/mcq-legacy.js` (práctica confirmada; test sin confirmar).
+- **Desplegable viejo** (`.fillInBlank .questionText`, "Select the correct answer from the drop-down list."): no se veía. Nuevo `exercises/ddl-legacy.js` — ⚠ estructura SUPUESTA, confirmar con `probes/dropdown-dump.js`.
+- (v20.6) **DnD viejo en práctica** (`span.droptarget` con video al lado): antes `media`.
+
+## v20.6 — DnD viejo (droptarget) en prácticas
+- `DropTargetSolver.solveDropTarget()` + detección antes de `media`.
+
 ## v20.5 — DnD viejo "Drag the correct answer/s into place" (span.droptarget)
 - Nuevo `exercises/droptarget.js` (`DropTargetSolver`): huecos `span.TTpanswerDiv.droptarget` y fichas `div.draggable.wordBankTile` en `#TTpTablePlaceHolder` (componente no-Angular, confirmado con dumps de Lesson 4 y 5 · Step 3: Test). Antes ninguna rama lo veía → cosecha vacía y reintento vacío (test en 37 % y `ED_TEST_NO_100`).
 - Cosecha `drop` (palabra de cada hueco en "Correct Answer": ficha dentro, texto o atributo `ans`). Replay: arrastre, 2.º arrastre y, si no, clic ficha + clic hueco; comprueba cada hueco.

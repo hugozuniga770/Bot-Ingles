@@ -21,11 +21,13 @@ class TextSolver {
     log('⌨️ [Texto] Rellenando campos de texto...');
     const isLong = !!qv('.prOpenEnded__main--isLongInput');
     let n = 0;
+    const tn = NavigationManager.curTask()?.n;
     for (const t of this.textInputs()) {
       if ((t.value || '').trim()) continue;
       const long = isLong || (t.tagName === 'TEXTAREA' && t.getBoundingClientRect().height > 60);
       setNative(t, long ? CFG.writingText : CFG.shortText); n++;
       await sleep(150);
+      if (n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: con uno basta
     }
     return { did: 'text_solved', n, long: isLong, waitDone: 3500 };
   }

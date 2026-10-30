@@ -23,8 +23,10 @@ class MCQSolver {
 
     if (!sets.length) {
       const checkboxes = qav('input[type="checkbox"]');
+      const tn0 = NavigationManager.curTask()?.n;
       for (const cb of checkboxes) {
         if (!cb.checked) { click(cb); marked++; await sleep(250); }
+        if (marked === 1 && await practiceEnough(tn0)) break;   // NUEVO v20.7
       }
       return { did: 'checkboxes_solved', marked };
     }
@@ -49,6 +51,7 @@ class MCQSolver {
       if (targets.length) fromKnown++; else targets = [labels[0]];
 
       for (const l of targets) { click(l); marked++; await sleep(300); }
+      if (!fallback && !fromKnown && marked && await practiceEnough(NavigationManager.curTask()?.n)) break;   // NUEVO v20.7
     }
     return { did: 'mcq_solved', marked, fromKnown };
   }

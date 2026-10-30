@@ -39,6 +39,7 @@ class DnDSolver {
       if (!dst) break;
       await drag(items[0], dst); moves++;
       if (stopWhenDone && tn && NavigationManager.taskDone(tn)) break;
+      if (moves === 1 && await practiceEnough(tn)) return { did: 'dnd_one_action', moves };   // NUEVO v20.7
     }
     return { did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves };
   }

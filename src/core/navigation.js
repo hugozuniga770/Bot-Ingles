@@ -52,7 +52,9 @@ class NavigationManager {
       if (!b) b = d.querySelector('input.okButton, a.okButton');
       if (!b) break;
       clickInFrame(b); handled = true;
-      await sleep(1500);
+      // AJUSTADA v20.7: antes 1,5 s fijos; ahora hasta que el popup se cierre (mismo tope) + respiro
+      await waitFor(() => !qa('iframe#colorBoxIframe, iframe[id*="colorBox"]').some(x => x.getBoundingClientRect().height > 50), 1500, 150);
+      await sleep(300);
     }
     if (await this.handleBootstrapModals()) handled = true;
     return handled;
@@ -70,13 +72,24 @@ class NavigationManager {
     return did;
   }
 
+  // NUEVA v20.7: "foto" de la pantalla (lección, step, contador, tarea actual) para saber si ya cambió
+  static screenSig() { const c = this.counter(), t = this.curTask(); return [this.lessonLabel(), this.stepLabel(), c && c.s, t && t.n].join('|'); }
+  static modalOpen() {
+    return qa('iframe#colorBoxIframe, iframe[id*="colorBox"]').some(x => x.getBoundingClientRect().height > 50) ||
+      qa('.modalW_confirm, .modalW_alert, #alertModal, .confirmPopup__main').some(vis);
+  }
+
   static async goNext() {
     await this.handleModals();
     const nx = this.nextBtn();
     if (!nx) return false;
     const isSubmit = /submitTest|submit/i.test(nx.className || '') || /submitTest|submit/i.test(nx.parentElement?.className || '') || /submit/i.test(txt(nx));
+    const sig = this.screenSig();
     click(nx);
-    await sleep(isSubmit ? 2500 : 1800);
+    // AJUSTADA v20.7: antes espera FIJA de 1,8 s (2,5 s en Submit). Ahora espera solo hasta que la
+    // pantalla cambie o aparezca un popup (mismo tope), + un respiro corto para que termine de dibujarse.
+    const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 2500 : 1800, 150);
+    if (cambio) await sleep(isSubmit ? 700 : 350);
     await this.handleModals();
     return true;
   }

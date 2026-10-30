@@ -60,6 +60,14 @@ function DROP_DRAG(w) {
   d.addEventListener('mouseup', e => { const t = e.target.closest && e.target.closest('.droptarget'); if (cogida && t && !t.querySelector('.draggable')) { t.innerHTML = ''; t.appendChild(cogida); } cogida = null; });
 }
 
+// ---- ayudantes v20.7 ----
+// Marca la tarea actual como hecha (lo que hace ED tras UNA acción en prácticas)
+const MARCAR_HECHA = w => { const t = w.document.querySelector('.learning__tasksNav_task--current'); if (t) t.classList.add('learning__tasksNav_task--done'); };
+const PRACT = (step, cur = 2) => `<div class="learning__dropDownListTitleW--lessons">Lesson 1: An Unusual Guest</div><div class="learning__dropDownListTitleW--steps">${step}</div>
+<div class="learning__tasksNav"><a class="learning__tasksNav_task">1</a><a class="learning__tasksNav_task learning__tasksNav_task--current">${cur}</a></div>
+<a id="play-pause" class="layout__mediaPlayPause"></a><a class="tasksBtnext learning__nextItemLink">Next</a>`;
+const SEQ_PRACT = ['Alex walked from Texas to New York.', "The reception clerk didn't have a reservation for Alex.", 'The reservation clerk found Alex a room.'].map((t, i) => `<div class="prSeq__container regContainer prSeq__containerW prSeq__container--txt"><h2 class="containerHeader">${i + 1}</h2><div class="prSeq__container prSeq__container--txt"><div class="sequenceZone"><ed-la-dndzone><div class="dndZone"><ed-la-dnditem><div class="dnditem draggable">${t}</div></ed-la-dnditem></div></ed-la-dndzone></div></div></div>`).join('');
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -168,6 +176,42 @@ const FIX = {
   // NUEVO v20.5 — DnD viejo en el REINTENTO: coloca las 3 palabras cosechadas
   replayDrop: { html: DROP_HTML(false), setup: DROP_DRAG,
     ls: { 'ed:testKnown:v1': JSON.stringify([DROP_KEY]), 'ed:testAns:v2': JSON.stringify({ [DROP_KEY]: { 7: { drop: DROP_OK } } }) } },
+  // NUEVO v20.6 — DnD viejo en una PRÁCTICA con video al lado (Lesson 5 · Step 3: Practice · 11/20). Antes se tomaba como 'media'
+  practiceDrop: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Past Simple: Irregular Verbs</div><div class="learning__dropDownListTitleW--steps">Step 3: Practice</div>
+<div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">11<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">12</a></div>
+<a id="play-pause" class="layout__mediaPlayPause layout__mediaPlayPause--play"></a>
+<div class="ClozeTxtDiv"><div class="TextDiv">- I <span qnum="1" data-id="1_1" class="TTpanswerDiv droptarget" ans="">&nbsp;&nbsp;&nbsp;&nbsp;</span> yesterday and hurt my ankle.</div></div>
+<div class="wordsBankWrapper"><div class="wordsBankTable" id="TTpTablePlaceHolder">${['feel', 'did fall', 'felt', 'fell'].map((t, k) => `<div id="${k}" class="draggableContainer"><div class="draggable wordBankTile">${t}</div></div>`).join('')}</div></div>
+<span>11 / 20</span><a class="tasksBtnext learning__nextItemLink">Next</a>`, setup: DROP_DRAG },
+  // NUEVO v20.7 — ORDENAR en PRÁCTICA con el diseño nuevo (cada recuadro con 1 ficha). Antes: seq_no_items
+  practiceSeq: { html: PRACT('Step 2: Practice') + `<div class="prSeq__main prSeq__main--txt"><div class="prSeq__mainIW">${SEQ_PRACT}</div></div>`,
+    setup: w => { const d = w.document; let c = null;
+      d.addEventListener('mousedown', e => { c = e.target.closest && e.target.closest('.dnditem'); });
+      d.addEventListener('mouseup', e => { const z = e.target.closest && e.target.closest('.dndZone'); if (c && z && !z.contains(c)) { const o = z.querySelector('.dnditem'); const from = c.closest('.dndZone'); z.appendChild(c); if (o) from.appendChild(o); MARCAR_HECHA(w); } c = null; }); } },
+  // NUEVO v20.7 — MCQ VIEJO en práctica (lessonMultipleAnswer, con audio al lado). Antes: 'media'
+  practiceLegacyMCQ: { html: PRACT('Step 2: Practice', 1) + `<div class="answersWrapper mcq"><div class="lessonAnswersWrapper sentence">${['Betty likes the factory.', "The announcer's name is Don.", 'There is a lot of noise.'].map((t, i) => `<div class="${i === 1 ? 'c ' : ''}ADUMClass lessonMultipleAnswer"><div class="multiRadio"><input class="lessonMultipleCheck" type="checkbox"><label class="overlayCheckbox"></label></div><div class="multiText"><span class="multiTextInline">${t}</span></div></div>`).join('')}</div></div>`,
+    setup: w => w.document.querySelectorAll('.lessonMultipleAnswer').forEach(o => o.addEventListener('click', () => { const i = o.querySelector('input'); i.checked = !i.checked; o.classList.toggle('check', i.checked); MARCAR_HECHA(w); })) },
+  // NUEVO v20.7 — DnD de práctica: ED marca la tarea tras la 1.ª ficha → el bot se detiene (antes ponía las 3)
+  practiceDnDOne: { html: PRACT('Step 2: Practice') + `<div class="dndBank dndZone"><span class="dnditem">uno</span><span class="dnditem">dos</span><span class="dnditem">tres</span></div><p>a <span class="dndZone"></span> b <span class="dndZone"></span> c <span class="dndZone"></span></p>`,
+    setup: w => w.document.addEventListener('mouseup', () => MARCAR_HECHA(w)) },
+  // NUEVO v20.7 — TEST EXPRÉS: 1.er intento sin respuestas → salta a la última pregunta y Submit
+  testExpress: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 9: Express</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
+<div class="learning__tasksNav">${[1, 2, 3, 4, 5].map(n => `<a class="learning__tasksNav_task${n === 1 ? ' learning__tasksNav_task--current' : ''}" id="t${n}">${n}</a>`).join('')}</div>
+<div class="learning__headerIW">Choose the correct answer.</div><label class="prMCQ__answerLabel">A</label><span>1 / 5</span><a class="tasksBtnext learning__nextItemLink" id="nx">Next</a>`,
+    setup: w => { const d = w.document; d.getElementById('t5').addEventListener('click', () => {
+      d.querySelectorAll('.learning__tasksNav_task').forEach(t => t.classList.remove('learning__tasksNav_task--current'));
+      d.getElementById('t5').classList.add('learning__tasksNav_task--current');
+      d.getElementById('nx').className = 'tasksBtnext learning__submitTestLink'; d.getElementById('nx').textContent = 'Submit'; }); } },
+  // NUEVO v20.7 — DESPLEGABLE VIEJO en el reintento (estructura SUPUESTA: hueco .questionText + lista <li> al pulsar)
+  replayLegacyDDL: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 3: Present Simple: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>12 / 15</span>
+<div class="answersWrapper fillInBlank fitb">School <span class="questionText" id="b1"><span class="arrowWrapper"></span></span> in half an hour. I <span class="questionText" id="b2"><span class="arrowWrapper"></span></span> feel well.</div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 3: Present Simple: Review||Step 3: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': { 12: { lddl: ['starts', "don't"] } } }) },
+    setup: w => { const d = w.document;
+      d.querySelectorAll('.questionText').forEach(b => b.addEventListener('click', () => {
+        d.querySelectorAll('ul.lista').forEach(u => u.remove());
+        const u = d.createElement('ul'); u.className = 'lista';
+        ['start', 'starts', "don't", 'am not'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); b.firstChild && b.firstChild.nodeType === 3 ? b.firstChild.textContent = t : b.insertBefore(d.createTextNode(t), b.firstChild); u.remove(); }); u.appendChild(li); });
+        d.body.appendChild(u); })); } },
   // NUEVO v20.1 — 4 visitas al puntaje < 100 % → debe DETENERSE (ED_TEST_NO_100)
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };

@@ -61,6 +61,8 @@
   let caja = null;
   if (ctrls.length) { caja = ctrls[0]; while (caja && !ctrls.every(c => caja.contains(c))) caja = caja.parentElement; }
   const limpio = e => { if (!e) return null; const c = e.cloneNode(true); qa('script, style, svg, img', c).forEach(x => x.remove()); qa('*', c).forEach(x => [...x.attributes].forEach(a => { if (/^(_ng|ng-|style$|src$|href$)/.test(a.name)) x.removeAttribute(a.name); })); return c.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, 5000); };
+  // v3: si no hay controles (desplegables viejos, etc.), usar la zona de respuestas como caja
+  if (!caja) caja = document.querySelector('.answersWrapper') || document.querySelector('.pmContainer');
   const pregunta = { controles, clases: topClases, cajaCadena: caja ? chain(caja) : null, cajaHTML: limpio(caja) };
 
   const out = {

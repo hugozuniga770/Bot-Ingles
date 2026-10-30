@@ -17,9 +17,11 @@ class SelectTextSolver {
     const spans = qav('span.st.learning__selectTxt_st').filter(s => !/--selected/.test(s.className) && txt(s).length > 1);
     if (!spans.length) return { did: 'select_text_no_spans' };
     let selectedCount = 0;
+    const tn = NavigationManager.curTask()?.n;
     for (const s of spans) {
       click(s); await sleep(400);
       if (/--selected/.test(s.className)) selectedCount++;
+      if (selectedCount === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: con uno basta
     }
     return { did: 'select_text_solved', selectedCount };
   }

@@ -16,6 +16,9 @@ Marca el estado aquí cada vez que lo valides (✅ funciona · ⚠️ falla · �
 | `fitb` | `exercises/fitb.js` | `.DDLOptions__selected` | `solveFITB` | ⬜ |
 | `mcq` | `exercises/mcq.js` | `label.prMCQ__answerLabel` | `solveMCQ` | ⬜ |
 | `text` | `exercises/text.js` | `input[type=text]`, `textarea` | `solveText` | ⬜ |
+| `droptarget` | `exercises/droptarget.js` | `span.droptarget` + `.wordBankTile` | `solveDropTarget` | ⬜ v20.6 |
+| `mcq_legacy` | `exercises/mcq-legacy.js` | `.lessonMultipleAnswer` | `solveLegacyMCQ` | ⬜ v20.7 |
+| `ddl_legacy` | `exercises/ddl-legacy.js` | `.fillInBlank .questionText` | `solveLegacyDDL` | ⚠️ v20.7 estructura supuesta |
 | `media` | `exercises/media.js` | `.layout__mediaPlayPause` | `solveMedia` | ⬜ |
 
 ## Tests
@@ -32,4 +35,5 @@ Marca el estado aquí cada vez que lo valides (✅ funciona · ⚠️ falla · �
 | Ordenar en tests (`prSeq`): cosecha `seq` + replay | `SequenceSolver.placeSequence` | ⬜ v20.4 |
 | Replay DnD | `DnDSolver.placeDndMapping` | ⚠️ ídem (falta `exercises/dnd-test.js`) |
 | Volver al test tras el review | `TestManager.reopenAfterReview` | ⬜ v20.1 (`<` supuesto → desplegables → cabecera) |
+| Test exprés (1.er intento → Submit) | `TestManager.expressSubmit` | ⬜ v20.7 |
 | Detenerse si no llega a 100 % | `MainEngine.step` (rama del puntaje) | ⬜ v20.1 |

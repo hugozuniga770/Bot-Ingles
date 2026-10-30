@@ -16,6 +16,7 @@ class FITBSolver {
   static async solveFITB(values = null) {
     log('🔽 [FITB] Rellenando desplegables...');
     const drops = qav('.DDLOptions__selected');
+    const tn = NavigationManager.curTask()?.n;
     let n = 0;
     for (let i = 0; i < drops.length; i++) {
       const d = drops[i];
@@ -26,6 +27,7 @@ class FITBSolver {
       const o = (want && opts.find(x => norm(txt(x)) === norm(want))) || opts[0];
       if (o) { click(o); n++; }
       await sleep(250);
+      if (!values && n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: práctica → con uno basta
     }
     return { did: 'fitb_solved', n, waitDone: 3500 };
   }

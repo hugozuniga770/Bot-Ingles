@@ -4,9 +4,9 @@
 //  NUEVO v20.5. Confirmado con dumps (Lesson 4 y 5 · Step 3: Test):
 //    huecos:  span.TTpanswerDiv.droptarget[data-id="1_1"] dentro del texto (cloze o globos)
 //    fichas:  #TTpTablePlaceHolder .draggableContainer > div.draggable.wordBankTile
-//  NO usa .dndZone/.dnditem → ninguna versión anterior lo veía. Hoy se usa SOLO en tests:
-//    cosecha  → TestManager.readDropTargets()
-//    replay   → DropTargetSolver.placeDropTargets(valores)
+//  NO usa .dndZone/.dnditem → ninguna versión anterior lo veía.
+//    tests:     cosecha → TestManager.readDropTargets() · replay → placeDropTargets(valores)
+//    prácticas: solveDropTarget() (v20.6) — antes se detectaba como "media" por el video de al lado
 //  Cada ficha: 1) arrastre normal  2) arrastre otra vez  3) clic en la ficha + clic en el hueco.
 //  Tras cada intento se comprueba que el hueco quedó con esa palabra.
 //  DEPENDE DE: utils/dom.js, utils/drag.js, utils/scroll.js
@@ -25,6 +25,25 @@ class DropTargetSolver {
   }
 
   static bankTiles() { return qa('.draggable, .wordBankTile').filter(e => vis(e) && !e.closest('.droptarget')); }
+
+  // ---------------------------------------------------------------
+  // PRÁCTICA (sin respuestas conocidas)                       [NUEVA v20.6]
+  // PARA QUÉ: llena cada hueco vacío con una ficha distinta del banco (como el DnD de práctica).
+  // Usa el mismo placeDropTargets() que el replay de tests (arrastre → 2.º arrastre → clic+clic).
+  // ---------------------------------------------------------------
+  static async solveDropTarget() {
+    const libres = this.bankTiles().map(t => txt(t));
+    const values = this.dropTargets().map(t => (norm(this.dropValue(t)) ? '' : libres.shift() || ''));
+    if (!values.some(Boolean)) return { did: 'drop_nothing_to_do' };
+    // NUEVO v20.7: primero UNA ficha; si ED ya marcó la tarea, listo. Si no, el resto.
+    const k = values.findIndex(Boolean);
+    const uno = values.map((v, i) => (i === k ? v : ''));
+    let r = await this.placeDropTargets(uno);
+    if (await practiceEnough(NavigationManager.curTask()?.n)) return Object.assign(r, { did: 'drop_one_action' });
+    const resto = values.map((v, i) => (i === k ? '' : v));
+    if (resto.some(Boolean)) { const r2 = await this.placeDropTargets(resto); r = { moves: r.moves + r2.moves, ok: r.ok + r2.ok, total: r.total + r2.total }; }
+    return Object.assign(r, { did: 'drop_practice' });
+  }
 
   static async placeDropTargets(values) {
     log('🎯 [DropTarget] Colocando palabras cosechadas en los huecos...');
