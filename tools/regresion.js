@@ -202,16 +202,25 @@ const FIX = {
       d.querySelectorAll('.learning__tasksNav_task').forEach(t => t.classList.remove('learning__tasksNav_task--current'));
       d.getElementById('t5').classList.add('learning__tasksNav_task--current');
       d.getElementById('nx').className = 'tasksBtnext learning__submitTestLink'; d.getElementById('nx').textContent = 'Submit'; }); } },
-  // NUEVO v20.7 — DESPLEGABLE VIEJO en el reintento (estructura SUPUESTA: hueco .questionText + lista <li> al pulsar)
-  replayLegacyDDL: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 3: Present Simple: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>12 / 15</span>
-<div class="answersWrapper fillInBlank fitb">School <span class="questionText" id="b1"><span class="arrowWrapper"></span></span> in half an hour. I <span class="questionText" id="b2"><span class="arrowWrapper"></span></span> feel well.</div>`,
-    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 3: Present Simple: Review||Step 3: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': { 12: { lddl: ['starts', "don't"] } } }) },
+  // AJUSTADA v20.9 — DESPLEGABLE VIEJO en el reintento, con la estructura REAL (dump Lesson 5: Nouns · Test · 9/10):
+  // <span id="1_1"><div class="questionText"></div><div class="arrowWrapper">…</div></span> y al pulsar aparece .optionsWrapper
+  replayLegacyDDL: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Nouns: This/That/These/Those</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>9 / 10</span>
+<div class="answersWrapper fillInBlank"><div class="fitb"><div class="bubbleLeft bubbleItem">Is <span id="1_1" class="answered"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> boat safe?</div><div class="bubbleRight bubbleItem">Yes, but <span id="1_2" class="active"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> boats aren't.</div></div></div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 5: Nouns: This/That/These/Those||Step 4: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 5: Nouns: This/That/These/Those||Step 4: Test': { 9: { lddl: ['this', 'those'] } } }) },
     setup: w => { const d = w.document;
-      d.querySelectorAll('.questionText').forEach(b => b.addEventListener('click', () => {
-        d.querySelectorAll('ul.lista').forEach(u => u.remove());
-        const u = d.createElement('ul'); u.className = 'lista';
-        ['start', 'starts', "don't", 'am not'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); b.firstChild && b.firstChild.nodeType === 3 ? b.firstChild.textContent = t : b.insertBefore(d.createTextNode(t), b.firstChild); u.remove(); }); u.appendChild(li); });
-        d.body.appendChild(u); })); } },
+      d.querySelectorAll('.fitb span[id]').forEach(sp => sp.addEventListener('click', () => {
+        d.querySelectorAll('.optionsWrapper').forEach(u => u.remove());
+        const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
+        ['this', 'these', 'those', 'that'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; ow.remove(); }); ul.appendChild(li); });
+        d.body.appendChild(ow); })); } },
+  // NUEVO v20.9 — tu REPORTE (Lesson 5: Pronouns · Test · 3/10): en "Correct Answer" el hueco NO trae texto, solo ans="87"
+  // (= data-id de la ficha "me"). Antes se guardaba "87" y en el reintento no hallaba ficha (moves: 0).
+  reviewDropAnsId: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Pronouns: Object</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div>
+<div class="testResultTools"><ul><li id="liY" class="active"><a index="0">Your Answer</a></li><li id="liC"><a index="1" id="aC">Correct Answer</a></li></ul></div>
+<div class="ClozeTxtDiv"><div class="TextDiv" id="1_1">Oh, Alan! Is this for <span qnum="1" data-id="1_1" class="TTpanswerDiv droptarget" id="h">&nbsp;&nbsp;&nbsp;</span>?</div></div>
+<div class="wordsBankTable" id="TTpTablePlaceHolder">${[['75', 'mine'], ['87', 'me'], ['46', 'my']].map(([i, t], k) => `<div id="${k}" class="draggableContainer"><div data-id="${i}" class="draggable wordBankTile">${t}</div></div>`).join('')}</div>
+<span>3 / 10</span><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    setup: w => { const d = w.document; d.getElementById('aC').addEventListener('click', () => { d.getElementById('liC').className = 'active'; d.getElementById('liY').className = ''; d.getElementById('h').setAttribute('ans', '87'); }); } },
   // NUEVO v20.8 — MEMORY GAME (estructura memoG; cómo marca ED una pareja es SUPUESTO)
   practiceMemory: { html: PRACT('Step 2: Practice', 3).replace('<a class="learning__tasksNav_task">1</a>', '<a class="learning__tasksNav_task">1</a><a class="learning__tasksNav_task">2</a>') + `<div class="memoG__wrapper">${[['word', 'A', 'judge'], ['word', 'B', 'thief'], ['image', 'B', ''], ['image', 'A', '']].map(([t, p, w]) => `<div class="memoG__card memoG__card--${t}" data-p="${p}"><div class="memoG__cardIW"><div class="memoG__cardSideFront">${w}</div></div></div>`).join('')}</div>`,
     setup: w => { const d = w.document; let abiertas = [];

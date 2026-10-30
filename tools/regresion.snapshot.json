@@ -163,9 +163,15 @@
   },
   "replayLegacyDDL": {
     "kind": "test_question",
-    "r": "{\"did\":\"test_replay\",\"idx\":\"12/15\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2}}",
-    "trace": "click arrowWrapper: | click LI:starts | click arrowWrapper: | click LI:don't | click tasksBtnext learning__submitTestLink:Submit",
-    "ls": "{\"Lesson 3: Present Simple: Review||Step 3: Test\":{\"12\":{\"lddl\":[\"starts\",\"don't\"]}}}"
+    "r": "{\"did\":\"test_replay\",\"idx\":\"9/10\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2}}",
+    "trace": "click answered: | click LI:this | click active: | click LI:those | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 5: Nouns: This/That/These/Those||Step 4: Test\":{\"9\":{\"lddl\":[\"this\",\"those\"]}}}"
+  },
+  "reviewDropAnsId": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":3,\"saved\":1}",
+    "trace": "click A:Correct Answer | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 5: Pronouns: Object||Step 4: Test\":{\"3\":{\"drop\":[\"me\"]}}}"
   },
   "practiceMemory": {
     "kind": "memory",

@@ -1,5 +1,10 @@
 # Changelog
 
+## v20.9 — DnD de huecos (ans=id) y desplegable viejo con la estructura real
+- **DnD viejo (`span.droptarget`) en tests** — reporte Lesson 5: Pronouns · Test · 3/10 (`moves: 0`): en "Correct Answer" el hueco puede no traer texto, solo `ans="87"` (= `data-id` de la ficha correcta). Se guardaba "87" y en el reintento no había ficha con ese texto. Ahora `dropValue` traduce el id a la palabra, y `findTile` busca por texto, por `data-id` o por texto sin signos (así también sirven cosechas viejas con números).
+- **Desplegable viejo** ("Select the correct answer from the drop-down list."), rehecho con el dump real: el hueco es `<span id="1_1">` con `div.questionText` + `div.arrowWrapper`, y la lista es `.optionsWrapper`. Se pulsa el span (verificado), se elige por texto y se comprueba; respaldo por teclado (flechas + Enter).
+- El reporte de `replay_incompleto` ahora incluye lo cosechado, lo que se quería poner, el banco de fichas y lo que quedó en cada hueco.
+
 ## v20.8 — reporte automático, verificación de tareas, speaking, memory y barrido de tests
 - **Reporte automático de fallos** (`utils/reporter.js`): cuando algo no sale (tarea que ED no marcó, tipo desconocido, replay incompleto o sin acción, cosecha vacía, error, test sin 100 en el barrido) guarda una radiografía de la pantalla. Botón **📋 Reporte (N)** en la cajita, `__ed.report()` (copia), `__ed.reportFile()` (.txt), `__ed.reportClear()`. Al detenerse, intenta copiarlo solo.
 - **Verificar tarea marcada** (`CFG.verifyTasks`): tras resolver una práctica, si ED no la marcó → 1 reintento completo; si sigue sin marcar → al reporte. No se repiten writing/speaking/audio/memory.

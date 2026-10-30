@@ -364,7 +364,7 @@ class TestManager {
     // NUEVO v20.8: anotar en el reporte lo que no salió completo (o una pregunta que el bot no sabe contestar)
     const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total);
     const nada = !['mcq', 'fitb', 'dnd', 'drop', 'seq', 'lddl', 'lmcq'].some(k => out[k]);
-    if (incompleto) Reporter.capture('replay_incompleto', out);
+    if (incompleto) Reporter.capture('replay_incompleto', { out, cosechado: scr });   // AJUSTADA v20.9: + lo que se guardó
     else if (nada) Reporter.capture('replay_sin_accion', { cosechado: Object.keys(scr) });
     await sleep(500);
     await NavigationManager.goNext();

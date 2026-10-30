@@ -2,7 +2,7 @@
 
 Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prácticas de cada lección y, en los tests, envía un primer intento, cosecha las respuestas correctas del *Review* y repite el test con ellas.
 
-**Versión actual: v20.8** — v19.7 dividida en módulos + funciones recuperadas de v17 (ver `CHANGELOG.md`).
+**Versión actual: v20.9** — v19.7 dividida en módulos + funciones recuperadas de v17 (ver `CHANGELOG.md`).
 
 ---
 
@@ -19,7 +19,7 @@ fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-a
 Luego `__ed.auto()` para arrancar (o el botón **Iniciar** de la cajita flotante).
 
 - El repo tiene que ser **público** para que esto funcione. Si es privado, GitHub responde 404 (ver opción C).
-- Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v20.8 OOP`).
+- Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v20.9 OOP`).
 - La primera vez Chrome pide escribir `allow pasting` en la consola.
 
 ### Opción D — Tampermonkey (recomendado para el barrido de tests)
