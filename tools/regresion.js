@@ -212,6 +212,31 @@ const FIX = {
         const u = d.createElement('ul'); u.className = 'lista';
         ['start', 'starts', "don't", 'am not'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); b.firstChild && b.firstChild.nodeType === 3 ? b.firstChild.textContent = t : b.insertBefore(d.createTextNode(t), b.firstChild); u.remove(); }); u.appendChild(li); });
         d.body.appendChild(u); })); } },
+  // NUEVO v20.8 — MEMORY GAME (estructura memoG; cómo marca ED una pareja es SUPUESTO)
+  practiceMemory: { html: PRACT('Step 2: Practice', 3).replace('<a class="learning__tasksNav_task">1</a>', '<a class="learning__tasksNav_task">1</a><a class="learning__tasksNav_task">2</a>') + `<div class="memoG__wrapper">${[['word', 'A', 'judge'], ['word', 'B', 'thief'], ['image', 'B', ''], ['image', 'A', '']].map(([t, p, w]) => `<div class="memoG__card memoG__card--${t}" data-p="${p}"><div class="memoG__cardIW"><div class="memoG__cardSideFront">${w}</div></div></div>`).join('')}</div>`,
+    setup: w => { const d = w.document; let abiertas = [];
+      d.querySelectorAll('.memoG__card').forEach(c => c.addEventListener('click', () => {
+        if (/matched/.test(c.className) || abiertas.includes(c)) return;
+        c.classList.add('memoG__card--flipped'); abiertas.push(c);
+        if (abiertas.length === 2) { const [a, b] = abiertas; abiertas = [];
+          if (a.dataset.p === b.dataset.p && a !== b) { [a, b].forEach(x => { x.classList.remove('memoG__card--flipped'); x.classList.add('memoG__card--matched'); }); if (d.querySelectorAll('.memoG__card--matched').length === 4) MARCAR_HECHA(w); }
+          else w.setTimeout(() => [a, b].forEach(x => x.classList.remove('memoG__card--flipped')), 800); } })); } },
+  // NUEVO v20.8 — SPEAKING completo: Start → (prepare) Skip → (record) Stop → Send to teacher
+  speechFlow: { html: PRACT('Step 5: Personalized speaking', 1).replace('<a class="learning__tasksNav_task">1</a>', '') + `<div class="answersWrapper openSpeech"><div class="openSpeech__AnsW openSpeech__AnsW--intro" id="aw"><div id="stateDiv"><div class="openSpeech__btn openSpeech__btnStart" id="b">Start</div></div><div class="openSpeech__btn openSpeech__SentTTBtn disabled" id="send">Send to teacher</div></div></div>`,
+    setup: w => { const d = w.document, aw = d.getElementById('aw'), b = d.getElementById('b'), send = d.getElementById('send');
+      b.addEventListener('click', () => {
+        if (/intro/.test(aw.className)) { aw.className = 'openSpeech__AnsW openSpeech__AnsW--prepare'; b.className = 'openSpeech__btn openSpeech__btnSkip'; b.textContent = 'Skip'; }
+        else if (/prepare/.test(aw.className)) { aw.className = 'openSpeech__AnsW openSpeech__AnsW--record'; b.className = 'openSpeech__btn openSpeech__btnStop'; b.textContent = 'Stop'; }
+        else if (/record/.test(aw.className)) { aw.className = 'openSpeech__AnsW openSpeech__AnsW--send'; b.remove(); send.classList.remove('disabled'); } });
+      send.addEventListener('click', () => { if (!send.classList.contains('disabled')) { send.classList.add('disabled'); aw.className = 'openSpeech__AnsW openSpeech__AnsW--sent'; MARCAR_HECHA(w); } }); } },
+  // NUEVO v20.8 — BARRIDO dentro de una lección: no está en el test → va al step de test por el desplegable
+  sweepLesson: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 2: Call-in</div><div class="learning__dropDownListW--lessons"><div class="learning__dropDownList_unitName">Unit 3: Media</div><div class="learning__dropDownList_item learning__dropDownList_item--current">2. Call-in</div><div class="learning__dropDownList_item">3. Next one</div></div>
+<div class="learning__dropDownListTitleW--steps">Step 1: Explore</div><div class="learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current">1. Explore</div><div class="learning__dropDownList_item" id="st">3. Test</div></div><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, phase: 'lesson', lessonsDone: [], unitsDone: [], resultados: [] }) },
+    setup: w => w.document.getElementById('st').addEventListener('click', () => { w.document.querySelector('.learning__dropDownListTitleW--steps').textContent = 'Step 3: Test'; }) },
+  // NUEVO v20.8 — BARRIDO en el HOME: unidad 1 ya hecha → entra a la 2 (con scroll)
+  sweepHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: `<div class="layout__mainContent">${[1, 2, 3].map(n => `<div class="home__unitW home__unitW--notLocked"><div class="home__unitIW"><div class="home__unit" id="u${n}"><div class="home__details"><span class="home__detailsNumber">${n}</span><span class="home__detailsTitle">Unit title ${n}</span></div></div></div></div>`).join('')}</div>`,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, phase: 'home', lessonsDone: [], unitsDone: [1], resultados: [] }) } },
   // NUEVO v20.1 — 4 visitas al puntaje < 100 % → debe DETENERSE (ED_TEST_NO_100)
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };
@@ -220,7 +245,7 @@ const LS_REPLAY = { 'ed:testKnown:v1': JSON.stringify(['Lesson 1||Step 4: Test']
 
 // Pantallas falsas mínimas (solo las clases que el bot mira).
 async function run(code, fixture, ls, opts = {}) {
-  const dom = new JSDOM(`<body>${fixture}</body>`, { url: 'https://ed.engdis.com/upbstacruz/learningArea', runScripts: 'outside-only', pretendToBeVisual: true });
+  const dom = new JSDOM(`<body>${fixture}</body>`, { url: opts.url || 'https://ed.engdis.com/upbstacruz/learningArea', runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window, trace = [];
   let now = 1e12;
   w.Date.now = () => now;
@@ -238,6 +263,7 @@ async function run(code, fixture, ls, opts = {}) {
   w.EventTarget.prototype.dispatchEvent = function (e) { if (e.type === 'pointerdown' || e.type === 'pointerup') trace.push(e.type + ' ' + (this.className ? lbl(this) : 'doc')); return od.call(this, e); };
   w.console.log = w.console.warn = w.console.error = w.console.table = () => {};
   for (const [k, v] of Object.entries(ls || {})) w.localStorage.setItem(k, v);
+  w.__edNoAutoResume = true;   // las pruebas no deben arrancar el bucle auto() solas
   w.eval(code);
   if (opts.setup) opts.setup(w);
   const kind = w.__ed.kind();

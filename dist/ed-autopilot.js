@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v20.7  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v20.8  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '20.7';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '20.8';   // ← ÚNICO lugar donde se cambia la versión
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -57,6 +57,7 @@
     harvestPause: 600,         // RECUPERADO v20.2 (v17.1/17.3): pausa extra antes de leer el review en pantallas no-MCQ
     testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
     practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
+    verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
     cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
   // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
@@ -323,6 +324,119 @@
     return !!(await waitFor(() => NavigationManager.taskDone(tn), 1500, 200));
   }
 
+  // ▼▼▼ src/utils/press.js ▼▼▼
+  // =====================================================================
+  //  PRESS — clic VERIFICADO (para botones de ED que no siempre responden al primer clic)
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.8. press(el, ok, espera) prueba en orden hasta que ok() sea true:
+  //    1) el.click()   2) secuencia completa pointer/mouse   3) jQuery(el).trigger('click')
+  //  Sin ok() hace solo el 1). Devuelve true si funcionó.
+  //  DEPENDE DE: utils/dom.js
+  //  EXPONE:     press
+  // =====================================================================
+
+  async function press(el, ok = null, espera = 1500) {
+    if (!el) return false;
+    const pasos = [
+      () => click(el),
+      () => {
+        const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+        for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+          const Ev = t.startsWith('pointer') && window.PointerEvent ? window.PointerEvent : MouseEvent;
+          try { el.dispatchEvent(new Ev(t, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: t.endsWith('down') ? 1 : 0 })); } catch (e) {}
+        }
+      },
+      () => { if (window.jQuery) { try { window.jQuery(el).trigger('click'); } catch (e) {} } }
+    ];
+    if (!ok) { pasos[0](); return true; }
+    for (const paso of pasos) {
+      paso();
+      if (await waitFor(() => { try { return ok(); } catch (e) { return false; } }, espera, 150)) return true;
+    }
+    return false;
+  }
+
+  // ▼▼▼ src/utils/reporter.js ▼▼▼
+  // =====================================================================
+  //  REPORTE AUTOMÁTICO DE FALLOS — "lo que no pude hacer", listo para pegar en el chat
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.8. Cuando el bot no logra algo (tarea que ED no marcó, tipo desconocido,
+  //  replay incompleto, cosecha vacía, error...) guarda una RADIOGRAFÍA de esa pantalla
+  //  (como probes/test-dump.js, pero compacta) en localStorage.
+  //    __ed.report()       → copia TODO el reporte al portapapeles (y lo devuelve como texto)
+  //    __ed.reportFile()   → lo descarga como .txt
+  //    __ed.reportClear()  → lo borra
+  //  También: botón "📋 Reporte (N)" en la cajita, y al detenerse el bot intenta copiarlo solo.
+  //  No guarda datos personales: solo clases, textos de la pregunta y el HTML del ejercicio.
+  //  DEPENDE DE: utils/dom.js, core/config.js
+  //  EXPONE:     Reporter
+  // =====================================================================
+
+  const K_REPORT = 'ed:report:v1';
+
+  class Reporter {
+    static all() { try { return JSON.parse(localStorage.getItem(K_REPORT) || '[]'); } catch (e) { return []; } }
+    static count() { return this.all().length; }
+    static clear() { localStorage.removeItem(K_REPORT); }
+
+    static snapshot() {
+      const area = qv('.answersWrapper') || qv('.learning__angPracticeW') || qv('.pmContainer') || qv('.learning__practiceArea') || qv('.layout__mainContent') || document.body;
+      const clases = {};
+      qa('*', area).filter(vis).forEach(e => (typeof e.className === 'string' ? e.className : '').split(/\s+/).filter(Boolean).forEach(c => { clases[c] = (clases[c] || 0) + 1; }));
+      const limpio = e => {
+        if (!e) return null;
+        const c = e.cloneNode(true);
+        qa('script, style, svg, img, video, audio', c).forEach(x => x.remove());
+        qa('*', c).forEach(x => [...x.attributes].forEach(a => { if (/^(_ng|ng-|style$|src$|href$)/.test(a.name)) x.removeAttribute(a.name); }));
+        return c.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, 3500);
+      };
+      let kind = '';
+      try { kind = window.__ed.kind(); } catch (e) {}
+      const t = (() => { try { return NavigationManager.curTask(); } catch (e) { return null; } })();
+      return {
+        url: location.href.slice(0, 90), leccion: NavigationManager.lessonLabel(), step: NavigationManager.stepLabel(),
+        contador: (NavigationManager.counter() || {}).s || null, tarea: t ? t.n + (t.done ? '✓' : '·') : null, kind,
+        instruccion: txt(q('.learning__headerIW')).slice(0, 160),
+        clases: Object.fromEntries(Object.entries(clases).sort((a, b) => b[1] - a[1]).slice(0, 45)),
+        html: limpio(area)
+      };
+    }
+
+    // motivo: 'tarea_no_marcada' | 'tipo_desconocido' | 'replay_incompleto' | 'cosecha_vacia' | 'error' | ...
+    static capture(motivo, extra = null) {
+      try {
+        const s = this.snapshot();
+        const lista = this.all();
+        const clave = [motivo, s.leccion, s.step, s.contador, s.tarea].join('|');
+        if (lista.some(r => r.clave === clave)) return;                     // ya anotado
+        lista.push(Object.assign({ clave, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s));
+        while (lista.length > 40 || JSON.stringify(lista).length > 450000) lista.shift();
+        localStorage.setItem(K_REPORT, JSON.stringify(lista));
+        warn('📝 Anotado para el reporte (' + motivo + '):', s.leccion, '·', s.step, '·', s.contador || '');
+      } catch (e) { warn('Reporter falló:', e.message); }
+    }
+
+    static text() {
+      const lista = this.all();
+      if (!lista.length) return 'ED-Autopilot v' + V + ' — sin fallos anotados.';
+      const resumen = lista.map((r, i) => `${i + 1}. [${r.motivo}] ${r.leccion} · ${r.step} · ${r.contador || ''} · kind=${r.kind}`).join('\n');
+      return `ED-Autopilot v${V} — REPORTE DE FALLOS (${lista.length})\n${resumen}\n\n--- DETALLE (JSON) ---\n` + JSON.stringify(lista.map(r => { const c = Object.assign({}, r); delete c.clave; return c; }), null, 1);
+    }
+
+    static async copy() {
+      const t = this.text();
+      try { await navigator.clipboard.writeText(t); log('📋 Reporte copiado al portapapeles (' + this.count() + ' fallos). Pégalo en el chat.'); return true; }
+      catch (e) { try { copy(t); log('📋 Reporte copiado.'); return true; } catch (_) {} warn('No pude copiar solo (la pestaña debe estar enfocada). Usa el botón 📋 de la cajita o __ed.reportFile().'); return false; }
+    }
+
+    static file() {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([this.text()], { type: 'text/plain' }));
+      a.download = 'ed-reporte-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.txt';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+  }
+
   // ▼▼▼ src/core/storage.js ▼▼▼
   // =====================================================================
   //  STORAGE — respuestas cosechadas, puntajes y estado del test en curso
@@ -558,6 +672,122 @@
       const out = { lecciones: this.items('lessons').map(x => (x.cur ? '* ' : '  ') + x.t), steps: this.items('steps').map(x => (x.cur ? '* ' : '  ') + x.t) };
       console.log('%c[ED desplegables]', 'color:#3498db;font-weight:bold', out);
       return out;
+    }
+  }
+
+  // ▼▼▼ src/core/sweep.js ▼▼▼
+  // =====================================================================
+  //  BARRIDO DE TESTS — busca tests con nota < 100, lección por lección y unidad por unidad
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.8.  __ed.barrer()  → empieza desde donde estés (una lección o el Home).
+  //                __ed.barrerStop() → lo desactiva.   __ed.barrerEstado() → qué lleva hecho.
+  //  Dentro de una unidad (usa los desplegables de arriba, ya probados):
+  //    1) en cada lección entra a su step de test (Test / Prueba / Repasemos / Review)
+  //    2) si el test está en 100 → lección lista → siguiente lección
+  //       si es < 100 o nunca se hizo → el flujo normal del bot lo rehace (exprés → review → reintento)
+  //       si tras los reintentos no llega a 100 → lo anota en el reporte y SIGUE (no se detiene)
+  //    3) sin más lecciones → unidad lista → va al Home (casita)
+  //  En el Home: entra a la siguiente unidad desbloqueada (por número) con scroll hasta ella.
+  //  ⚠ Pasar del Home a una unidad CAMBIA DE PÁGINA: para que el bot siga solo hace falta el
+  //    cargador de Tampermonkey (tools/cargador.user.js). Sin él, vuelve a cargar el bot y
+  //    escribe __ed.auto() en cada página nueva (el barrido recuerda por dónde iba).
+  //  ⚠ SIN CONFIRMAR: qué pantalla aparece al pulsar una unidad en el Home (si es intermedia,
+  //    el bot la anota en el reporte e intenta abrir la 1.ª lección).
+  //  DEPENDE DE: core/dropdowns.js, core/navigation.js, tests/test-manager.js, utils/reporter.js
+  //  EXPONE:     TestSweep
+  // =====================================================================
+
+  const K_SWEEP = 'ed:sweep:v1';
+
+  class TestSweep {
+    static get() { try { return JSON.parse(localStorage.getItem(K_SWEEP) || 'null'); } catch (e) { return null; } }
+    static set(s) { if (s) localStorage.setItem(K_SWEEP, JSON.stringify(s)); else localStorage.removeItem(K_SWEEP); }
+    static active() { const s = this.get(); return !!(s && s.active); }
+
+    static start() {
+      this.set({ active: true, phase: 'lesson', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: null, inicio: new Date().toISOString() });
+      log('🧭 Barrido de tests ACTIVADO. Busca tests < 100 lección por lección. (__ed.barrerStop() para quitarlo)');
+    }
+    static stop() { const s = this.get(); if (s) { s.active = false; this.set(s); } log('🧭 Barrido desactivado.'); }
+
+    static unitNum() {
+      const t = txt(q('.learning__dropDownList_unitName')) || txt(q('.learning__dropDownList_CourseUnitInfo'));
+      return +((t.match(/Unit\s*(\d+)/i) || t.match(/(\d+)/) || [])[1] || 0);
+    }
+    static lessonKey() { return 'U' + this.unitNum() + '||' + NavigationManager.lessonLabel(); }
+
+    static markLesson(pct, nota = '') {
+      const s = this.get(); if (!s) return;
+      const k = this.lessonKey();
+      if (!s.lessonsDone.includes(k)) s.lessonsDone.push(k);
+      s.resultados.push({ unidad: this.unitNum(), leccion: NavigationManager.lessonLabel(), pct, nota });
+      this.set(s);
+    }
+    static lessonDone() { const s = this.get(); return !!(s && s.lessonsDone.includes(this.lessonKey())); }
+
+    // Lo llama MainEngine.step() al principio, dentro del área de lecciones. null = sigue el flujo normal.
+    static async lessonStep() {
+      const s = this.get(); if (!s || !s.active) return null;
+      if (s.phase === 'entering_unit' || s.phase === 'home') {
+        s.phase = 'lesson'; this.set(s);
+        log('🧭 Barrido: unidad', this.unitNum(), '→ empiezo por la lección 1');
+        if (lessonNum(NavigationManager.lessonLabel()) !== '1' && await DropdownNav.gotoLesson(1)) return { did: 'sweep_lesson1' };
+      }
+      const enTest = RE_TEST_STEP.test(NavigationManager.stepLabel()) || TestManager.isTestStart() || TestManager.isScore() || TestManager.isReview() || TestManager.inTest();
+      const run = StorageManager.getRun();
+      if (enTest || (run && (run.phase === 'review' || run.phase === 'replay'))) {
+        if (!(TestManager.isScore() && this.lessonDone())) return null;   // test en curso → flujo normal
+      }
+      if (!this.lessonDone()) {
+        log('🧭 Barrido: voy al test de', NavigationManager.lessonLabel());
+        if (await DropdownNav.gotoStep(RE_TEST_ITEM)) return { did: 'sweep_goto_test' };
+        this.markLesson(null, 'sin step de test');
+      }
+      return await this.nextLesson();
+    }
+
+    static async nextLesson() {
+      const cur = +lessonNum(NavigationManager.lessonLabel()) || 0;
+      const sig = DropdownNav.items('lessons').map(x => +((x.t.match(/^(\d+)\s*\./) || [])[1] || 0)).filter(n => n > cur).sort((a, b) => a - b)[0];
+      if (sig) { log('🧭 Barrido: siguiente lección →', sig); await DropdownNav.gotoLesson(sig); return { did: 'sweep_next_lesson', leccion: sig }; }
+      const s = this.get();
+      if (!s.unitsDone.includes(this.unitNum())) s.unitsDone.push(this.unitNum());
+      s.phase = 'home'; this.set(s);
+      log('🏁 Barrido: unidad', this.unitNum(), 'terminada → voy al Home');
+      const home = qv('.sitemenu__itemHome--learningArea a') || qv('.sitemenu__itemHome--learningArea') || qv('.sitemenu__itemHome a') || qv('.sitemenu__itemHome');
+      if (home) click(home); else if (s.homeUrl) location.href = s.homeUrl;
+      await sleep(4000);
+      return { did: 'sweep_unit_done' };
+    }
+
+    // Fuera del área de lecciones (Home u otra página)
+    static async pageStep() {
+      const s = this.get(); if (!s || !s.active) return null;
+      if (/#\/home/i.test(location.href) || qv('.home__unitW')) {
+        s.homeUrl = location.href.split('#')[0] + '#/home';
+        const units = qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]), t: txt(q('.home__detailsTitle', u)) }));
+        const ult = s.unitsDone.length ? Math.max(...s.unitsDone) : 0;
+        const sig = units.filter(u => u.n > ult && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n)[0];
+        if (!sig) {
+          s.active = false; this.set(s);
+          log('🏁 BARRIDO COMPLETO. Resultados:', s.resultados);
+          if (!units.length) Reporter.capture('barrido_home_sin_unidades');
+          window.__ed.stop();
+          return { did: 'sweep_finished', resultados: s.resultados };
+        }
+        try { sig.el.scrollIntoView({ block: 'center' }); } catch (e) {}
+        await sleep(700);
+        s.phase = 'entering_unit'; s.unitTarget = sig.n; this.set(s);
+        log('🧭 Barrido: entrando a la unidad', sig.n, sig.t);
+        click(q('.home__unit', sig.el) || q('.home__unitIW', sig.el) || sig.el);
+        await sleep(4500);
+        return { did: 'sweep_open_unit', unidad: sig.n };
+      }
+      // Página intermedia desconocida (p. ej. la lista de lecciones de la unidad)
+      Reporter.capture('barrido_pagina_desconocida');
+      const lec = qav('a, button, [ng-click], [class*="lesson" i]').find(e => /lesson|lecci/i.test((e.className || '') + ' ' + txt(e)));
+      if (lec) { log('🧭 Barrido: página intermedia → pruebo abrir', txt(lec).slice(0, 40)); click(lec); await sleep(4500); return { did: 'sweep_try_lesson' }; }
+      return { did: 'sweep_unknown_page' };
     }
   }
 
@@ -1003,43 +1233,42 @@
     // CAMBIO: v19.6 hacía clic en cualquier "a.button" visible si el estado no era 'intro'
     //         (podía pulsar "grabar de nuevo"). Ahora solo pulsa el Start real (como v17).
     // ---------------------------------------------------------------
+    // AJUSTADA v20.8 (dumps de Lesson 2 · Step 5: Personalized speaking, estados intro → prepare → record):
+    //   botones son <div class="openSpeech__btn openSpeech__btnStart|btnSkip|btnStop|SentTTBtn">.
+    //   Cada clic ahora se VERIFICA (el estado tiene que cambiar) con press(); si la preparación
+    //   no se puede saltar, espera hasta 75 s; graba mínimo 2,5 s. Si algo falla → al reporte.
+    //   Tip: deja el micrófono PERMITIDO para ed.engdis.com o no empieza a grabar.
     static async solveOpenSpeech() {
-      log('🎙️ [Integrated Speaking] Iniciando grabación y envío al profesor...');
+      log('🎙️ [Integrated Speaking] Start → Skip → grabar → Stop → Send...');
       const tn = NavigationManager.curTask()?.n;
       const state = () => (qv('.openSpeech__AnsW')?.className || '').match(/AnsW--(\w+)/)?.[1] || '';
 
-      const startBtn = qv('.openSpeech__btnStart') || (state() === 'intro' ? qv('a.button.start, button.start, a.button') : null);
-      if (startBtn) {
-        click(startBtn);
-        await waitFor(() => state() !== 'intro', 6000);
+      if (state() === 'intro' || qv('.openSpeech__btnStart')) {
+        const st = await waitFor(() => qv('.openSpeech__btnStart'), 4000, 200);
+        if (!(await press(st, () => state() !== 'intro', 2500))) { Reporter.capture('speaking_start_no_responde', { state: state() }); return { did: 'open_speech', ok: false, state: state() }; }
       }
-
-      const skipBtn = qv('.openSpeech__btnSkip');
-      if (state() === 'prepare' || skipBtn) {
-        click(skipBtn);
+      if (state() === 'prepare') {
+        const sk = await waitFor(() => qv('.openSpeech__btnSkip'), 3000, 200);
+        if (sk) await press(sk, () => state() !== 'prepare', 2500);
       }
-
       if (state() !== 'send' && state() !== 'sent') {
-        const rec = await waitFor(() => state() === 'record', 30000, 300);
-        if (!rec) return { did: 'open_speech', ok: false, state: state() };
-
-        await sleep(CFG.recordSeconds * 1000);
-
+        const rec = await waitFor(() => state() === 'record', 75000, 300);
+        if (!rec) { Reporter.capture('speaking_no_graba', { state: state() }); return { did: 'open_speech', ok: false, state: state() }; }
+        await sleep(Math.max(2500, CFG.recordSeconds * 1000));
         const stop = qv('.openSpeech__btnStop');
-        if (stop) click(stop);
-
+        if (stop) await press(stop, () => state() !== 'record', 2500);
         await waitFor(() => state() !== 'record', 6000, 300);
       }
 
       if (CFG.sendToTeacher) {
-        const send = await waitFor(() => qv('.openSpeech__SentTTBtn, .sendRecordingBtn') || qav('[class*="openSpeech__btn"], a, button').find(b => /^(send to teacher|send recording|enviar al profesor|enviar a(l)? (la )?profesor(a)?)$/i.test(txt(b))), 6000, 300);
+        const send = await waitFor(() => qv('.openSpeech__SentTTBtn:not(.disabled), .sendRecordingBtn') || qav('[class*="openSpeech__btn"], a, button').find(b => !/disabled/.test(b.className) && /^(send to teacher|send recording|enviar al profesor|enviar a(l)? (la )?profesor(a)?)$/i.test(txt(b))), 8000, 300);
         if (send) {
-          click(send);
+          await press(send, () => /disabled/.test(send.className) || !send.isConnected || NavigationManager.modalOpen() || state() === 'sent', 2500);
           await waitFor(() => NavigationManager.handleModals(), 5000, 300);
         }
       }
 
-      const done = tn ? await waitFor(() => NavigationManager.taskDone(tn), 6000) : true;
+      const done = tn ? await waitFor(() => NavigationManager.taskDone(tn), 8000, 300) : true;
       return { did: 'open_speech_solved', ok: !!done };
     }
 
@@ -1047,24 +1276,36 @@
     // SPEAKING DE ELEGIR RESPUESTA (SR)                        [NUEVA — de v17]
     // PARA QUÉ: pulsa Start/Continue y deja que ED avance solo (waitDone lo espera).
     // ---------------------------------------------------------------
+    // AJUSTADA v20.8: el Start se verifica y se da MÁS tiempo (ED reproduce y escucha; no deja hacer nada mientras)
     static async solveSRChoice() {
-      log('🗣️ [SR Choice] Pulsando Start...');
+      log('🗣️ [SR Choice] Pulsando Start y esperando a que ED termine...');
       const st = qv('.statusWrapper a.button.continue') || qv('a.button.continue');
-      if (st) click(st);
-      return { did: 'sr_choice', waitDone: 15000 };
+      const antes = st ? txt(st) + '|' + (q('.status', st.closest('.statusWrapper') || document)?.className || '') : '';
+      if (st) await press(st, () => { const b = qv('.statusWrapper a.button.continue') || qv('a.button.continue'); return !b || txt(b) + '|' + (q('.status', b.closest('.statusWrapper') || document)?.className || '') !== antes; }, 2500);
+      return { did: 'sr_choice', started: !!st, waitDone: 25000 };
     }
 
     // ---------------------------------------------------------------
     // INTERACTIVE SPEAKING (personajes)                        [NUEVA — de v17]
     // PARA QUÉ: elige el personaje (flecha) y pulsa Start.
     // ---------------------------------------------------------------
+    // AJUSTADA v20.8 (dump Lesson 3 · Step 3: Interact 1): elige personaje con la flecha ">" que NO está
+    // deshabilitada, pulsa Start (verificado); si no hay Start, pulsa la 1.ª frase. Luego espera mucho más
+    // (ED reproduce el diálogo y no deja hacer nada hasta terminar).
     static async solveInteractive() {
-      log('🎭 [Interactive Speaking] Eligiendo personaje y pulsando Start...');
-      const arrows = qav('a.chooseCaracterArrow');
-      if (arrows[0]) { click(arrows[0]); await sleep(1300); }
-      const st = await waitFor(() => { const b = qv('a.button.continue'); return b && !/disable/.test(b.parentElement?.className || '') ? b : null; }, 5000);
-      if (st) click(st);
-      return { did: 'interactive_speaking', started: !!st, waitDone: 20000 };
+      log('🎭 [Interactive Speaking] Personaje → Start → esperar el diálogo...');
+      const flecha = qav('a.chooseCaracterArrow').find(a => !/disable/.test(a.parentElement?.className || '')) || qav('a.chooseCaracterArrow')[0];
+      if (flecha) { click(flecha); await sleep(1300); }
+      const st = await waitFor(() => { const b = qv('a.button.continue'); return b && !/disable/.test(b.parentElement?.className || '') ? b : null; }, 6000);
+      let started = false;
+      if (st) {
+        const antes = txt(st);
+        started = await press(st, () => { const b = qv('a.button.continue'); return !b || txt(b) !== antes || !!qv('.recordingPanelSentence .statusIcon[class*="--"], .recIndicator, [class*="recording"]'); }, 2500);
+      } else {
+        const frase = qv('.recordingPanelSentence');
+        if (frase) { click(frase); started = true; }
+      }
+      return { did: 'interactive_speaking', started, waitDone: 40000 };
     }
   }
 
@@ -1270,6 +1511,54 @@
     static readLegacyDDL() { return this.legacyBlanks().map(b => this.legacyBlankValue(b)); }
   }
 
+  // ▼▼▼ src/exercises/memory.js ▼▼▼
+  // =====================================================================
+  //  MEMORY GAME — "Click on the boxes to match the pairs of words." (memoG)
+  // ---------------------------------------------------------------------
+  //  NUEVO v20.8. Visto en dump (Lesson 6: Crime · Step 2: Practice · 1/6): 12 cartas
+  //  .memoG__card (6 --word + 6 --image) con caras .memoG__cardSideFront / Back.
+  //  ⚠ SIN CONFIRMAR cómo marca ED una pareja acertada. Por eso:
+  //   1) Práctica: da vuelta 2 cartas → si ED marca la tarea (practiceEnough), listo.
+  //   2) Si no: prueba parejas palabra×imagen. Una pareja acertada es la que NO vuelve a su
+  //      estado inicial tras ~1,5 s (se compara la clase con la que tenía al principio).
+  //  DEPENDE DE: utils/dom.js, utils/practice.js, utils/reporter.js
+  //  EXPONE:     MemoryGameSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class MemoryGameSolver {
+    static isMemoryGame() { return qav('.memoG__card').length >= 2; }
+
+    static async solveMemoryGame() {
+      log('🃏 [Memory] Buscando parejas...');
+      const tn = NavigationManager.curTask()?.n;
+      const cards = qav('.memoG__card');
+      if (cards.length < 2) return { did: 'memory_none' };
+      const base = c => (typeof c.className === 'string' ? c.className : '').split(/\s+/).filter(x => !/lastInRow|--word|--image/.test(x)).sort().join(' ');
+      const inicial = new Map(cards.map(c => [c, base(c)]));
+      const resuelta = c => base(c) !== inicial.get(c);
+      const tocar = async c => { click(q('.memoG__cardIW', c) || c); await sleep(450); };
+
+      await tocar(cards[0]); await tocar(cards[1]); await sleep(900);
+      if (await practiceEnough(tn)) return { did: 'memory_one_action' };
+
+      const words = cards.filter(c => /--word/.test(c.className)), imgs = cards.filter(c => /--image/.test(c.className));
+      const A = words.length && imgs.length ? words : cards, B = words.length && imgs.length ? imgs : cards;
+      let pares = 0, intentos = 0;
+      for (const w of A) {
+        if (resuelta(w)) continue;
+        for (const i of B) {
+          if (i === w || resuelta(i) || resuelta(w)) continue;
+          await tocar(w); await tocar(i); await sleep(1500); intentos++;
+          if (resuelta(w) && resuelta(i)) { pares++; break; }
+          if (tn && NavigationManager.taskDone(tn)) return { did: 'memory_done', pares, intentos };
+          if (intentos > 60) break;
+        }
+      }
+      if (!pares) Reporter.capture('memory_sin_parejas', { intentos });
+      return { did: 'memory_tried', pares, intentos };
+    }
+  }
+
   // ▼▼▼ src/exercises/index.js ▼▼▼
   // =====================================================================
   //  EXERCISES INDEX — junta todos los solvers en PracticeSolver
@@ -1310,7 +1599,8 @@
     SpeakingSolver,
     DropTargetSolver,
     LegacyMCQSolver,
-    LegacyDDLSolver
+    LegacyDDLSolver,
+    MemoryGameSolver
   );
 
   // ▼▼▼ src/tests/test-manager.js ▼▼▼
@@ -1555,6 +1845,7 @@
         } catch (e) {}
       }
       if (saved) StorageManager.addKnown(key);
+      else Reporter.capture('cosecha_vacia', { idx });   // NUEVO v20.8
       await NavigationManager.goNext();
       await sleep(1500);
 
@@ -1676,6 +1967,11 @@
       if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
       else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
       else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
+      // NUEVO v20.8: anotar en el reporte lo que no salió completo (o una pregunta que el bot no sabe contestar)
+      const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total);
+      const nada = !['mcq', 'fitb', 'dnd', 'drop', 'seq', 'lddl', 'lmcq'].some(k => out[k]);
+      if (incompleto) Reporter.capture('replay_incompleto', out);
+      else if (nada) Reporter.capture('replay_sin_accion', { cosechado: Object.keys(scr) });
       await sleep(500);
       await NavigationManager.goNext();
       return out;
@@ -1724,6 +2020,9 @@
   // ===================================================================
   //  MOTOR PRINCIPAL (MAIN ENGINE)
   // ===================================================================
+  // Tipos que NO se repiten solos si ED no marca la tarea (caros, o repetirlos no ayuda)
+  const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory']);
+
   class MainEngine {
 
     // PARA QUÉ: dice qué tipo de ejercicio hay en pantalla. Lo usan step() y __ed.inspect(),
@@ -1736,6 +2035,7 @@
       if (qv('.openSpeech__AnsW')) return 'open_speech';
       if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
       if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
+      if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
       if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
       if (PracticeSolver.isDragAndDrop()) return 'dnd';
       if (qv('.DDLOptions__selected')) return 'fitb';
@@ -1756,6 +2056,7 @@
         case 'open_speech': return PracticeSolver.solveOpenSpeech();
         case 'interactive_speaking': return PracticeSolver.solveInteractive();
         case 'sr_choice': return PracticeSolver.solveSRChoice();
+        case 'memory': return PracticeSolver.solveMemoryGame();         // NUEVO v20.8
         case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
         case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
         case 'fitb': return PracticeSolver.solveFITB();
@@ -1768,8 +2069,12 @@
     }
 
     static async step() {
-      if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) return { did: 'not_in_lesson' };
+      if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
+        const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
+        return sw || { did: 'not_in_lesson' };
+      }
       await NavigationManager.handleModals();
+      { const sw = await TestSweep.lessonStep(); if (sw) return sw; }   // NUEVO v20.8: barrido de tests
 
       if (TestManager.isTestStart()) {
         const key = NavigationManager.testKey();
@@ -1789,6 +2094,13 @@
         if (pct < 100 && TestManager.tooManyRetries(key)) {
           // AJUSTADA v20.1 (decisión de Hugo): DETENERSE y avisar, en vez de seguir con lo siguiente.
           // Para volver al comportamiento anterior: __ed.cfg({ stopIfNot100: false })
+          if (TestSweep.active()) {   // NUEVO v20.8: en el barrido NO se detiene: anota y sigue
+            scoreVisits[key] = 0; StorageManager.setRun(null);
+            TestSweep.markLesson(pct, 'sin 100 tras reintentos');
+            Reporter.capture('test_sin_100', { pct, key });
+            await NavigationManager.goNext();
+            return { did: 'sweep_test_gave_up', pct };
+          }
           if (CFG.stopIfNot100) {
             scoreVisits[key] = 0;
             StorageManager.setRun(null);
@@ -1802,6 +2114,7 @@
         }
 
         if (pct === 100) {
+          if (TestSweep.active()) TestSweep.markLesson(100);   // NUEVO v20.8
           scoreVisits[key] = 0;
           StorageManager.setRun(null);
           await NavigationManager.goNext();
@@ -1885,6 +2198,20 @@
       // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
       if (res.waitDone) await waitFor(() => NavigationManager.taskDone(t.n), res.waitDone, 300);
 
+      // NUEVO v20.8 — VERIFICAR que ED marcó la tarea. Si no: 1 reintento COMPLETO (sin "una acción");
+      // si sigue sin marcar → al reporte automático y se sigue. (Los de audio/speaking no se repiten.)
+      if (CFG.verifyTasks && !TestManager.inTest()) {
+        let done = await waitFor(() => NavigationManager.taskDone(t.n), 1500, 200);
+        if (!done && !NO_RETRY_KINDS.has(kind)) {
+          log('🔁 La tarea', t.n, 'no quedó marcada → reintento completo');
+          const prev = CFG.practiceOneAction; CFG.practiceOneAction = false;
+          try { res.retry = await MainEngine.runKind(kind); } catch (e) { res.retryError = e.message; } finally { CFG.practiceOneAction = prev; }
+          done = await waitFor(() => NavigationManager.taskDone(t.n), 2500, 250);
+        }
+        res.taskMarked = !!done;
+        if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
+      }
+
       await sleep(400);   // AJUSTADA v20.7: era 800
       await NavigationManager.goNext();
       return res;
@@ -1909,13 +2236,22 @@
       log('🚀 ED-Autopilot v' + V + ' iniciado.');
       let n = 0;
       while (this._running) {
-        if (++n > CFG.maxIterations) { this._running = false; break; }
-        try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; this._running = false; break; }
+        if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
+        try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
         await sleep(CFG.tickMs);
       }
       log('⏸ Bot detenido.');
+      if (Reporter.count()) { log('📝 Hay ' + Reporter.count() + ' fallos anotados. Botón 📋 de la cajita o __ed.report()'); Reporter.copy(); }   // NUEVO v20.8
       hud && hud.render();
     },
+    // ---- NUEVO v20.8: reporte automático de fallos ----
+    report: () => { Reporter.copy(); return Reporter.text(); },
+    reportFile: () => Reporter.file(),
+    reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
+    // ---- NUEVO v20.8: barrido de tests < 100 ----
+    barrer() { TestSweep.start(); return this.auto(); },
+    barrerStop: () => TestSweep.stop(),
+    barrerEstado: () => { const s = TestSweep.get(); console.table((s && s.resultados) || []); return s; },
     stop() { this._running = false; hud && hud.render(); },
 
     // Un solo paso (para depurar)
@@ -2046,7 +2382,9 @@
         '__ed.sweep()': 'Ir a lo primero pendiente de la unidad y arrancar', '__ed.reopenTest()': 'Volver al test (tras el review)',
         '__ed.gotoLesson(n) / gotoStep(n) / gotoTask(n)': 'Saltar por los desplegables', '__ed.dropdowns()': 'Ver los desplegables (diagnóstico)',
         '__ed.copyAnswers() / pasteAnswers()': 'Pasar respuestas a otra PC', '__ed.export() / import(json)': 'Respaldo en archivo',
-        'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó'
+        'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó',
+        '__ed.report() / reportFile() / reportClear()': 'Reporte de fallos: copiar / descargar / borrar',
+        '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades'
       });
     }
   };
@@ -2074,8 +2412,11 @@
       let kind = '';
       try { kind = window.__ed.kind(); } catch (e) {}
       this.el.innerHTML = `<b>ED v${V} OOP</b> [${run ? '🟢 Activo' : '🔴 Pausa'}]<br><span style="color:#a4b0be">${kind}</span><br>${window.__ed._lastMsg ? `<span style="color:#ff6b6b">🛑 ${window.__ed._lastMsg.slice(0, 160)}</span><br>` : ''}
-        <button id="ed_t" style="margin-top:6px;padding:4px 8px;background:${run?'#e74c3c':'#2ecc71'};color:#fff;border:0;border-radius:4px;cursor:pointer">${run?'Parar':'Iniciar'}</button>`;
+        ${TestSweep.active() ? '<span style="color:#74b9ff">🧭 Barrido de tests activo</span><br>' : ''}
+        <button id="ed_t" style="margin-top:6px;padding:4px 8px;background:${run?'#e74c3c':'#2ecc71'};color:#fff;border:0;border-radius:4px;cursor:pointer">${run?'Parar':'Iniciar'}</button>
+        ${Reporter.count() ? `<button id="ed_r" style="margin-top:6px;margin-left:4px;padding:4px 8px;background:#f39c12;color:#fff;border:0;border-radius:4px;cursor:pointer">📋 Reporte (${Reporter.count()})</button>` : ''}`;
       this.el.querySelector('#ed_t').onclick = () => { run ? window.__ed.stop() : window.__ed.auto(); };
+      const rb = this.el.querySelector('#ed_r'); if (rb) rb.onclick = () => Reporter.copy();   // NUEVO v20.8 (clic = el navegador deja copiar)
     }
   }
 
@@ -2109,4 +2450,7 @@
   hud = new HUD();
 
   log('✅ ED-Autopilot v' + V + ' cargado con éxito. Usa __ed.auto() para arrancar · __ed.inspect() para diagnosticar.');
+  // NUEVO v20.8: si hay un barrido de tests activo (p. ej. tras cambiar de página con el cargador de
+  // Tampermonkey), el bot sigue solo en 3 s.
+  if (TestSweep.active() && !window.__edNoAutoResume) { log('🧭 Barrido activo → reanudo en 3 s (__ed.barrerStop() para cancelarlo)'); setTimeout(() => window.__ed.auto(), 3000); }
 })();

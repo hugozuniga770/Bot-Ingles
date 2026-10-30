@@ -2,7 +2,7 @@
 
 Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prácticas de cada lección y, en los tests, envía un primer intento, cosecha las respuestas correctas del *Review* y repite el test con ellas.
 
-**Versión actual: v20.7** — v19.7 dividida en módulos + funciones recuperadas de v17 (ver `CHANGELOG.md`).
+**Versión actual: v20.8** — v19.7 dividida en módulos + funciones recuperadas de v17 (ver `CHANGELOG.md`).
 
 ---
 
@@ -19,8 +19,15 @@ fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-a
 Luego `__ed.auto()` para arrancar (o el botón **Iniciar** de la cajita flotante).
 
 - El repo tiene que ser **público** para que esto funcione. Si es privado, GitHub responde 404 (ver opción C).
-- Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v20.7 OOP`).
+- Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v20.8 OOP`).
 - La primera vez Chrome pide escribir `allow pasting` en la consola.
+
+### Opción D — Tampermonkey (recomendado para el barrido de tests)
+
+1. Instala la extensión **Tampermonkey** en Chrome.
+2. Tampermonkey → *Crear un nuevo script* → borra todo y pega el contenido de [`tools/cargador.user.js`](tools/cargador.user.js) → Guardar.
+3. Desde ahí el bot se carga solo en cada página de ED (aparece la cajita). Arranca con **Iniciar** o Alt+E.
+   El barrido (`__ed.barrer()`) sigue solo aunque ED cambie de página.
 
 ### Opción C — repo PRIVADO, con un token de solo lectura
 
@@ -54,6 +61,9 @@ Abre [`dist/ed-autopilot.js`](dist/ed-autopilot.js) → botón **Copy raw file**
 | `__ed.reopenTest()` | Volver al test (tras el review) |
 | `__ed.copyAnswers()` / `export()` | Respaldar respuestas |
 | **Alt+E** | Iniciar / parar |
+| `__ed.barrer()` | Barrido: busca y rehace tests < 100, lección por lección y unidad por unidad |
+| `__ed.barrerEstado()` / `barrerStop()` | Ver resultados del barrido / desactivarlo |
+| `__ed.report()` | Copia el reporte de fallos (también: botón 📋 de la cajita) |
 | `__ed.cfg({testExpress:false})` | Desactivar el test exprés |
 | `__ed.cfg({practiceOneAction:false})` | Prácticas: volver a completar todo |
 | `__ed.help()` | Lista de comandos |
@@ -69,6 +79,7 @@ src/                     ← AQUÍ se edita
   core/storage.js          StorageManager
   core/navigation.js       NavigationManager (tareas, Next, popups)
   core/dropdowns.js        DropdownNav (desplegables de lección/step, de v17)
+  core/sweep.js            barrido de tests < 100 (lecciones y unidades)
   core/engine.js           MainEngine: detectKind() → runKind() → step()
   utils/dom.js             q, qa, vis, click, waitFor...
   utils/logger.js          log, warn, errLog
@@ -76,9 +87,12 @@ src/                     ← AQUÍ se edita
   utils/scroll.js          revealInBox: scroll dentro de cajas con barra propia
   utils/dnd-model.js       testDndModel: banco/huecos en tests (clasificación)
   utils/practice.js        practiceEnough: en prácticas, con UNA acción basta
+  utils/press.js           clic verificado (3 intentos distintos)
+  utils/reporter.js        reporte automático de fallos
   exercises/               UN archivo por tipo de ejercicio
     writing.js  select-text.js  sequence.js  dnd.js  mcq.js  droptarget.js
     mcq-legacy.js  ddl-legacy.js   (componentes viejos de ED)
+    memory.js                memory game (parejas)
     fitb.js  text.js  media.js  speaking.js
     index.js               los une en PracticeSolver
   tests/test-manager.js    tests: score, review (cosecha), replay
@@ -89,6 +103,7 @@ src/                     ← AQUÍ se edita
 dist/ed-autopilot.js     ← GENERADO por build.js. No se edita a mano.
 probes/                  scripts de diagnóstico de solo lectura
 tools/regresion.js       prueba "¿rompí algo sin querer?"
+tools/cargador.user.js   cargador para Tampermonkey
 legacy/                  versiones viejas (solo referencia, para rescatar funciones)
 docs/                    arquitectura, estado de cada ejercicio, pendientes
 ```

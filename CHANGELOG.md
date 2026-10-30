@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.8 — reporte automático, verificación de tareas, speaking, memory y barrido de tests
+- **Reporte automático de fallos** (`utils/reporter.js`): cuando algo no sale (tarea que ED no marcó, tipo desconocido, replay incompleto o sin acción, cosecha vacía, error, test sin 100 en el barrido) guarda una radiografía de la pantalla. Botón **📋 Reporte (N)** en la cajita, `__ed.report()` (copia), `__ed.reportFile()` (.txt), `__ed.reportClear()`. Al detenerse, intenta copiarlo solo.
+- **Verificar tarea marcada** (`CFG.verifyTasks`): tras resolver una práctica, si ED no la marcó → 1 reintento completo; si sigue sin marcar → al reporte. No se repiten writing/speaking/audio/memory.
+- **Speaking (Personalized speaking)**: Start → Skip → grabar ≥ 2,5 s → Stop → Send, cada clic VERIFICADO (`utils/press.js`); espera la preparación hasta 75 s si no hay Skip.
+- **Audio**: SR choice espera hasta 25 s (antes 15) y verifica el Start; Interactive elige la flecha no deshabilitada, verifica el Start (o pulsa la 1.ª frase) y espera hasta 40 s (antes 20).
+- **Memory game** (`exercises/memory.js`, "Click on the boxes to match the pairs"): ⚠ cómo marca ED una pareja es supuesto.
+- **Barrido de tests < 100** (`core/sweep.js`): `__ed.barrer()` recorre lección por lección (desplegables) entrando al test de cada una; los que no están en 100 los rehace; al terminar la unidad va al Home y entra a la siguiente (scroll incluido). En el barrido, un test que no llega a 100 se anota y se sigue (no se detiene). Necesita `tools/cargador.user.js` (Tampermonkey) para seguir solo entre páginas.
+
 ## v20.7 — más velocidad + prácticas con UNA acción + tipos viejos (MCQ, desplegable)
 **Velocidad**
 - **Test exprés** (`TestManager.expressSubmit`, `CFG.testExpress`): 1.er intento sin respuestas → no resuelve nada; salta a la última pregunta con los numeritos y pulsa Submit (si no puede saltar, Next sin resolver). Antes resolvía todo "a ciegas" (~4–10 s por pregunta).

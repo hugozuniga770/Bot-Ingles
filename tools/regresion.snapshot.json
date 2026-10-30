@@ -1,49 +1,49 @@
 {
   "mcq": {
     "kind": "mcq",
-    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\"}",
-    "trace": "click prMCQ__answerLabel:A | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0},\"taskMarked\":false}",
+    "trace": "click prMCQ__answerLabel:A | click prMCQ__answerLabel:A | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "dnd": {
     "kind": "dnd",
-    "r": "{\"did\":\"dnd_solved\",\"moves\":7,\"kind\":\"dnd\"}",
-    "trace": "pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"dnd_solved\",\"moves\":7,\"kind\":\"dnd\",\"retry\":{\"did\":\"dnd_solved\",\"moves\":7},\"taskMarked\":false}",
+    "trace": "pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "seq": {
     "kind": "sequence",
-    "r": "{\"did\":\"sequence_unverified\",\"kind\":\"sequence\"}",
-    "trace": "pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"sequence_unverified\",\"kind\":\"sequence\",\"retry\":{\"did\":\"sequence_unverified\"},\"taskMarked\":false}",
+    "trace": "pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "fitb": {
     "kind": "fitb",
-    "r": "{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500,\"kind\":\"fitb\"}",
-    "trace": "click DDLOptions__selected: | click DDLOptions__listItem:x | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500,\"kind\":\"fitb\",\"retry\":{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500},\"taskMarked\":false}",
+    "trace": "click DDLOptions__selected: | click DDLOptions__listItem:x | click DDLOptions__selected: | click DDLOptions__listItem:x | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "text": {
     "kind": "text",
-    "r": "{\"did\":\"text_solved\",\"n\":1,\"long\":false,\"waitDone\":3500,\"kind\":\"text\"}",
+    "r": "{\"did\":\"text_solved\",\"n\":1,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"long\":false,\"waitDone\":3500},\"taskMarked\":false}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "writing": {
     "kind": "writing",
-    "r": "{\"did\":\"writing_solved\",\"words\":30,\"kind\":\"writing\"}",
+    "r": "{\"did\":\"writing_solved\",\"words\":30,\"kind\":\"writing\",\"taskMarked\":false}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "select": {
     "kind": "select_text",
-    "r": "{\"did\":\"select_text_solved\",\"selectedCount\":0,\"kind\":\"select_text\"}",
-    "trace": "click st learning__selectTxt_st:frase uno | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"select_text_solved\",\"selectedCount\":0,\"kind\":\"select_text\",\"retry\":{\"did\":\"select_text_solved\",\"selectedCount\":0},\"taskMarked\":false}",
+    "trace": "click st learning__selectTxt_st:frase uno | click st learning__selectTxt_st:frase uno | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "speech": {
     "kind": "open_speech",
-    "r": "{\"did\":\"open_speech\",\"ok\":false,\"state\":\"intro\",\"kind\":\"open_speech\"}",
+    "r": "{\"did\":\"open_speech\",\"ok\":false,\"state\":\"intro\",\"kind\":\"open_speech\",\"taskMarked\":false}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -133,13 +133,13 @@
   },
   "practiceDrop": {
     "kind": "droptarget",
-    "r": "{\"did\":\"drop_practice\",\"moves\":1,\"ok\":1,\"total\":1,\"kind\":\"droptarget\"}",
+    "r": "{\"did\":\"drop_practice\",\"moves\":1,\"ok\":1,\"total\":1,\"kind\":\"droptarget\",\"retry\":{\"did\":\"drop_nothing_to_do\"},\"taskMarked\":false}",
     "trace": "pointerdown draggable wordBankTile:feel | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "practiceSeq": {
     "kind": "sequence",
-    "r": "{\"did\":\"sequence_solved\",\"attempt\":1,\"verified\":true,\"kind\":\"sequence\"}",
+    "r": "{\"did\":\"sequence_solved\",\"attempt\":1,\"verified\":true,\"kind\":\"sequence\",\"taskMarked\":true}",
     "trace": "pointerdown dnditem draggable:Alex walked fro | pointerup dndZone:The reception c | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -151,7 +151,7 @@
   },
   "practiceDnDOne": {
     "kind": "dnd",
-    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\"}",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\",\"taskMarked\":true}",
     "trace": "pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -166,6 +166,30 @@
     "r": "{\"did\":\"test_replay\",\"idx\":\"12/15\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2}}",
     "trace": "click arrowWrapper: | click LI:starts | click arrowWrapper: | click LI:don't | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 3: Present Simple: Review||Step 3: Test\":{\"12\":{\"lddl\":[\"starts\",\"don't\"]}}}"
+  },
+  "practiceMemory": {
+    "kind": "memory",
+    "r": "{\"did\":\"memory_tried\",\"pares\":2,\"intentos\":3,\"kind\":\"memory\",\"taskMarked\":true}",
+    "trace": "click memoG__cardIW:judge | click memoG__cardIW:thief | click memoG__cardIW:judge | click memoG__cardIW: | click memoG__cardIW:judge | click memoG__cardIW: | click memoG__cardIW:thief | click memoG__cardIW: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "speechFlow": {
+    "kind": "open_speech",
+    "r": "{\"did\":\"open_speech_solved\",\"ok\":true,\"kind\":\"open_speech\",\"taskMarked\":true}",
+    "trace": "click openSpeech__btn openSpeech__btnStart:Start | click openSpeech__btn openSpeech__btnSkip:Skip | click openSpeech__btn openSpeech__btnStop:Stop | click openSpeech__btn openSpeech__SentTTBtn:Send to teacher | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "sweepLesson": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"sweep_goto_test\"}",
+    "trace": "click learning__dropDownListTitleW--steps:Step 1: Explore | click learning__dropDownList_item:3. Test",
+    "ls": null
+  },
+  "sweepHome": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"sweep_open_unit\",\"unidad\":2}",
+    "trace": "click home__unit:2Unit title 2",
+    "ls": null
   },
   "scoreGiveUp": {
     "kind": "test_score",

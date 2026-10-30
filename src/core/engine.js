@@ -10,6 +10,9 @@
 // ===================================================================
 //  MOTOR PRINCIPAL (MAIN ENGINE)
 // ===================================================================
+// Tipos que NO se repiten solos si ED no marca la tarea (caros, o repetirlos no ayuda)
+const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory']);
+
 class MainEngine {
 
   // PARA QUÉ: dice qué tipo de ejercicio hay en pantalla. Lo usan step() y __ed.inspect(),
@@ -22,6 +25,7 @@ class MainEngine {
     if (qv('.openSpeech__AnsW')) return 'open_speech';
     if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
     if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
+    if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
     if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
     if (PracticeSolver.isDragAndDrop()) return 'dnd';
     if (qv('.DDLOptions__selected')) return 'fitb';
@@ -42,6 +46,7 @@ class MainEngine {
       case 'open_speech': return PracticeSolver.solveOpenSpeech();
       case 'interactive_speaking': return PracticeSolver.solveInteractive();
       case 'sr_choice': return PracticeSolver.solveSRChoice();
+      case 'memory': return PracticeSolver.solveMemoryGame();         // NUEVO v20.8
       case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
       case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
       case 'fitb': return PracticeSolver.solveFITB();
@@ -54,8 +59,12 @@ class MainEngine {
   }
 
   static async step() {
-    if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) return { did: 'not_in_lesson' };
+    if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
+      const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
+      return sw || { did: 'not_in_lesson' };
+    }
     await NavigationManager.handleModals();
+    { const sw = await TestSweep.lessonStep(); if (sw) return sw; }   // NUEVO v20.8: barrido de tests
 
     if (TestManager.isTestStart()) {
       const key = NavigationManager.testKey();
@@ -75,6 +84,13 @@ class MainEngine {
       if (pct < 100 && TestManager.tooManyRetries(key)) {
         // AJUSTADA v20.1 (decisión de Hugo): DETENERSE y avisar, en vez de seguir con lo siguiente.
         // Para volver al comportamiento anterior: __ed.cfg({ stopIfNot100: false })
+        if (TestSweep.active()) {   // NUEVO v20.8: en el barrido NO se detiene: anota y sigue
+          scoreVisits[key] = 0; StorageManager.setRun(null);
+          TestSweep.markLesson(pct, 'sin 100 tras reintentos');
+          Reporter.capture('test_sin_100', { pct, key });
+          await NavigationManager.goNext();
+          return { did: 'sweep_test_gave_up', pct };
+        }
         if (CFG.stopIfNot100) {
           scoreVisits[key] = 0;
           StorageManager.setRun(null);
@@ -88,6 +104,7 @@ class MainEngine {
       }
 
       if (pct === 100) {
+        if (TestSweep.active()) TestSweep.markLesson(100);   // NUEVO v20.8
         scoreVisits[key] = 0;
         StorageManager.setRun(null);
         await NavigationManager.goNext();
@@ -170,6 +187,20 @@ class MainEngine {
 
     // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
     if (res.waitDone) await waitFor(() => NavigationManager.taskDone(t.n), res.waitDone, 300);
+
+    // NUEVO v20.8 — VERIFICAR que ED marcó la tarea. Si no: 1 reintento COMPLETO (sin "una acción");
+    // si sigue sin marcar → al reporte automático y se sigue. (Los de audio/speaking no se repiten.)
+    if (CFG.verifyTasks && !TestManager.inTest()) {
+      let done = await waitFor(() => NavigationManager.taskDone(t.n), 1500, 200);
+      if (!done && !NO_RETRY_KINDS.has(kind)) {
+        log('🔁 La tarea', t.n, 'no quedó marcada → reintento completo');
+        const prev = CFG.practiceOneAction; CFG.practiceOneAction = false;
+        try { res.retry = await MainEngine.runKind(kind); } catch (e) { res.retryError = e.message; } finally { CFG.practiceOneAction = prev; }
+        done = await waitFor(() => NavigationManager.taskDone(t.n), 2500, 250);
+      }
+      res.taskMarked = !!done;
+      if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
+    }
 
     await sleep(400);   // AJUSTADA v20.7: era 800
     await NavigationManager.goNext();

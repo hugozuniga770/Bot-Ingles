@@ -15,13 +15,22 @@ window.__ed = {
     log('🚀 ED-Autopilot v' + V + ' iniciado.');
     let n = 0;
     while (this._running) {
-      if (++n > CFG.maxIterations) { this._running = false; break; }
-      try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; this._running = false; break; }
+      if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
+      try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
       await sleep(CFG.tickMs);
     }
     log('⏸ Bot detenido.');
+    if (Reporter.count()) { log('📝 Hay ' + Reporter.count() + ' fallos anotados. Botón 📋 de la cajita o __ed.report()'); Reporter.copy(); }   // NUEVO v20.8
     hud && hud.render();
   },
+  // ---- NUEVO v20.8: reporte automático de fallos ----
+  report: () => { Reporter.copy(); return Reporter.text(); },
+  reportFile: () => Reporter.file(),
+  reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
+  // ---- NUEVO v20.8: barrido de tests < 100 ----
+  barrer() { TestSweep.start(); return this.auto(); },
+  barrerStop: () => TestSweep.stop(),
+  barrerEstado: () => { const s = TestSweep.get(); console.table((s && s.resultados) || []); return s; },
   stop() { this._running = false; hud && hud.render(); },
 
   // Un solo paso (para depurar)
@@ -152,7 +161,9 @@ window.__ed = {
       '__ed.sweep()': 'Ir a lo primero pendiente de la unidad y arrancar', '__ed.reopenTest()': 'Volver al test (tras el review)',
       '__ed.gotoLesson(n) / gotoStep(n) / gotoTask(n)': 'Saltar por los desplegables', '__ed.dropdowns()': 'Ver los desplegables (diagnóstico)',
       '__ed.copyAnswers() / pasteAnswers()': 'Pasar respuestas a otra PC', '__ed.export() / import(json)': 'Respaldo en archivo',
-      'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó'
+      'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó',
+      '__ed.report() / reportFile() / reportClear()': 'Reporte de fallos: copiar / descargar / borrar',
+      '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades'
     });
   }
 };

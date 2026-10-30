@@ -31,6 +31,12 @@ Se trabajan **de a uno**, en este orden, y cada uno se valida en ED real antes d
 - ⬜ Test exprés: ¿ED deja saltar con los numeritos a la última pregunta?
 - ⬜ Prácticas con UNA acción: ¿ED marca la tarea como hecha tras una acción en todos los tipos?
 
+## 1d. Por confirmar en ED real (v20.8)
+- ⬜ Memory game: cómo marca ED una pareja acertada (el bot lo deduce comparando clases).
+- ⬜ Barrido: qué pantalla aparece al pulsar una unidad en el Home (si es intermedia, queda en el reporte como `barrido_pagina_desconocida`).
+- ⬜ Speaking: ¿basta Start → Skip → 2,5 s → Stop → Send para que ED marque la tarea?
+- El **reporte automático** (`__ed.report()`) reemplaza pasar dumps uno por uno.
+
 ## 2. Funciones de versiones anteriores que la v19.7 perdió
 
 **Grupo 2 (siguiente):** verificar tarea + reintentar + saltar a pendiente, detección de atasco, fin de unidad, modos, `requiredWords`. Todos cambian el bucle `auto()`, por eso van juntos y aparte.

@@ -19,6 +19,7 @@ Marca el estado aquí cada vez que lo valides (✅ funciona · ⚠️ falla · �
 | `droptarget` | `exercises/droptarget.js` | `span.droptarget` + `.wordBankTile` | `solveDropTarget` | ⬜ v20.6 |
 | `mcq_legacy` | `exercises/mcq-legacy.js` | `.lessonMultipleAnswer` | `solveLegacyMCQ` | ⬜ v20.7 |
 | `ddl_legacy` | `exercises/ddl-legacy.js` | `.fillInBlank .questionText` | `solveLegacyDDL` | ⚠️ v20.7 estructura supuesta |
+| `memory` | `exercises/memory.js` | `.memoG__card` | `solveMemoryGame` | ⚠️ v20.8 supuesto |
 | `media` | `exercises/media.js` | `.layout__mediaPlayPause` | `solveMedia` | ⬜ |
 
 ## Tests

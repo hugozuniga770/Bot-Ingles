@@ -239,6 +239,7 @@ class TestManager {
       } catch (e) {}
     }
     if (saved) StorageManager.addKnown(key);
+    else Reporter.capture('cosecha_vacia', { idx });   // NUEVO v20.8
     await NavigationManager.goNext();
     await sleep(1500);
 
@@ -360,6 +361,11 @@ class TestManager {
     if (PracticeSolver.isDropTargetScreen()) { if (scr.drop && scr.drop.some(Boolean)) out.drop = await PracticeSolver.placeDropTargets(scr.drop); }
     else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
     else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
+    // NUEVO v20.8: anotar en el reporte lo que no salió completo (o una pregunta que el bot no sabe contestar)
+    const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total);
+    const nada = !['mcq', 'fitb', 'dnd', 'drop', 'seq', 'lddl', 'lmcq'].some(k => out[k]);
+    if (incompleto) Reporter.capture('replay_incompleto', out);
+    else if (nada) Reporter.capture('replay_sin_accion', { cosechado: Object.keys(scr) });
     await sleep(500);
     await NavigationManager.goNext();
     return out;
