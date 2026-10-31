@@ -68,6 +68,22 @@ const PRACT = (step, cur = 2) => `<div class="learning__dropDownListTitleW--less
 <a id="play-pause" class="layout__mediaPlayPause"></a><a class="tasksBtnext learning__nextItemLink">Next</a>`;
 const SEQ_PRACT = ['Alex walked from Texas to New York.', "The reception clerk didn't have a reservation for Alex.", 'The reservation clerk found Alex a room.'].map((t, i) => `<div class="prSeq__container regContainer prSeq__containerW prSeq__container--txt"><h2 class="containerHeader">${i + 1}</h2><div class="prSeq__container prSeq__container--txt"><div class="sequenceZone"><ed-la-dndzone><div class="dndZone"><ed-la-dnditem><div class="dnditem draggable">${t}</div></ed-la-dnditem></div></ed-la-dndzone></div></div></div>`).join('');
 
+// ---- ayudantes del HOME (v21.3), con las clases reales de los dumps del 31/10 ----
+function HOME_HTML(unidades, avg, comp) {
+  return `<div class="home__studentWidgetCompletion"><span class="home__studentWidgetData">${comp}%</span> Course Completion</div>
+<div class="home__studentWidgetTestScores"><span class="home__studentWidgetData">${avg}%</span> Average Test Score</div>
+<div class="home__units">${unidades.map(([n, t, hecha]) => `<div class="home__unitW home__unitW--notLocked"><div class="home__unitIW"><div class="home__unit" id="u${n}">${hecha ? '<div class="home__statusW"><span class="home__status">Completed!</span></div>' : '<div class="home__statusW"></div>'}<div class="home__details"><span class="home__detailsNumber">${n}</span><span class="home__detailsTitle">${t}</span></div></div></div></div>`).join('')}</div>`;
+}
+// Al pulsar una tarjeta aparece su lista de lecciones; la lección 1 al 100 %, la 2 al 40 %
+function HOME_SETUP(w) {
+  const d = w.document;
+  d.querySelectorAll('.home__unit').forEach(u => u.addEventListener('click', () => {
+    if (u.parentElement.querySelector('.home__courseListItem')) return;
+    u.parentElement.insertAdjacentHTML('beforeend', [[1, 'Directions to the Museum', 100], [2, 'Clean-House Agency', 40], [3, 'Newsstand', 0]].map(([n, t, p]) =>
+      `<div class="home__courseListItem"><a class="home__courseListItemLink" id="L${u.id}_${n}"><span class="home__courseListItemNumber">${n}.</span> <span class="home__courseListItemName">${t}</span></a><span class="home__courseListItemProgress"><span style="width: ${p}%"></span></span></div>`).join(''));
+  }));
+}
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -213,6 +229,25 @@ const FIX = {
         const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
         ['this', 'these', 'those', 'that'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; ow.remove(); }); ul.appendChild(li); });
         d.body.appendChild(ow); })); } },
+  // NUEVO v21.0 — tu REPORTE (Lesson 5: Be-Past: Questions · Test · 7/10, quedó en 97 %): el banco tiene
+  // "Weren't" y "weren't"; lo correcto es "weren't". Antes se elegía la 1.ª sin mirar mayúsculas.
+  replayDropCase: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Be-Past: Questions</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>7 / 10</span>
+<div class="ClozeTxtDiv"><div class="TextDiv">- <span class="TTpanswerDiv droptarget" ans="">&nbsp;</span> <span class="TTpanswerDiv droptarget" ans="">&nbsp;</span> you at home last night?</div></div>
+<div class="wordsBankTable" id="TTpTablePlaceHolder">${['Why', "Weren't", "weren't", 'Were'].map((t, k) => `<div id="${k}" class="draggableContainer"><div data-id="${60 + k}" class="draggable wordBankTile">${t}</div></div>`).join('')}</div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 5: Be-Past: Questions||Step 4: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 5: Be-Past: Questions||Step 4: Test': { 7: { drop: ['Why', "weren't"] } } }) },
+    setup: DROP_DRAG },
+  // NUEVO v20.10 — tu REPORTE (Lesson 5: Nouns · Test · 3/4/7/9): ED abre SOLA la lista del 1.er hueco al cargar,
+  // y las demás se abren con el FOCO (Tab), no con clic. Patrón real: 1.er hueco bien, 2.º "no se abrió la lista".
+  replayLegacyDDLAuto: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Nouns: This/That/These/Those</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>3 / 10</span>
+<div class="answersWrapper fillInBlank"><div class="fitb"><div class="bubbleLeft bubbleItem">Are you enjoying <span id="1_1" class="answered"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> hamburger?</div><div class="bubbleRight bubbleItem">Yes, and <span id="1_2" class="answered"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> pizza, too.</div></div></div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 5: Nouns: This/That/These/Those||Step 4: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 5: Nouns: This/That/These/Those||Step 4: Test': { 3: { lddl: ['that', 'this'] } } }) },
+    setup: w => { const d = w.document; const spans = [...d.querySelectorAll('.fitb span[id]')];
+      const cerrar = () => { d.querySelectorAll('.optionsWrapper').forEach(u => u.remove()); spans.forEach(x => x.classList.remove('active')); };
+      const abrir = sp => { cerrar(); sp.classList.add('active'); const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
+        ['this', 'these', 'those', 'that'].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; cerrar(); }); ul.appendChild(li); });
+        d.body.appendChild(ow); };
+      spans.forEach(sp => sp.addEventListener('focus', () => abrir(sp)));   // SOLO con el foco (Tab)
+      abrir(spans[0]); } },
   // NUEVO v20.9 — tu REPORTE (Lesson 5: Pronouns · Test · 3/10): en "Correct Answer" el hueco NO trae texto, solo ans="87"
   // (= data-id de la ficha "me"). Antes se guardaba "87" y en el reintento no hallaba ficha (moves: 0).
   reviewDropAnsId: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Pronouns: Object</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div>
@@ -243,9 +278,18 @@ const FIX = {
 <div class="learning__dropDownListTitleW--steps">Step 1: Explore</div><div class="learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current">1. Explore</div><div class="learning__dropDownList_item" id="st">3. Test</div></div><a class="tasksBtnext learning__nextItemLink">Next</a>`,
     ls: { 'ed:sweep:v1': JSON.stringify({ active: true, phase: 'lesson', lessonsDone: [], unitsDone: [], resultados: [] }) },
     setup: w => w.document.getElementById('st').addEventListener('click', () => { w.document.querySelector('.learning__dropDownListTitleW--steps').textContent = 'Step 3: Test'; }) },
-  // NUEVO v20.8 — BARRIDO en el HOME: unidad 1 ya hecha → entra a la 2 (con scroll)
-  sweepHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: `<div class="layout__mainContent">${[1, 2, 3].map(n => `<div class="home__unitW home__unitW--notLocked"><div class="home__unitIW"><div class="home__unit" id="u${n}"><div class="home__details"><span class="home__detailsNumber">${n}</span><span class="home__detailsTitle">Unit title ${n}</span></div></div></div></div>`).join('')}</div>`,
-    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, phase: 'home', lessonsDone: [], unitsDone: [1], resultados: [] }) } },
+  // AJUSTADA v21.3 — HOME real (dumps del 31/10): pulsar una tarjeta DESPLIEGA su lista de lecciones; se entra con la lección
+  sweepHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', false], [3, 'Getting Help', false]], 100, 25),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, phase: 'home', lessonsDone: [], unitsDone: [1], resultados: [] }) }, setup: HOME_SETUP },
+  // NUEVO v21.3 — MODO COMPLETAR en el Home: salta la unidad 1 (Completed!), abre la 2 y entra a la 1.ª lección NO completa
+  completarHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', false], [3, 'Getting Help', false]], 95, 25),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) }, setup: HOME_SETUP },
+  // NUEVO v21.3 — MODO COMPLETAR: todas las unidades hechas y promedio 95 % → pasa al barrido de tests
+  completarATests: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 95, 100),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) } },
+  // NUEVO v21.3 — MODO COMPLETAR: todo hecho y promedio 100 % → termina
+  completarFin: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 100, 100),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) } },
   // NUEVO v20.1 — 4 visitas al puntaje < 100 % → debe DETENERSE (ED_TEST_NO_100)
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };

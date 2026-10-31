@@ -1,5 +1,31 @@
 # Changelog
 
+## v21.3 — modo COMPLETAR y Home real
+- **Home real** (dumps del 31/10): pulsar una unidad NO entra, despliega su lista de lecciones (`.home__courseListItemLink`). El barrido de v20.8 se habría quedado abriendo/cerrando esa lista. Ahora `abrirUnidad()` despliega la lista (verificado) y entra a la 1.ª lección no completa (por el ancho de su barra de progreso; si no se puede leer, la 1.ª).
+- **Modo completar** (`__ed.completar()`, modo por defecto en la nube): lee Course Completion / Average Test Score, recorre las unidades sin "Completed!" haciendo prácticas y tests; si se atasca (misma pantalla 6 pasos) va a lo pendiente con los desplegables; sin pendientes o tras `maxMinPorUnidad` (150) min → Home → siguiente unidad. Al final, si el promedio < 100 → barrido de tests. Página desconocida 15 veces → vuelve al Home.
+- **Nube**: modos `completar | barrer | auto`; termina antes si el bot acabó; escribe un **resumen** en la página de la ejecución (porcentajes, unidades, tests y el reporte completo de fallos). Probado de punta a punta con Chrome real contra una copia del login y del Home.
+
+## v21.2 — Interact 2, eco del micrófono y BOT EN LA NUBE
+- **Interact 2** (reporte Piece of Cake · Step 4): no trae flechas de personaje → se tomaba como desconocido. Ahora se reconoce por `.speakingInteract` / `.interact2` y espera a que el panel se habilite antes de Start.
+- **Eco del micrófono** (experimento): en "elegir la respuesta hablando", con micrófono simulado, el bot pulsa Start y reproduce el audio de la opción correcta (voz de un nativo), que entra al micrófono simulado. Si el navegador no deja capturar ese audio, entra silencio (no rompe nada).
+- **Nube** (`cloud/runner.js` + `.github/workflows/nube.yml`, guía en `docs/nube.md`): GitHub Actions corre Chrome con Playwright, inicia sesión con los Secrets `ED_USER_n` / `ED_PASS_n` (login real: `input[name=userName]`, `input[name=password]`, `#submit1`; no toca el campo trampa `foilautofill`), inyecta el bot en cada página, guarda memoria y reporte. Varias cuentas en paralelo con la matriz. Probado contra una copia del login (correcta e incorrecta).
+- `__ed.reportText()`: el reporte como texto (lo usa la nube).
+
+## v21.1 — micrófono simulado y pestaña que no se traba
+- **Micrófono simulado** (`utils/fake-mic.js`, `CFG.fakeMic`): sin micrófono real ("Your microphone is not available ... Error 505"), el navegador entrega un audio casi silencioso, así ED puede grabar y enviar en los speaking al profesor. En "elegir la respuesta hablando" ED escucha silencio (no lo da por correcto, pero ya no se traba). Si hay micrófono real, se usa el real.
+- **Pestaña que se traba**: los pasos se imprimen como texto (no objetos) → la consola gasta mucha menos memoria. Con el cargador de Tampermonkey, la pestaña se recarga sola cada `CFG.reloadEveryMin` (40) min y el bot **retoma solo** (bandera `ed:running:v1`).
+- **Cargador v1.1** (`tools/cargador.user.js`): corre ANTES que ED (document-start) para instalar el micrófono desde el inicio. Hay que actualizarlo en Tampermonkey.
+
+## v21.0 — detalles finos: mayúsculas, carga lenta, writing y speaking de elegir
+- **Mayúsculas** (reporte Lesson 5: Be-Past: Questions · Test · 7/10, 97 %): el banco tenía "Weren't" y "weren't"; el bot comparaba sin mayúsculas, ponía la 1.ª y además creía que estaba bien. Nuevo `pick()`/`exacto()`/`coincide()` en `utils/dom.js`: primero la coincidencia EXACTA; solo si no existe, sin mayúsculas. Aplicado a fichas de huecos (droptarget), DnD, desplegables (FITB y viejo).
+- **Pantalla que tarda en cargar** (reporte Writing de "Wrong Color"): si no se reconoce nada, espera hasta 4 s a que aparezca el ejercicio antes de rendirse. Writing también se detecta por `.prWriting__main` y espera su editor.
+- **Speaking de elegir respuesta** (reporte Dress from Paris · 5/6): primero prueba un clic en la opción correcta (clase `c`, registrada como `User_Answer`); si ED marca la tarea, no graba. Si no, Start como antes.
+
+## v20.10 — desplegable viejo: rellena TODOS los huecos
+- Reporte (Lesson 5: Nouns · Test · 3, 4, 7 y 9/10, y Lesson 2: Pronouns quedó en 90 %): el 1.er hueco salía bien y el 2.º daba "no se abrió la lista". El 1.º salía porque ED abre sola su lista al cargar; los demás se abren con el FOCO (Tab), no con clic. Reproducido en simulación (v20.9: 1/2 · v20.10: 2/2).
+- `openLegacy` prueba, verificando cada vez: lista ya abierta → clic en el texto → en la flecha → en el hueco → foco (Tab) → mouse → jQuery → teclado. Si la lista abierta era de otro hueco, la cierra y abre la correcta.
+- El resultado trae `metodos` (qué funcionó en cada hueco) y, si falla, el HTML del hueco para el reporte.
+
 ## v20.9 — DnD de huecos (ans=id) y desplegable viejo con la estructura real
 - **DnD viejo (`span.droptarget`) en tests** — reporte Lesson 5: Pronouns · Test · 3/10 (`moves: 0`): en "Correct Answer" el hueco puede no traer texto, solo `ans="87"` (= `data-id` de la ficha correcta). Se guardaba "87" y en el reintento no había ficha con ese texto. Ahora `dropValue` traduce el id a la palabra, y `findTile` busca por texto, por `data-id` o por texto sin signos (así también sirven cosechas viejas con números).
 - **Desplegable viejo** ("Select the correct answer from the drop-down list."), rehecho con el dump real: el hueco es `<span id="1_1">` con `div.questionText` + `div.arrowWrapper`, y la lista es `.optionsWrapper`. Se pulsa el span (verificado), se elige por texto y se comprueba; respaldo por teclado (flechas + Enter).

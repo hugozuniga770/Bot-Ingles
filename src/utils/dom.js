@@ -66,3 +66,12 @@ function setNative(el, value) {
   el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
   el.dispatchEvent(new Event('blur', { bubbles: true }));
 }
+
+// NUEVO v21.0 — comparar textos RESPETANDO mayúsculas ("Weren't" ≠ "weren't").
+// exacto(): igual tras limpiar espacios. pick(lista, texto, getTxt): primero la coincidencia exacta;
+// solo si no hay, la que coincide sin mayúsculas (norm). Así un banco con "Weren't" y "weren't" elige bien.
+const limpio = s => String(s || '').replace(/\s+/g, ' ').trim();
+const exacto = (a, b) => limpio(a) === limpio(b);
+const pick = (lista, texto, getTxt = txt) => lista.find(x => exacto(getTxt(x), texto)) || lista.find(x => norm(getTxt(x)) === norm(texto)) || null;
+// ¿coincide? Exacto si en la pantalla existe alguna opción con ese texto exacto; si no, sin mayúsculas.
+const coincide = (valor, quiere, hayExacta) => (hayExacta ? exacto(valor, quiere) : norm(valor) === norm(quiere));

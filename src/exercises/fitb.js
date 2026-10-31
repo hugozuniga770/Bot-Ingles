@@ -24,7 +24,7 @@ class FITBSolver {
       if (!want && txt(d)) continue;                    // ya tiene algo y no hay respuesta conocida
       click(d); await sleep(350);
       const opts = qav('.DDLOptions__listItem');
-      const o = (want && opts.find(x => norm(txt(x)) === norm(want))) || opts[0];
+      const o = (want && pick(opts, want)) || opts[0];   // AJUSTADA v21.0: exacta (mayúsculas) primero
       if (o) { click(o); n++; }
       await sleep(250);
       if (!values && n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: práctica → con uno basta

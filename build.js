@@ -30,6 +30,7 @@ const ORDEN = [
   'utils/practice.js',
   'utils/press.js',
   'utils/reporter.js',
+  'utils/fake-mic.js',
   'core/storage.js',
   'core/navigation.js',
   'core/dropdowns.js',

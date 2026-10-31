@@ -12,11 +12,16 @@ window.__ed = {
   async auto() {
     if (this._running) return log('ya está corriendo');
     this._running = true; this._lastMsg = '';
+    try { localStorage.setItem('ed:running:v1', '1'); } catch (e) {}   // NUEVO v21.1: para retomar tras recargar
+    const t0 = Date.now();
     log('🚀 ED-Autopilot v' + V + ' iniciado.');
     let n = 0;
     while (this._running) {
       if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
-      try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
+      // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
+      if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+      // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
+      try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
       await sleep(CFG.tickMs);
     }
     log('⏸ Bot detenido.');
@@ -25,13 +30,15 @@ window.__ed = {
   },
   // ---- NUEVO v20.8: reporte automático de fallos ----
   report: () => { Reporter.copy(); return Reporter.text(); },
+  reportText: () => Reporter.text(),   // NUEVO v21.2: el reporte como texto (lo usa la nube)
   reportFile: () => Reporter.file(),
   reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
   // ---- NUEVO v20.8: barrido de tests < 100 ----
   barrer() { TestSweep.start(); return this.auto(); },
+  completar() { TestSweep.startCompletar(); return this.auto(); },   // NUEVO v21.3: todo el curso + tests < 100
   barrerStop: () => TestSweep.stop(),
   barrerEstado: () => { const s = TestSweep.get(); console.table((s && s.resultados) || []); return s; },
-  stop() { this._running = false; hud && hud.render(); },
+  stop() { this._running = false; try { localStorage.removeItem('ed:running:v1'); } catch (e) {} hud && hud.render(); },   // AJUSTADA v21.1
 
   // Un solo paso (para depurar)
   async step() { const r = await MainEngine.step(); log(r); return r; },
@@ -163,7 +170,8 @@ window.__ed = {
       '__ed.copyAnswers() / pasteAnswers()': 'Pasar respuestas a otra PC', '__ed.export() / import(json)': 'Respaldo en archivo',
       'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó',
       '__ed.report() / reportFile() / reportClear()': 'Reporte de fallos: copiar / descargar / borrar',
-      '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades'
+      '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades',
+      '__ed.completar()': 'TODO el curso unidad por unidad y luego tests < 100 (desde el Home)'
     });
   }
 };

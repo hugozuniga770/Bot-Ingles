@@ -35,7 +35,7 @@ class DropTargetSolver {
   // NUEVO v20.9: buscar la ficha por texto exacto → por data-id → por texto sin signos ni espacios
   static findTile(valor) {
     const want = norm(valor), tiles = this.bankTiles(), solo = s => norm(s).replace(/[^a-z0-9]/g, '');
-    return tiles.find(x => norm(txt(x)) === want) || tiles.find(x => x.getAttribute('data-id') === String(valor).trim()) ||
+    return pick(tiles, valor) || tiles.find(x => x.getAttribute('data-id') === String(valor).trim()) ||   // AJUSTADA v21.0: exacta (mayúsculas) primero
       tiles.find(x => solo(txt(x)) && solo(txt(x)) === solo(valor)) || null;
   }
 
@@ -65,11 +65,13 @@ class DropTargetSolver {
     let moves = 0, ok = 0;
     for (let i = 0; i < values.length; i++) {
       const want = norm(values[i]);
+      // NUEVO v21.0: si existe una ficha con el texto EXACTO (p. ej. "weren't" y "Weren't"), se exige exacto
+      const hayExacta = qa('.draggable, .wordBankTile').some(x => exacto(txt(x), values[i]));
       if (!want) continue;
       for (let intento = 0; intento < 3; intento++) {
         const t = this.dropTargets()[i];
         if (!t) break;
-        if (norm(this.dropValue(t)) === want) break;
+        if (coincide(this.dropValue(t), values[i], hayExacta)) break;
         const tile = this.findTile(values[i]);   // AJUSTADA v20.9
         if (!tile) { warn('DropTarget: no encuentro la ficha', values[i]); break; }
         await revealInBox(t); await revealInBox(tile);
@@ -79,7 +81,7 @@ class DropTargetSolver {
         await sleep(300);
       }
       const t = this.dropTargets()[i];
-      if (t && norm(this.dropValue(t)) === want) ok++;
+      if (t && coincide(this.dropValue(t), values[i], hayExacta)) ok++;
     }
     const total = values.filter(v => norm(v)).length;
     if (ok < total) warn(`DropTarget: quedaron ${ok}/${total} huecos bien`, { esperado: values, quedó: this.dropTargets().map(t => this.dropValue(t)) });

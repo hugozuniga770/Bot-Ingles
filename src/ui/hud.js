@@ -23,7 +23,7 @@ class HUD {
       ${TestSweep.active() ? '<span style="color:#74b9ff">🧭 Barrido de tests activo</span><br>' : ''}
       <button id="ed_t" style="margin-top:6px;padding:4px 8px;background:${run?'#e74c3c':'#2ecc71'};color:#fff;border:0;border-radius:4px;cursor:pointer">${run?'Parar':'Iniciar'}</button>
       ${Reporter.count() ? `<button id="ed_r" style="margin-top:6px;margin-left:4px;padding:4px 8px;background:#f39c12;color:#fff;border:0;border-radius:4px;cursor:pointer">📋 Reporte (${Reporter.count()})</button>` : ''}`;
-    this.el.querySelector('#ed_t').onclick = () => { run ? window.__ed.stop() : window.__ed.auto(); };
+    this.el.querySelector('#ed_t').onclick = () => { primeFakeMic(); run ? window.__ed.stop() : window.__ed.auto(); };   // AJUSTADA v21.1: el clic real activa el audio del micrófono simulado
     const rb = this.el.querySelector('#ed_r'); if (rb) rb.onclick = () => Reporter.copy();   // NUEVO v20.8 (clic = el navegador deja copiar)
   }
 }

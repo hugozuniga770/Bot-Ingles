@@ -73,7 +73,7 @@ class DnDSolver {
         if (!m.bank.isConnected || m.dests.some(d => !d.isConnected)) m = testDndModel() || m;
         const dst = m.dests[i];
         if (!dst) break;
-        const it = bankItems(m.bank).find(x => norm(txt(x)) === norm(w));
+        const it = pick(bankItems(m.bank), w);   // AJUSTADA v21.0: exacta (mayúsculas) primero
         // AJUSTADA v20.2: si el hueco o la ficha están dentro de una caja con scroll propio (cloze del
         // e-mail, etc.), primero se desplaza esa caja; si no, el arrastre soltaba sobre algo tapado.
         if (it) { await revealInBox(dst); await revealInBox(it); await drag(it, dst); moves++; }

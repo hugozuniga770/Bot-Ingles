@@ -1,0 +1,69 @@
+# =====================================================================
+#  nube.yml — corre el bot en la nube (sin tu PC). Actions → "nube" → Run workflow.
+#  Cuentas: Settings → Secrets and variables → Actions → New repository secret:
+#      ED_USER_1 / ED_PASS_1   (y ED_USER_2 / ED_PASS_2 ... para más cuentas)
+#  Para varias cuentas a la vez, agrega sus números en matrix.cuenta (ej. [1, 2, 3]).
+#  Cada ejecución dura como máximo ~5,5 h (GitHub corta a las 6 h); la siguiente retoma
+#  con la memoria guardada (respuestas cosechadas, barrido). Nunca se guardan cookies.
+# =====================================================================
+name: nube
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · auto = sigue la lección actual'
+        type: choice
+        options: [completar, barrer, auto]
+        default: completar
+      minutos:
+        description: 'Minutos de trabajo (máx. 330)'
+        default: '330'
+  # Para que se relance solo cada 6 h, quita el # de las 2 líneas siguientes:
+  # schedule:
+  #   - cron: '0 */6 * * *'
+
+concurrency:
+  group: nube-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  correr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        cuenta: [1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Instalar Playwright + Chrome
+        run: npm install --no-audit --no-fund --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
+      - name: Recuperar la memoria del bot (ejecución anterior)
+        uses: actions/cache/restore@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.cuenta }}-${{ github.run_id }}
+          restore-keys: ed-estado-${{ matrix.cuenta }}-
+      - name: Correr el bot
+        run: node cloud/runner.js
+        env:
+          CUENTA: ${{ matrix.cuenta }}
+          ED_USER: ${{ secrets[format('ED_USER_{0}', matrix.cuenta)] }}
+          ED_PASS: ${{ secrets[format('ED_PASS_{0}', matrix.cuenta)] }}
+          MODO: ${{ github.event.inputs.modo || 'completar' }}
+          MINUTOS: ${{ github.event.inputs.minutos || '330' }}
+      - name: Guardar la memoria del bot
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.cuenta }}-${{ github.run_id }}
+      - name: Subir reporte y fotos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuenta-${{ matrix.cuenta }}
+          path: salida/
+          retention-days: 3

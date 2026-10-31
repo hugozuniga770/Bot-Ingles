@@ -27,6 +27,9 @@ const CFG = Object.assign({
   testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
   practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
   verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
+  fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
+  reloadEveryMin: 40,
+  maxMinPorUnidad: 150,      // NUEVO v21.3: modo completar: tope de minutos por unidad antes de pasar a la siguiente        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
   cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
 }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
 // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.

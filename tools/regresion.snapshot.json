@@ -163,9 +163,21 @@
   },
   "replayLegacyDDL": {
     "kind": "test_question",
-    "r": "{\"did\":\"test_replay\",\"idx\":\"9/10\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2}}",
-    "trace": "click answered: | click LI:this | click active: | click LI:those | click tasksBtnext learning__submitTestLink:Submit",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"9/10\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2,\"metodos\":[\"1:clic_texto\",\"2:clic_texto\"]}}",
+    "trace": "click questionText: | click LI:this | click questionText: | click LI:those | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 5: Nouns: This/That/These/Those||Step 4: Test\":{\"9\":{\"lddl\":[\"this\",\"those\"]}}}"
+  },
+  "replayDropCase": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"7/10\",\"drop\":{\"did\":\"drop_replay\",\"moves\":2,\"ok\":2,\"total\":2}}",
+    "trace": "pointerdown draggable wordBankTile:Why | pointerup TTpanswerDiv droptarget: | pointerdown draggable wordBankTile:weren't | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 5: Be-Past: Questions||Step 4: Test\":{\"7\":{\"drop\":[\"Why\",\"weren't\"]}}}"
+  },
+  "replayLegacyDDLAuto": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"3/10\",\"lddl\":{\"did\":\"ddl_legacy_replay\",\"n\":2,\"ok\":2,\"total\":2,\"metodos\":[\"1:ya_abierta\",\"2:foco_tab\"]}}",
+    "trace": "click LI:that | click questionText: | click arrow-down: | click answered: | click LI:this | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 5: Nouns: This/That/These/Those||Step 4: Test\":{\"3\":{\"lddl\":[\"that\",\"this\"]}}}"
   },
   "reviewDropAnsId": {
     "kind": "test_review",
@@ -194,7 +206,25 @@
   "sweepHome": {
     "kind": "mcq_default",
     "r": "{\"did\":\"sweep_open_unit\",\"unidad\":2}",
-    "trace": "click home__unit:2Unit title 2",
+    "trace": "click home__unit:2Healthy Eating | click home__courseListItemLink:2. Clean-House ",
+    "ls": null
+  },
+  "completarHome": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_abre_unidad\",\"unidad\":2}",
+    "trace": "click home__unit:2Healthy Eating | click home__courseListItemLink:2. Clean-House ",
+    "ls": null
+  },
+  "completarATests": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_a_tests\"}",
+    "trace": "",
+    "ls": null
+  },
+  "completarFin": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_fin\",\"widgets\":{\"completion\":100,\"avg\":100}}",
+    "trace": "",
     "ls": null
   },
   "scoreGiveUp": {

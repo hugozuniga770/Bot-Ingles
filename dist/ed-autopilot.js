@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v20.9  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.3  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '20.9';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.3';   // ← ÚNICO lugar donde se cambia la versión
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -58,6 +58,9 @@
     testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
     practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
     verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
+    fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
+    reloadEveryMin: 40,
+    maxMinPorUnidad: 150,      // NUEVO v21.3: modo completar: tope de minutos por unidad antes de pasar a la siguiente        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
     cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
   // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
@@ -153,6 +156,15 @@
     el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
     el.dispatchEvent(new Event('blur', { bubbles: true }));
   }
+
+  // NUEVO v21.0 — comparar textos RESPETANDO mayúsculas ("Weren't" ≠ "weren't").
+  // exacto(): igual tras limpiar espacios. pick(lista, texto, getTxt): primero la coincidencia exacta;
+  // solo si no hay, la que coincide sin mayúsculas (norm). Así un banco con "Weren't" y "weren't" elige bien.
+  const limpio = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const exacto = (a, b) => limpio(a) === limpio(b);
+  const pick = (lista, texto, getTxt = txt) => lista.find(x => exacto(getTxt(x), texto)) || lista.find(x => norm(getTxt(x)) === norm(texto)) || null;
+  // ¿coincide? Exacto si en la pantalla existe alguna opción con ese texto exacto; si no, sin mayúsculas.
+  const coincide = (valor, quiere, hayExacta) => (hayExacta ? exacto(valor, quiere) : norm(valor) === norm(quiere));
 
   // ▼▼▼ src/utils/logger.js ▼▼▼
   // =====================================================================
@@ -435,6 +447,85 @@
       a.download = 'ed-reporte-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.txt';
       document.body.appendChild(a); a.click(); a.remove();
     }
+  }
+
+  // ▼▼▼ src/utils/fake-mic.js ▼▼▼
+  // =====================================================================
+  //  MICRÓFONO SIMULADO — para PCs sin micrófono ("Your microphone is not available ... Error 505")
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.1. ED pide el micrófono con getUserMedia. Si no hay ninguno, falla y el botón de grabar
+  //  no se activa. installFakeMic() hace que, cuando NO haya micrófono real, el navegador entregue un
+  //  audio casi silencioso (ruido muy bajo). Así ED puede grabar y enviar en los speaking al profesor.
+  //  ⚠ En "elegir la respuesta hablando" ED escucha silencio: no lo dará por correcto (solo ya no se traba).
+  //  Si hay micrófono real, se usa el real. Apagar: __ed.cfg({ fakeMic: false }) y recargar.
+  //  Para que funcione desde que carga la página, conviene el cargador de Tampermonkey (lo instala antes).
+  //  DEPENDE DE: nada
+  //  EXPONE:     installFakeMic, primeFakeMic
+  // =====================================================================
+
+  function installFakeMic() {
+    try {
+      const md = navigator.mediaDevices;
+      if (!md || md.__edFake) return false;
+      const orig = md.getUserMedia ? md.getUserMedia.bind(md) : null;
+      const origEnum = md.enumerateDevices ? md.enumerateDevices.bind(md) : null;
+      const falso = () => {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = window.__edMicCtx || (window.__edMicCtx = new Ctx());
+        try { ctx.resume(); } catch (e) {}
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.003;   // ruido casi inaudible
+        const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+        const dst = ctx.createMediaStreamDestination(); src.connect(dst); src.start();
+        window.__edMicDst = dst; window.__edFakeActive = true;   // NUEVO v21.2: para el "eco" (ver micEcho)
+        return dst.stream;
+      };
+      md.getUserMedia = async c => {
+        if (c && c.audio && !c.video) {
+          if (orig) { try { return await orig(c); } catch (e) { /* sin micrófono real → simulado */ } }
+          console.log('%c[ED]', 'color:#27ae61', '🎤 sin micrófono real → uso el simulado');
+          return falso();
+        }
+        return orig ? orig(c) : Promise.reject(new Error('getUserMedia no disponible'));
+      };
+      md.enumerateDevices = async () => {
+        const l = origEnum ? [...(await origEnum())] : [];
+        if (!l.some(x => x.kind === 'audioinput')) l.push({ deviceId: 'ed-fake-mic', kind: 'audioinput', label: 'ED micrófono simulado', groupId: 'ed', toJSON() { return this; } });
+        return l;
+      };
+      const viejo = (c, ok, err) => md.getUserMedia(c).then(ok, err);   // APIs viejas que usa el código antiguo de ED
+      navigator.getUserMedia = navigator.webkitGetUserMedia = navigator.mozGetUserMedia = viejo;
+      md.__edFake = true;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // NUEVO v21.2 — ECO (experimento): mientras window.__edMicEcho esté activo, todo audio que reproduzca la
+  // página (p. ej. el botón de audífonos de la opción correcta, dicha por un nativo) también entra al
+  // micrófono simulado. Así ED podría "oír" la respuesta correcta. Si el navegador no deja capturar ese
+  // audio (restricción de origen), simplemente entra silencio: no rompe nada.
+  function installMicEcho() {
+    try {
+      const P = HTMLMediaElement.prototype;
+      if (P.__edEcho) return;
+      const play = P.play;
+      P.play = function () {
+        try {
+          if (window.__edMicEcho && window.__edMicCtx && window.__edMicDst) {
+            const ctx = window.__edMicCtx;
+            if (!this.__edSrc) { this.__edSrc = ctx.createMediaElementSource(this); this.__edSrc.connect(ctx.destination); }
+            this.__edSrc.connect(window.__edMicDst);
+          }
+        } catch (e) {}
+        return play.apply(this, arguments);
+      };
+      P.__edEcho = true;
+    } catch (e) {}
+  }
+
+  // Chrome deja "activar" el audio solo tras un clic REAL: se llama al pulsar Iniciar en la cajita.
+  function primeFakeMic() {
+    try { const Ctx = window.AudioContext || window.webkitAudioContext; const ctx = window.__edMicCtx || (window.__edMicCtx = new Ctx()); ctx.resume(); } catch (e) {}
   }
 
   // ▼▼▼ src/core/storage.js ▼▼▼
@@ -728,6 +819,7 @@
     // Lo llama MainEngine.step() al principio, dentro del área de lecciones. null = sigue el flujo normal.
     static async lessonStep() {
       const s = this.get(); if (!s || !s.active) return null;
+      if (s.mode === 'completar') return await this.completarStep(s);   // NUEVO v21.3
       if (s.phase === 'entering_unit' || s.phase === 'home') {
         s.phase = 'lesson'; this.set(s);
         log('🧭 Barrido: unidad', this.unitNum(), '→ empiezo por la lección 1');
@@ -752,41 +844,143 @@
       if (sig) { log('🧭 Barrido: siguiente lección →', sig); await DropdownNav.gotoLesson(sig); return { did: 'sweep_next_lesson', leccion: sig }; }
       const s = this.get();
       if (!s.unitsDone.includes(this.unitNum())) s.unitsDone.push(this.unitNum());
-      s.phase = 'home'; this.set(s);
+      this.set(s);
       log('🏁 Barrido: unidad', this.unitNum(), 'terminada → voy al Home');
-      const home = qv('.sitemenu__itemHome--learningArea a') || qv('.sitemenu__itemHome--learningArea') || qv('.sitemenu__itemHome a') || qv('.sitemenu__itemHome');
-      if (home) click(home); else if (s.homeUrl) location.href = s.homeUrl;
-      await sleep(4000);
+      await this.irHome();
       return { did: 'sweep_unit_done' };
+    }
+
+    // ===================== HOME (dumps del 31/10) =====================
+    // Tarjetas .home__unitW--notLocked (número .home__detailsNumber, título .home__detailsTitle; las hechas
+    // muestran "Completed!"). Al PULSAR una tarjeta NO se entra: se despliega su lista de lecciones
+    // (.home__courseListItem > .home__courseListItemLink / Number / Name / Progress). Se entra con la lección.
+    // Widgets: .home__studentWidgetCompletion ("25% Course Completion") y .home__studentWidgetTestScores ("95%").
+    static leerWidgets() {
+      const num = sel => { const m = txt(q(sel)).match(/(\d{1,3})\s*%/); return m ? +m[1] : null; };
+      return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores') };
+    }
+    static unidades() {
+      return qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]),
+        t: txt(q('.home__detailsTitle', u)), completa: /completed|completad/i.test(txt(u)) }));
+    }
+    // Progreso de una lección en la lista (si ED lo pone como ancho de una barra); null si no se puede leer
+    static progresoLeccion(it) {
+      const p = q('.home__courseListItemProgress', it); if (!p) return null;
+      const b = [p, ...qa('*', p)].find(e => /width\s*:\s*\d/.test(e.getAttribute('style') || ''));
+      const m = b && (b.getAttribute('style') || '').match(/width\s*:\s*([\d.]+)%/);
+      return m ? +m[1] : null;
+    }
+    // Abre la unidad (despliega su lista) y entra a la 1.ª lección no completa (o la 1.ª). false si no pudo.
+    static async abrirUnidad(u) {
+      try { u.el.scrollIntoView({ block: 'center' }); } catch (e) {}
+      await sleep(700);
+      const caja = () => u.el.closest('.home__unitW') || u.el;
+      let lista = qav('.home__courseListItem', caja());
+      if (!lista.length) { await press(q('.home__unit', u.el) || q('.home__unitIW', u.el) || u.el, () => qav('.home__courseListItem', caja()).length > 0, 2500); lista = qav('.home__courseListItem', caja()); }
+      if (!lista.length) lista = qav('.home__courseListItem');   // por si ED pinta la lista fuera de la tarjeta
+      if (!lista.length) return false;
+      const it = lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
+      const link = q('.home__courseListItemLink', it) || it;
+      log('🧭 Unidad', u.n, '→ lección', txt(q('.home__courseListItemNumber', it)) + ' ' + txt(q('.home__courseListItemName', it)));
+      click(link);
+      await sleep(5000);
+      return true;
+    }
+    static async irHome() {
+      const s = this.get(); if (s) { s.phase = 'home'; this.set(s); }
+      const home = qv('.sitemenu__itemHome--learningArea a') || qv('.sitemenu__itemHome--learningArea') || qv('.sitemenu__itemHome a') || qv('.sitemenu__itemHome');
+      if (home) click(home); else if (s && s.homeUrl) location.href = s.homeUrl;
+      await sleep(4000);
+      return { did: 'sweep_home' };
+    }
+
+    // ===================== MODO "COMPLETAR" (NUEVO v21.3) =====================
+    // Hace TODO el curso unidad por unidad (prácticas + tests); al final, si el promedio de tests < 100,
+    // pasa solo al barrido de tests. Lo que no logra queda en el reporte y sigue con lo siguiente.
+    static startCompletar() {
+      this.set({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: null, inicio: new Date().toISOString() });
+      log('🚀 Modo COMPLETAR activado: todas las unidades → luego tests < 100. (__ed.barrerStop() para quitarlo)');
+    }
+
+    static async completarHome(s) {
+      s.widgets = this.leerWidgets(); this.set(s);
+      log('📊 Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
+      const pend = this.unidades().filter(u => !u.completa && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
+      if (!pend.length) {
+        if (s.widgets.avg != null && s.widgets.avg < 100 && !s.testsHechos) {
+          Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], testsHechos: true }); this.set(s);
+          log('🧭 Unidades recorridas; promedio de tests', s.widgets.avg + '% → barrido de tests < 100');
+          return { did: 'completar_a_tests' };
+        }
+        s.active = false; s.fin = new Date().toISOString(); this.set(s);
+        log('🏁 COMPLETAR terminado.', s.widgets);
+        window.__ed.stop();
+        return { did: 'completar_fin', widgets: s.widgets };
+      }
+      const u = pend[0];
+      Object.assign(s, { phase: 'entering_unit', unitTarget: u.n, unitStart: Date.now() }); this.set(s);
+      if (!(await this.abrirUnidad(u))) {
+        Reporter.capture('home_no_abre_lista_de_lecciones', { unidad: u.n, titulo: u.t });
+        const s2 = this.get(); s2.unitsDone.push(u.n); s2.phase = 'home'; this.set(s2);
+        return { did: 'completar_unidad_fallida', unidad: u.n };
+      }
+      return { did: 'completar_abre_unidad', unidad: u.n };
+    }
+
+    static async completarStep(s) {
+      if (s.phase === 'entering_unit' || s.phase === 'home') { s.phase = 'in_unit'; s.unitStart = s.unitStart || Date.now(); s.unitTarget = s.unitTarget || this.unitNum(); this.set(s); }
+      const u = this.unitNum();
+      if (s.unitTarget && u && u !== s.unitTarget) {   // ED pasó sola a la unidad siguiente
+        if (!s.unitsDone.includes(s.unitTarget)) s.unitsDone.push(s.unitTarget);
+        Object.assign(s, { unitTarget: u, unitStart: Date.now() }); this.set(s);
+        log('🧭 Pasé a la unidad', u);
+      }
+      // Atasco: misma pantalla 6 pasos seguidos, o demasiado tiempo en la unidad
+      const firma = NavigationManager.screenSig() + '|' + (TestManager.isScore() ? 'score' : '') + '|' + (TestManager.isReview() ? 'rev' : '');
+      TestSweep._same = firma === TestSweep._firma ? (TestSweep._same || 0) + 1 : 0; TestSweep._firma = firma;
+      const min = (Date.now() - (s.unitStart || Date.now())) / 60000;
+      const tope = min > (CFG.maxMinPorUnidad || 150);
+      if (TestSweep._same >= 6 || tope) {
+        TestSweep._same = 0;
+        if (!tope) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
+        else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
+        const s2 = this.get(); if (!s2.unitsDone.includes(u)) s2.unitsDone.push(u); this.set(s2);
+        log('🏁 Unidad', u, tope ? 'cortada por tiempo' : 'sin pendientes', '→ Home');
+        return await this.irHome();
+      }
+      return null;   // flujo normal: prácticas y tests
     }
 
     // Fuera del área de lecciones (Home u otra página)
     static async pageStep() {
       const s = this.get(); if (!s || !s.active) return null;
       if (/#\/home/i.test(location.href) || qv('.home__unitW')) {
-        s.homeUrl = location.href.split('#')[0] + '#/home';
-        const units = qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]), t: txt(q('.home__detailsTitle', u)) }));
+        s.homeUrl = location.href.split('#')[0] + '#/home'; this.set(s);
+        if (s.mode === 'completar') return await this.completarHome(s);
+        s.widgets = this.leerWidgets(); this.set(s);
+        const units = this.unidades();
         const ult = s.unitsDone.length ? Math.max(...s.unitsDone) : 0;
         const sig = units.filter(u => u.n > ult && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n)[0];
         if (!sig) {
-          s.active = false; this.set(s);
+          s.active = false; s.fin = new Date().toISOString(); this.set(s);
           log('🏁 BARRIDO COMPLETO. Resultados:', s.resultados);
           if (!units.length) Reporter.capture('barrido_home_sin_unidades');
           window.__ed.stop();
           return { did: 'sweep_finished', resultados: s.resultados };
         }
-        try { sig.el.scrollIntoView({ block: 'center' }); } catch (e) {}
-        await sleep(700);
-        s.phase = 'entering_unit'; s.unitTarget = sig.n; this.set(s);
+        Object.assign(s, { phase: 'entering_unit', unitTarget: sig.n }); this.set(s);
         log('🧭 Barrido: entrando a la unidad', sig.n, sig.t);
-        click(q('.home__unit', sig.el) || q('.home__unitIW', sig.el) || sig.el);
-        await sleep(4500);
+        // AJUSTADA v21.3: pulsar la tarjeta solo DESPLIEGA la lista; hay que pulsar una lección para entrar
+        if (!(await this.abrirUnidad(sig))) {
+          Reporter.capture('home_no_abre_lista_de_lecciones', { unidad: sig.n });
+          const s2 = this.get(); s2.unitsDone.push(sig.n); s2.phase = 'home'; this.set(s2);
+        }
         return { did: 'sweep_open_unit', unidad: sig.n };
       }
-      // Página intermedia desconocida (p. ej. la lista de lecciones de la unidad)
+      // AJUSTADA v21.3: página desconocida → anotar y, si se repite 15 veces, volver al Home (no dar vueltas sin fin)
       Reporter.capture('barrido_pagina_desconocida');
-      const lec = qav('a, button, [ng-click], [class*="lesson" i]').find(e => /lesson|lecci/i.test((e.className || '') + ' ' + txt(e)));
-      if (lec) { log('🧭 Barrido: página intermedia → pruebo abrir', txt(lec).slice(0, 40)); click(lec); await sleep(4500); return { did: 'sweep_try_lesson' }; }
+      TestSweep._unk = (TestSweep._unk || 0) + 1;
+      if (TestSweep._unk >= 15 && s.homeUrl) { TestSweep._unk = 0; log('🧭 Página desconocida varias veces → vuelvo al Home'); location.href = s.homeUrl; await sleep(5000); return { did: 'sweep_unknown_go_home' }; }
       return { did: 'sweep_unknown_page' };
     }
   }
@@ -1048,7 +1242,7 @@
           if (!m.bank.isConnected || m.dests.some(d => !d.isConnected)) m = testDndModel() || m;
           const dst = m.dests[i];
           if (!dst) break;
-          const it = bankItems(m.bank).find(x => norm(txt(x)) === norm(w));
+          const it = pick(bankItems(m.bank), w);   // AJUSTADA v21.0: exacta (mayúsculas) primero
           // AJUSTADA v20.2: si el hueco o la ficha están dentro de una caja con scroll propio (cloze del
           // e-mail, etc.), primero se desplaza esa caja; si no, el arrastre soltaba sobre algo tapado.
           if (it) { await revealInBox(dst); await revealInBox(it); await drag(it, dst); moves++; }
@@ -1145,7 +1339,7 @@
         if (!want && txt(d)) continue;                    // ya tiene algo y no hay respuesta conocida
         click(d); await sleep(350);
         const opts = qav('.DDLOptions__listItem');
-        const o = (want && opts.find(x => norm(txt(x)) === norm(want))) || opts[0];
+        const o = (want && pick(opts, want)) || opts[0];   // AJUSTADA v21.0: exacta (mayúsculas) primero
         if (o) { click(o); n++; }
         await sleep(250);
         if (!values && n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: práctica → con uno basta
@@ -1278,6 +1472,27 @@
     // ---------------------------------------------------------------
     // AJUSTADA v20.8: el Start se verifica y se da MÁS tiempo (ED reproduce y escucha; no deja hacer nada mientras)
     static async solveSRChoice() {
+      // NUEVO v21.0: ED espera que DIGAS la respuesta; con silencio no marca la tarea (reporte: Dress from
+      // Paris · 5/6). Las opciones registran el clic como respuesta (at:User_Answer) y la correcta tiene la
+      // clase "c": primero se prueba un clic en ella; si ED marca la tarea, no hace falta grabar.
+      const tn = NavigationManager.curTask()?.n;
+      const correcta = qv('.lessonMultipleAnswer.c') || null;
+      if (correcta && tn) {
+        click(q('.multiText', correcta) || correcta);
+        if (await waitFor(() => NavigationManager.taskDone(tn), 2000, 200)) return { did: 'sr_choice_click', clicked: true };
+      }
+      // NUEVO v21.2 — ECO (experimento, solo con micrófono simulado): Start → reproducir el audio de la opción
+      // correcta → ese audio entra al micrófono → ED "oye" la respuesta dicha por un nativo.
+      if (window.__edFakeActive || !navigator.mediaDevices) {
+        const st0 = qv('.statusWrapper a.button.continue') || qv('a.button.continue');
+        const aud = correcta && q('.headphonesBt, .clickMedia', correcta);
+        if (st0 && aud) {
+          log('🗣️ [SR Choice] Eco: Start + audio de la respuesta correcta al micrófono simulado');
+          window.__edMicEcho = true;
+          try { click(st0); await sleep(900); click(aud); if (tn && await waitFor(() => NavigationManager.taskDone(tn), 15000, 300)) return { did: 'sr_choice_eco' }; }
+          finally { window.__edMicEcho = false; }
+        }
+      }
       log('🗣️ [SR Choice] Pulsando Start y esperando a que ED termine...');
       const st = qv('.statusWrapper a.button.continue') || qv('a.button.continue');
       const antes = st ? txt(st) + '|' + (q('.status', st.closest('.statusWrapper') || document)?.className || '') : '';
@@ -1296,6 +1511,9 @@
       log('🎭 [Interactive Speaking] Personaje → Start → esperar el diálogo...');
       const flecha = qav('a.chooseCaracterArrow').find(a => !/disable/.test(a.parentElement?.className || '')) || qav('a.chooseCaracterArrow')[0];
       if (flecha) { click(flecha); await sleep(1300); }
+      // AJUSTADA v21.2 (reporte Piece of Cake · Interact 2): el panel viene con clase "disable" mientras ED
+      // reproduce la frase del otro personaje → esperar a que se habilite antes de pulsar Start.
+      await waitFor(() => !qv('.speakingInteractPanelsWrapper.disable'), 10000, 300);
       const st = await waitFor(() => { const b = qv('a.button.continue'); return b && !/disable/.test(b.parentElement?.className || '') ? b : null; }, 6000);
       let started = false;
       if (st) {
@@ -1347,7 +1565,7 @@
     // NUEVO v20.9: buscar la ficha por texto exacto → por data-id → por texto sin signos ni espacios
     static findTile(valor) {
       const want = norm(valor), tiles = this.bankTiles(), solo = s => norm(s).replace(/[^a-z0-9]/g, '');
-      return tiles.find(x => norm(txt(x)) === want) || tiles.find(x => x.getAttribute('data-id') === String(valor).trim()) ||
+      return pick(tiles, valor) || tiles.find(x => x.getAttribute('data-id') === String(valor).trim()) ||   // AJUSTADA v21.0: exacta (mayúsculas) primero
         tiles.find(x => solo(txt(x)) && solo(txt(x)) === solo(valor)) || null;
     }
 
@@ -1377,11 +1595,13 @@
       let moves = 0, ok = 0;
       for (let i = 0; i < values.length; i++) {
         const want = norm(values[i]);
+        // NUEVO v21.0: si existe una ficha con el texto EXACTO (p. ej. "weren't" y "Weren't"), se exige exacto
+        const hayExacta = qa('.draggable, .wordBankTile').some(x => exacto(txt(x), values[i]));
         if (!want) continue;
         for (let intento = 0; intento < 3; intento++) {
           const t = this.dropTargets()[i];
           if (!t) break;
-          if (norm(this.dropValue(t)) === want) break;
+          if (coincide(this.dropValue(t), values[i], hayExacta)) break;
           const tile = this.findTile(values[i]);   // AJUSTADA v20.9
           if (!tile) { warn('DropTarget: no encuentro la ficha', values[i]); break; }
           await revealInBox(t); await revealInBox(tile);
@@ -1391,7 +1611,7 @@
           await sleep(300);
         }
         const t = this.dropTargets()[i];
-        if (t && norm(this.dropValue(t)) === want) ok++;
+        if (t && coincide(this.dropValue(t), values[i], hayExacta)) ok++;
       }
       const total = values.filter(v => norm(v)).length;
       if (ok < total) warn(`DropTarget: quedaron ${ok}/${total} huecos bien`, { esperado: values, quedó: this.dropTargets().map(t => this.dropValue(t)) });
@@ -1508,20 +1728,60 @@
       return ops;
     }
 
-    static async openLegacy(b) {
-      const antes = new Set(qa('li, [class*="option" i], [role="option"]').filter(vis));
-      for (const el of [b, q('.arrowWrapper', b), q('.questionText', b)]) {
-        if (!el) continue;
-        const ok = await press(el, () => this.openOptions(antes).length > 0, 1200);
-        if (ok) return this.openOptions(antes);
+    // AJUSTADA v20.10 — reporte Lesson 5: Nouns · Test · 3, 4, 7 y 9/10: el 1.er hueco salía bien y el 2.º daba
+    // "no se abrió la lista". Lo más probable: el 1.º salía porque ED lo ABRE SOLO al cargar, y los clics del bot
+    // nunca abrieron una lista (Hugo: "cuando le das Tab baja la lista" → se abre con el FOCO).
+    // Ahora prueba, comprobando tras cada intento, hasta que aparezca la lista:
+    //   ya abierta → clic en el texto → clic en la flecha → clic en el hueco → FOCO (como Tab) →
+    //   secuencia de mouse → jQuery → teclado (Enter / flecha abajo / espacio)
+    // y anota qué método funcionó (sale en el reporte si algo falla).
+    static listaAbierta(antes) {
+      const o = this.openOptions(antes);
+      if (o.length) return o;
+      if (this.ultimasOpciones && this.ultimasOpciones.length) {   // ¿aparecieron palabras que ya vimos en otra lista?
+        const W = this.ultimasOpciones.map(norm);
+        let nuevas = qa('body *').filter(e => vis(e) && (!antes || !antes.has(e)) && W.includes(norm(txt(e))) && !e.closest('.fitb, .fillInBlank'));
+        nuevas = nuevas.filter(e => !nuevas.some(x => x !== e && e.contains(x)));
+        if (nuevas.length >= 2) return nuevas;
       }
       return [];
     }
 
+    static async openLegacy(b) {
+      const ya = await waitFor(() => { const o = this.listaAbierta(null); return o.length ? o : null; }, 500, 150);
+      if (ya) { this.metodo = 'ya_abierta'; return ya; }
+      const qt = q('.questionText', b), ar = q('.arrowWrapper', b), ad = q('.arrow-down', b);
+      const foco = el => { try { el.setAttribute('tabindex', el.getAttribute('tabindex') || '0'); el.focus(); } catch (e) {} for (const t of ['focus', 'focusin']) { try { el.dispatchEvent(new FocusEvent(t, { bubbles: t === 'focusin' })); } catch (e) {} } };
+      const tecla = (el, key, code) => { for (const t of ['keydown', 'keyup']) { try { el.dispatchEvent(new KeyboardEvent(t, { key, code: key === ' ' ? 'Space' : key, keyCode: code, which: code, bubbles: true })); } catch (e) {} } };
+      const raton = el => { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) { const Ev = t.startsWith('pointer') && window.PointerEvent ? window.PointerEvent : MouseEvent; try { el.dispatchEvent(new Ev(t, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: t.endsWith('down') ? 1 : 0 })); } catch (e) {} } };
+      const intentos = [
+        ['clic_texto', () => qt && click(qt)],
+        ['clic_flecha', () => (ad || ar) && click(ad || ar)],
+        ['clic_hueco', () => click(b)],
+        ['foco_tab', () => { foco(b); if (qt) foco(qt); }],
+        ['raton_texto', () => raton(qt || b)],
+        ['jquery', () => { if (window.jQuery) { try { window.jQuery(qt || b).trigger('click'); window.jQuery(b).trigger('focus'); } catch (e) {} } }],
+        ['tecla_enter', () => { foco(b); tecla(b, 'Enter', 13); }],
+        ['tecla_abajo', () => { foco(b); tecla(b, 'ArrowDown', 40); }],
+        ['tecla_espacio', () => { foco(b); tecla(b, ' ', 32); }]
+      ];
+      for (const [nombre, fn] of intentos) {
+        const antes = new Set(qa('body *').filter(vis));
+        fn();
+        const ops = await waitFor(() => { const o = this.listaAbierta(antes); return o.length ? o : null; }, 700, 120);
+        if (ops) { this.metodo = nombre; return ops; }
+      }
+      this.metodo = 'ninguno';
+      return [];
+    }
+
+    static cerrarLista() { try { document.body.click(); } catch (e) {} }
+
     static async chooseLegacy(b, opts, want) {
-      const o = want ? opts.find(x => norm(txt(x)) === norm(want)) : opts[0];
+      this.ultimasOpciones = opts.map(txt);
+      const o = want ? pick(opts, want) : opts[0];   // AJUSTADA v21.0: exacta (mayúsculas) primero
       if (!o) return false;
-      const elegido = () => norm(this.legacyBlankValue(b)) === norm(txt(o));
+      const elegido = () => exacto(this.legacyBlankValue(b), txt(o));
       if (await press(o, elegido, 1200)) return true;
       // Respaldo: teclado (algunas listas viejas responden a flechas + Enter)
       const k = opts.indexOf(o);
@@ -1536,21 +1796,29 @@
       const tn = NavigationManager.curTask()?.n;
       const total = this.legacyBlanks().length;
       let n = 0, ok = 0;
-      const fallos = [];
+      const fallos = [], metodos = [];
       for (let i = 0; i < total; i++) {
         const b = this.legacyBlanks()[i]; if (!b) break;
         const want = values ? values[i] : null;
         if (values && !want) continue;
         if (!values && this.legacyBlankValue(b)) continue;
         if (want && norm(this.legacyBlankValue(b)) === norm(want)) { ok++; continue; }
-        const opts = await this.openLegacy(b);
-        if (!opts.length) { fallos.push({ hueco: i + 1, motivo: 'no se abrió la lista' }); continue; }
-        if (await this.chooseLegacy(b, opts, want)) { n++; ok++; }
-        else { fallos.push({ hueco: i + 1, motivo: 'no se pudo elegir', quiere: want, opciones: opts.map(txt) }); try { document.body.click(); } catch (e) {} }
-        await sleep(250);
+        let opts = await this.openLegacy(b);
+        let metodo = this.metodo;
+        let hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
+        if (!hecho && metodo === 'ya_abierta') {   // NUEVO v20.10: la lista abierta era de otro hueco → cerrar y abrir la suya
+          this.cerrarLista(); await sleep(300);
+          opts = await this.openLegacy(b); metodo = this.metodo;
+          hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
+        }
+        metodos.push((i + 1) + ':' + metodo + (hecho ? '' : '✗'));
+        if (hecho) { n++; ok++; }
+        else { fallos.push({ hueco: i + 1, motivo: opts.length ? 'no se pudo elegir' : 'no se abrió la lista', metodo, quiere: want, opciones: opts.map(txt), huecoHTML: (b.outerHTML || '').replace(/\s+/g, ' ').slice(0, 400) }); this.cerrarLista(); }
+        await sleep(400);   // AJUSTADA v20.10: dar tiempo a ED de abrir (o no) la lista del siguiente hueco
         if (!values && n === 1 && await practiceEnough(tn)) break;
       }
       const r = { did: values ? 'ddl_legacy_replay' : 'ddl_legacy', n, ok, total: values ? values.filter(Boolean).length : total };
+      r.metodos = metodos;   // NUEVO v20.10: qué forma de abrir la lista funcionó en cada hueco
       if (fallos.length) { r.fallos = fallos; warn('Desplegable viejo:', fallos); }
       return r;
     }
@@ -2076,11 +2344,11 @@
     // así que lo que ves en inspect() es EXACTAMENTE lo que decide el bot.
     // Orden: lo más específico primero. `sequence` va ANTES que `open_speech` (v19.6 lo tenía después).
     static detectKind() {
-      if (qv('iframe[id^="mce_"][id$="_ifr"]')) return 'writing';
+      if (qv('iframe[id^="mce_"][id$="_ifr"]') || qv('.prWriting__main')) return 'writing';   // AJUSTADA v21.0: + .prWriting__main (el editor tarda en aparecer)
       if (qav('span.st.learning__selectTxt_st').length) return 'select_text';
       if (qv('.prSeq__container')) return 'sequence';
       if (qv('.openSpeech__AnsW')) return 'open_speech';
-      if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
+      if (qav('a.chooseCaracterArrow').length || qv('.speakingInteract') || qv('.answersWrapper.interact2')) return 'interactive_speaking';   // AJUSTADA v21.2: Interact 2 no trae flechas
       if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
       if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
       if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
@@ -2097,7 +2365,7 @@
     // PARA QUÉ: llama al solver del tipo detectado.
     static async runKind(kind) {
       switch (kind) {
-        case 'writing': return PracticeSolver.solveWriting();
+        case 'writing': await waitFor(() => qv('iframe[id^="mce_"][id$="_ifr"]'), 6000, 250); return PracticeSolver.solveWriting();   // AJUSTADA v21.0: esperar al editor
         case 'select_text': return PracticeSolver.solveSelectText();
         case 'sequence': return PracticeSolver.solveSequence();
         case 'open_speech': return PracticeSolver.solveOpenSpeech();
@@ -2239,7 +2507,10 @@
       if (t.done) { await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
 
       // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
-      const kind = MainEngine.detectKind();
+      let kind = MainEngine.detectKind();
+      // NUEVO v21.0: si no se reconoce nada, puede que la pantalla aún esté cargando (reporte: Writing de
+      // "Wrong Color" se tomó como 'mcq_default' y en la radiografía de 1 s después ya era 'writing').
+      if (kind === 'mcq_default') { const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 4000, 300); if (k2) kind = k2; }
       const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
       // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
@@ -2280,11 +2551,16 @@
     async auto() {
       if (this._running) return log('ya está corriendo');
       this._running = true; this._lastMsg = '';
+      try { localStorage.setItem('ed:running:v1', '1'); } catch (e) {}   // NUEVO v21.1: para retomar tras recargar
+      const t0 = Date.now();
       log('🚀 ED-Autopilot v' + V + ' iniciado.');
       let n = 0;
       while (this._running) {
         if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
-        try { const r = await MainEngine.step(); log('#' + n, r); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
+        // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
+        if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+        // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
+        try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
         await sleep(CFG.tickMs);
       }
       log('⏸ Bot detenido.');
@@ -2293,13 +2569,15 @@
     },
     // ---- NUEVO v20.8: reporte automático de fallos ----
     report: () => { Reporter.copy(); return Reporter.text(); },
+    reportText: () => Reporter.text(),   // NUEVO v21.2: el reporte como texto (lo usa la nube)
     reportFile: () => Reporter.file(),
     reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
     // ---- NUEVO v20.8: barrido de tests < 100 ----
     barrer() { TestSweep.start(); return this.auto(); },
+    completar() { TestSweep.startCompletar(); return this.auto(); },   // NUEVO v21.3: todo el curso + tests < 100
     barrerStop: () => TestSweep.stop(),
     barrerEstado: () => { const s = TestSweep.get(); console.table((s && s.resultados) || []); return s; },
-    stop() { this._running = false; hud && hud.render(); },
+    stop() { this._running = false; try { localStorage.removeItem('ed:running:v1'); } catch (e) {} hud && hud.render(); },   // AJUSTADA v21.1
 
     // Un solo paso (para depurar)
     async step() { const r = await MainEngine.step(); log(r); return r; },
@@ -2431,7 +2709,8 @@
         '__ed.copyAnswers() / pasteAnswers()': 'Pasar respuestas a otra PC', '__ed.export() / import(json)': 'Respaldo en archivo',
         'Alt+E': 'Iniciar / parar', '__ed.dragTest()': 'Prueba UN arrastre y dice si funcionó',
         '__ed.report() / reportFile() / reportClear()': 'Reporte de fallos: copiar / descargar / borrar',
-        '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades'
+        '__ed.barrer() / barrerStop() / barrerEstado()': 'Barrido de tests < 100 por lecciones y unidades',
+        '__ed.completar()': 'TODO el curso unidad por unidad y luego tests < 100 (desde el Home)'
       });
     }
   };
@@ -2462,7 +2741,7 @@
         ${TestSweep.active() ? '<span style="color:#74b9ff">🧭 Barrido de tests activo</span><br>' : ''}
         <button id="ed_t" style="margin-top:6px;padding:4px 8px;background:${run?'#e74c3c':'#2ecc71'};color:#fff;border:0;border-radius:4px;cursor:pointer">${run?'Parar':'Iniciar'}</button>
         ${Reporter.count() ? `<button id="ed_r" style="margin-top:6px;margin-left:4px;padding:4px 8px;background:#f39c12;color:#fff;border:0;border-radius:4px;cursor:pointer">📋 Reporte (${Reporter.count()})</button>` : ''}`;
-      this.el.querySelector('#ed_t').onclick = () => { run ? window.__ed.stop() : window.__ed.auto(); };
+      this.el.querySelector('#ed_t').onclick = () => { primeFakeMic(); run ? window.__ed.stop() : window.__ed.auto(); };   // AJUSTADA v21.1: el clic real activa el audio del micrófono simulado
       const rb = this.el.querySelector('#ed_r'); if (rb) rb.onclick = () => Reporter.copy();   // NUEVO v20.8 (clic = el navegador deja copiar)
     }
   }
@@ -2494,10 +2773,13 @@
   //  EXPONE:     —
   // =====================================================================
 
+  if (CFG.fakeMic) { installFakeMic(); installMicEcho(); }   // NUEVO v21.1 (+ eco v21.2): micrófono simulado si no hay uno real
   hud = new HUD();
 
   log('✅ ED-Autopilot v' + V + ' cargado con éxito. Usa __ed.auto() para arrancar · __ed.inspect() para diagnosticar.');
   // NUEVO v20.8: si hay un barrido de tests activo (p. ej. tras cambiar de página con el cargador de
   // Tampermonkey), el bot sigue solo en 3 s.
   if (TestSweep.active() && !window.__edNoAutoResume) { log('🧭 Barrido activo → reanudo en 3 s (__ed.barrerStop() para cancelarlo)'); setTimeout(() => window.__ed.auto(), 3000); }
+  // NUEVO v21.1: con el cargador de Tampermonkey, si el bot estaba corriendo antes de recargar, retoma solo
+  else if (window.__edCargador && localStorage.getItem('ed:running:v1') && !window.__edNoAutoResume) { log('▶️ El bot estaba corriendo → retomo en 3 s'); setTimeout(() => window.__ed.auto(), 3000); }
 })();

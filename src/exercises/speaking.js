@@ -59,6 +59,27 @@ class SpeakingSolver {
   // ---------------------------------------------------------------
   // AJUSTADA v20.8: el Start se verifica y se da MÁS tiempo (ED reproduce y escucha; no deja hacer nada mientras)
   static async solveSRChoice() {
+    // NUEVO v21.0: ED espera que DIGAS la respuesta; con silencio no marca la tarea (reporte: Dress from
+    // Paris · 5/6). Las opciones registran el clic como respuesta (at:User_Answer) y la correcta tiene la
+    // clase "c": primero se prueba un clic en ella; si ED marca la tarea, no hace falta grabar.
+    const tn = NavigationManager.curTask()?.n;
+    const correcta = qv('.lessonMultipleAnswer.c') || null;
+    if (correcta && tn) {
+      click(q('.multiText', correcta) || correcta);
+      if (await waitFor(() => NavigationManager.taskDone(tn), 2000, 200)) return { did: 'sr_choice_click', clicked: true };
+    }
+    // NUEVO v21.2 — ECO (experimento, solo con micrófono simulado): Start → reproducir el audio de la opción
+    // correcta → ese audio entra al micrófono → ED "oye" la respuesta dicha por un nativo.
+    if (window.__edFakeActive || !navigator.mediaDevices) {
+      const st0 = qv('.statusWrapper a.button.continue') || qv('a.button.continue');
+      const aud = correcta && q('.headphonesBt, .clickMedia', correcta);
+      if (st0 && aud) {
+        log('🗣️ [SR Choice] Eco: Start + audio de la respuesta correcta al micrófono simulado');
+        window.__edMicEcho = true;
+        try { click(st0); await sleep(900); click(aud); if (tn && await waitFor(() => NavigationManager.taskDone(tn), 15000, 300)) return { did: 'sr_choice_eco' }; }
+        finally { window.__edMicEcho = false; }
+      }
+    }
     log('🗣️ [SR Choice] Pulsando Start y esperando a que ED termine...');
     const st = qv('.statusWrapper a.button.continue') || qv('a.button.continue');
     const antes = st ? txt(st) + '|' + (q('.status', st.closest('.statusWrapper') || document)?.className || '') : '';
@@ -77,6 +98,9 @@ class SpeakingSolver {
     log('🎭 [Interactive Speaking] Personaje → Start → esperar el diálogo...');
     const flecha = qav('a.chooseCaracterArrow').find(a => !/disable/.test(a.parentElement?.className || '')) || qav('a.chooseCaracterArrow')[0];
     if (flecha) { click(flecha); await sleep(1300); }
+    // AJUSTADA v21.2 (reporte Piece of Cake · Interact 2): el panel viene con clase "disable" mientras ED
+    // reproduce la frase del otro personaje → esperar a que se habilite antes de pulsar Start.
+    await waitFor(() => !qv('.speakingInteractPanelsWrapper.disable'), 10000, 300);
     const st = await waitFor(() => { const b = qv('a.button.continue'); return b && !/disable/.test(b.parentElement?.className || '') ? b : null; }, 6000);
     let started = false;
     if (st) {

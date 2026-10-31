@@ -19,11 +19,11 @@ class MainEngine {
   // así que lo que ves en inspect() es EXACTAMENTE lo que decide el bot.
   // Orden: lo más específico primero. `sequence` va ANTES que `open_speech` (v19.6 lo tenía después).
   static detectKind() {
-    if (qv('iframe[id^="mce_"][id$="_ifr"]')) return 'writing';
+    if (qv('iframe[id^="mce_"][id$="_ifr"]') || qv('.prWriting__main')) return 'writing';   // AJUSTADA v21.0: + .prWriting__main (el editor tarda en aparecer)
     if (qav('span.st.learning__selectTxt_st').length) return 'select_text';
     if (qv('.prSeq__container')) return 'sequence';
     if (qv('.openSpeech__AnsW')) return 'open_speech';
-    if (qav('a.chooseCaracterArrow').length) return 'interactive_speaking';
+    if (qav('a.chooseCaracterArrow').length || qv('.speakingInteract') || qv('.answersWrapper.interact2')) return 'interactive_speaking';   // AJUSTADA v21.2: Interact 2 no trae flechas
     if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
     if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
     if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
@@ -40,7 +40,7 @@ class MainEngine {
   // PARA QUÉ: llama al solver del tipo detectado.
   static async runKind(kind) {
     switch (kind) {
-      case 'writing': return PracticeSolver.solveWriting();
+      case 'writing': await waitFor(() => qv('iframe[id^="mce_"][id$="_ifr"]'), 6000, 250); return PracticeSolver.solveWriting();   // AJUSTADA v21.0: esperar al editor
       case 'select_text': return PracticeSolver.solveSelectText();
       case 'sequence': return PracticeSolver.solveSequence();
       case 'open_speech': return PracticeSolver.solveOpenSpeech();
@@ -182,7 +182,10 @@ class MainEngine {
     if (t.done) { await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
 
     // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
-    const kind = MainEngine.detectKind();
+    let kind = MainEngine.detectKind();
+    // NUEVO v21.0: si no se reconoce nada, puede que la pantalla aún esté cargando (reporte: Writing de
+    // "Wrong Color" se tomó como 'mcq_default' y en la radiografía de 1 s después ya era 'writing').
+    if (kind === 'mcq_default') { const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 4000, 300); if (k2) kind = k2; }
     const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
     // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
