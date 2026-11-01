@@ -1,5 +1,11 @@
 # Changelog
 
+## v21.8 (documentación para continuar con otra IA)
+- `CLAUDE.md` reescrito (guía maestra), `docs/handoff.md` (estado, conocimiento de ED, hipótesis abiertas, próximos pasos),
+  `docs/metodo.md` (cómo diagnosticar, arreglar y probar), `docs/PROMPT-INICIO.md`, skill `.claude/skills/ed-autopilot-dev/`.
+- Herramientas: `tools/rescatar-zip.py`, `tools/analizar-registro.py` (detecta atascos por bloques de 10 min),
+  `tools/comparar-con.sh` (versión vieja vs nueva), `tools/probar-nube.sh` + `tools/sitio-prueba/` (Chrome real contra copia falsa de ED).
+
 ## v21.8 — mapa de My Progress: rehacer SOLO los tests < 100
 - Nuevo `core/progress-map.js` (dumps de Hugo del 01/11): al empezar el barrido o "completar", el bot entra a **My Progress**, despliega cada unidad y anota por lección el **Last Test Score** y si está **Terminado** (sin dar ningún test). Guarda el mapa en `ed:progress:v1`.
 - **Barrido con mapa:** va directo a cada test < 100 (unidad → lección → test) y solo a esos. Los de 100 no se tocan.

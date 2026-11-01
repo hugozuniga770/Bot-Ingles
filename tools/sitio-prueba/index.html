@@ -1,0 +1,29 @@
+<!doctype html><html><body>
+<div id="app"></div>
+<script>
+function render(){
+  const app = document.getElementById('app');
+  if (location.hash === '#/home') {
+    if (!sessionStorage.getItem('echado')) { sessionStorage.setItem('echado','1'); setTimeout(() => { location.hash = '#/kicked'; }, 5000); }
+    const U = [[1,'Buying and Selling',true],[2,'Healthy Eating',false],[3,'Getting Help',false]];
+    app.innerHTML = `<div class="home__studentWidgetCompletion"><span>25%</span> Course Completion</div><div class="home__studentWidgetTestScores"><span>95%</span> Average Test Score</div>` +
+      U.map(([n,t,h]) => `<div class="home__unitW home__unitW--notLocked"><div class="home__unitIW"><div class="home__unit" id="u${n}">${h?'<span class="home__status">Completed!</span>':''}<span class="home__detailsNumber">${n}</span><span class="home__detailsTitle">${t}</span></div></div></div>`).join('');
+    app.querySelectorAll('.home__unit').forEach(u => u.addEventListener('click', () => {
+      if (u.parentElement.querySelector('.home__courseListItem')) return;
+      u.parentElement.insertAdjacentHTML('beforeend', [[1,'Directions',100],[2,'Clean-House Agency',40]].map(([n,t,p]) => `<div class="home__courseListItem"><a class="home__courseListItemLink" href="#/learning-${u.id}-${n}"><span class="home__courseListItemNumber">${n}.</span> <span class="home__courseListItemName">${t}</span></a><span class="home__courseListItemProgress"><span style="width:${p}%"></span></span></div>`).join(''));
+    }));
+    return;
+  }
+  if (location.hash === '#/kicked') { app.innerHTML = '<h2>Tu sesión no esta mas activa en tu dispositivo.</h2><p>Para ingresar de nuevo a esta página, por favor vuelve a acceder al programa.</p><button id="ok" onclick="location.hash=\'#/login\'">Aceptar</button>'; return; }
+  if (location.hash.startsWith('#/learning')) { app.innerHTML = `<p>ENTRÉ A ${location.hash}</p>`; document.title = 'learning ' + location.hash; return; }
+  app.innerHTML = `<form><input type="text" name="userName"><input name="foilautofill" type="password"><input type="password" name="password"><input type="submit" id="submit1" value="Login" disabled></form>`;
+  const u = app.querySelector('[name=userName]'), p = app.querySelector('[name=password]'), b = app.querySelector('#submit1');
+  const val = () => { b.disabled = !(u.value && p.value.length >= 5); }; u.addEventListener('input', val); p.addEventListener('input', val);
+  app.querySelector('form').addEventListener('submit', e => { e.preventDefault(); if (u.value === 'hugo' && p.value === 'secreta123') {
+      if (sessionStorage.getItem('yaEntro')) { const m = document.createElement('div'); m.id = 'confirmModal'; m.className = 'modalW modalW_confirm'; m.style.cssText = 'position:fixed;inset:0;background:#0008';
+        m.innerHTML = '<div class="modal confirmPopup__main"><p>You are already logged in to English Discoveries</p><a id="cn">Cancel</a> <button id="lotd">Login on This Device</button></div>';
+        document.body.appendChild(m); document.getElementById('lotd').onclick = () => { m.remove(); location.hash = '#/home'; }; return; }
+      sessionStorage.setItem('yaEntro', '1'); location.hash = '#/home'; } });
+}
+window.addEventListener('hashchange', render); render();
+</script></body></html>

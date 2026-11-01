@@ -1,5 +1,8 @@
 # Bot-Ingles · ED-Autopilot
 
+> **¿Eres una IA o vas a continuar el proyecto?** Lee `CLAUDE.md` → `docs/handoff.md` → `docs/metodo.md`.
+> Para empezar un chat nuevo: `docs/PROMPT-INICIO.md`.
+
 Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prácticas de cada lección y, en los tests, envía un primer intento, cosecha las respuestas correctas del *Review* y repite el test con ellas.
 
 **Versión actual: v21.8** — v19.7 dividida en módulos + funciones recuperadas de v17 (ver `CHANGELOG.md`).
