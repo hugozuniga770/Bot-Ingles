@@ -1,5 +1,18 @@
 # Changelog
 
+## v21.6 — arreglos de la 1.ª corrida real en la nube (cuenta de Hugo, 31/10)
+Lo que mostraron los zips: 83 % / 94 %, unidades 1–6 "¡Terminado!", pero el bot no hizo trabajo real.
+- **ED en español:** las unidades listas dicen "¡Terminado!" (el bot buscaba "Completed") → creía que ninguna estaba hecha.
+- **Lista de lecciones del Home:** aparece al PASAR EL MOUSE por la tarjeta (franja "Lecciones"), no con un clic → ahora: mouse encima → franja "Lecciones" → clic, cada uno verificado. Reproducido en prueba (v21.3 fallaba igual que en la nube; v21.6 entra).
+- **"Tu sesión no está más activa en tu dispositivo":** el bot la reconoce (solo texto visible), pulsa Aceptar y espera el login sin anotar fallos falsos; el robot revisa cada 10 s y vuelve a entrar (corta tras 6 caídas). Probado con Chrome real.
+- **Barrido de tests** tras "completar": revisa TODAS las unidades no revisadas (antes solo las posteriores a la última).
+- No se carga en pestañas en blanco (`about:blank`) → sin el fallo falso `barrido_pagina_desconocida`.
+- Reintento de test: espera hasta 4 s a que la pregunta aparezca antes de responder (`replay_sin_accion`).
+
+## v21.5 — todo en un solo zip
+- El robot guarda TODO su registro en `salida/registro.txt` (usuario y contraseña reemplazados por `***`), junto al reporte, el resumen y las fotos: el artifact `cuenta-N` trae todo lo que pasó.
+- Máquina fija `ubuntu-24.04` (GitHub mueve `ubuntu-latest` a Ubuntu 26 y Playwright 1.48 no lo soporta).
+
 ## v21.4 — varias cuentas en un solo secret y elegir cuáles correr
 - Secret único **`ED_CUENTAS`**: una cuenta por línea (`usuario contraseña Nombre`). Se edita en Settings cuando quieras.
 - *Run workflow* → campo **cuentas**: `1` · `2,3` · `todas`. Un job `preparar` (`cloud/cuentas.js`) arma la lista y lanza una máquina por cuenta (matriz dinámica).

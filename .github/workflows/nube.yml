@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   preparar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a 26 y Playwright 1.48 no lo soporta
     outputs:
       lista: ${{ steps.elegir.outputs.lista }}
     steps:
@@ -54,7 +54,7 @@ jobs:
 
   correr:
     needs: preparar
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a 26 y Playwright 1.48 no lo soporta
     timeout-minutes: 350
     strategy:
       fail-fast: false

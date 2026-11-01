@@ -345,6 +345,10 @@ class TestManager {
       if (run && run.key && run.key !== key) warn('Hay un run con otra clave:', run.key, '≠', key, '(no se aplica replay)');
       return null;
     }
+    // NUEVO v21.6 (reporte "replay_sin_accion", Soap Opera · Prueba): a veces se intentaba responder antes de que la
+    // pregunta terminara de dibujarse → esperar hasta 4 s a que aparezca algún ejercicio conocido.
+    await waitFor(() => qv('label.prMCQ__answerLabel') || qv('.DDLOptions__selected') || PracticeSolver.isDragAndDrop() || PracticeSolver.isDropTargetScreen() ||
+      PracticeSolver.isSequenceScreen() || PracticeSolver.isLegacyDDL() || PracticeSolver.isLegacyMCQ(), 4000, 250);
     const c = NavigationManager.counter();
     const idx = c ? c.i : 1;
     const scr = (StorageManager.getAns2()[key] || {})[idx] || {};

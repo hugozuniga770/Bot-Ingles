@@ -34,6 +34,9 @@ GitHub → **Actions → nube → Run workflow**:
 - `auto`: entra a la lección donde ibas (botón del Home) y sigue.
 
 ## 3. Ver qué pasó
+Lo más simple: en la ejecución, abajo en **Artifacts**, descarga **cuenta-1** (un zip) y pásaselo a Claude tal cual.
+Trae `registro.txt` (todo lo que hizo), `reporte.txt` (fallos), `resumen.md` y fotos.
+
 Al terminar, en la página de la ejecución aparece un **resumen**: Course Completion, Average Test Score,
 unidades recorridas, tests revisados y el **reporte completo de fallos** (despliégalo y cópialo para el chat).
 Además, en la ejecución → **Artifacts → cuenta-1**: trae `reporte.txt` (fallos, igual que el botón 📋),
@@ -50,5 +53,6 @@ En `nube.yml`, quita los `#` de `schedule` / `cron` (cada 6 h). Ojo: corre aunqu
 ## Límites conocidos
 - GitHub corta cada ejecución a las 6 h (por eso el tope de 330 min).
 - ED podría pedir captcha, desconfiar de servidores o de la misma cuenta abierta en 2 lugares:
-  no abras la cuenta en tu PC mientras corre en la nube.
+  no abras la cuenta en tu PC mientras corre en la nube (ED cierra la sesión del robot: "Tu sesión no está más
+  activa"; el robot vuelve a entrar solo, pero pierde tiempo y tras 6 veces se detiene).
 - El login está probado contra una copia de la página real (dump del 31/10), no contra ED en vivo.

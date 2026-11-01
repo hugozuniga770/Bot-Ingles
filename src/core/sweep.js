@@ -92,7 +92,7 @@ class TestSweep {
   }
   static unidades() {
     return qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]),
-      t: txt(q('.home__detailsTitle', u)), completa: /completed|completad/i.test(txt(u)) }));
+      t: txt(q('.home__detailsTitle', u)), completa: /completed|completad|terminad/i.test(txt(u)) }));   // AJUSTADA v21.6: ED en español dice "¡Terminado!"
   }
   // Progreso de una lección en la lista (si ED lo pone como ancho de una barra); null si no se puede leer
   static progresoLeccion(it) {
@@ -107,7 +107,22 @@ class TestSweep {
     await sleep(700);
     const caja = () => u.el.closest('.home__unitW') || u.el;
     let lista = qav('.home__courseListItem', caja());
-    if (!lista.length) { await press(q('.home__unit', u.el) || q('.home__unitIW', u.el) || u.el, () => qav('.home__courseListItem', caja()).length > 0, 2500); lista = qav('.home__courseListItem', caja()); }
+    // AJUSTADA v21.6 (corrida en la nube del 31/10: "home_no_abre_lista_de_lecciones"): la lista aparece al PASAR
+    // EL MOUSE por la tarjeta (sale la franja "Lecciones"), no con un clic. Se prueba: pasar por encima → clic en
+    // la franja "Lecciones"/"Lessons" → clic en la tarjeta. Cada intento se comprueba.
+    const hay = () => qav('.home__courseListItem', caja()).length > 0 || qav('.home__courseListItem').length > 0;
+    const encima = el => { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 3;
+      for (const t of ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'mousemove']) { try { el.dispatchEvent(new MouseEvent(t, { bubbles: !/enter/.test(t), clientX: x, clientY: y, view: window })); } catch (e) {} } };
+    if (!hay()) {
+      for (const el of [u.el, q('.home__unitIW', u.el), q('.home__unit', u.el)].filter(Boolean)) encima(el);
+      await waitFor(hay, 1500, 150);
+    }
+    if (!hay()) {
+      const franja = qa('*', caja().parentElement || caja()).filter(e => vis(e) && /^(lecciones|lessons)$/i.test(txt(e)) && !e.children.length)[0];
+      if (franja) await press(franja, hay, 1500);
+    }
+    if (!hay()) await press(q('.home__unit', u.el) || q('.home__unitIW', u.el) || u.el, hay, 2000);
+    lista = qav('.home__courseListItem', caja());
     if (!lista.length) lista = qav('.home__courseListItem');   // por si ED pinta la lista fuera de la tarjeta
     if (!lista.length) return false;
     const it = lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
@@ -185,13 +200,23 @@ class TestSweep {
   // Fuera del área de lecciones (Home u otra página)
   static async pageStep() {
     const s = this.get(); if (!s || !s.active) return null;
+    if (!/^https?:$/.test(location.protocol)) return { did: 'sweep_pagina_en_blanco' };   // NUEVO v21.6: about:blank no cuenta
+    // NUEVO v21.6: "Tu sesión no está más activa en tu dispositivo" (ED cerró la sesión: la cuenta se abrió en otro
+    // lugar o venció) → Aceptar y esperar el login (lo hace el robot de la nube, o tú si estás en tu PC).
+    if (/no est[aá] m[aá]s activa|no longer active|vuelve a acceder/i.test((document.body && document.body.innerText) || '')) {   // solo texto VISIBLE
+      Reporter.capture('sesion_cerrada_por_ed', { nota: '¿Se abrió esta cuenta en otro lugar mientras corría el bot?' });
+      const ok = qa('button, a, input[type=button]').filter(vis).find(b => /^(aceptar|accept|ok)$/i.test(txt(b) || b.value || ''));
+      if (ok) { click(ok); await sleep(2500); }
+      return { did: 'sesion_cerrada_por_ed' };
+    }
+    if (/#\/login/i.test(location.href) || qv('input[name="userName"]')) return { did: 'esperando_login' };   // sin sesión: no anotar fallos
     if (/#\/home/i.test(location.href) || qv('.home__unitW')) {
       s.homeUrl = location.href.split('#')[0] + '#/home'; this.set(s);
       if (s.mode === 'completar') return await this.completarHome(s);
       s.widgets = this.leerWidgets(); this.set(s);
       const units = this.unidades();
-      const ult = s.unitsDone.length ? Math.max(...s.unitsDone) : 0;
-      const sig = units.filter(u => u.n > ult && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n)[0];
+      // AJUSTADA v21.6: todas las unidades aún no revisadas en este barrido (antes solo las posteriores a la última)
+      const sig = units.filter(u => !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n)[0];
       if (!sig) {
         s.active = false; s.fin = new Date().toISOString(); this.set(s);
         log('🏁 BARRIDO COMPLETO. Resultados:', s.resultados);

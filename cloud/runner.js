@@ -32,6 +32,16 @@ const OUT = path.join(RAIZ, 'salida');
 fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(path.dirname(EST), { recursive: true });
 const BOT = fs.readFileSync(path.join(RAIZ, 'dist', 'ed-autopilot.js'), 'utf8');
 const t0 = Date.now();
+// NUEVO v21.5: TODO lo que se imprime también va a salida/registro.txt (dentro del zip de resultados),
+// con usuario y contraseña reemplazados por *** — así un solo archivo trae todo lo que pasó.
+{
+  const REG = path.join(OUT, 'registro.txt');
+  const tapar = t => { let x = String(t); for (const v of [USER, PASS]) if (v) x = x.split(v).join('***'); return x; };
+  for (const m of ['log', 'error', 'warn']) {
+    const orig = console[m].bind(console);
+    console[m] = (...a) => { try { fs.appendFileSync(REG, tapar(a.map(x => (typeof x === 'string' ? x : (x && x.stack) || JSON.stringify(x))).join(' ')) + '\n'); } catch (e) {} orig(...a); };
+  }
+}
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}] [${typeof NOMBRE !== 'undefined' ? NOMBRE : 'cuenta ' + CUENTA}]`, ...a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -46,9 +56,11 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   await ctx.grantPermissions(['microphone'], { origin: 'https://ed.engdis.com' });
 
   // En CADA página: restaurar memoria del bot, marcar "cargador" (recarga y retoma solo) e inyectar el bot
-  await ctx.addInitScript(({ datos, bot, modo }) => {
+  await ctx.addInitScript(({ datos, bot, modo, extra }) => {
+    // AJUSTADA v21.6: solo en las páginas de ED (antes también en about:blank → fallo falso en el reporte)
+    if (!(/(^|\.)engdis\.com$/.test(location.hostname) || (extra && location.hostname === extra))) return;
     try {
-      if (location.hostname === 'ed.engdis.com') {
+      {
         for (const [k, v] of Object.entries(datos || {})) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
         localStorage.setItem('ed:running:v1', '1');
         // Una vez por ejecución (no en cada página): arrancar el modo pedido desde el Home
@@ -61,7 +73,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     window.__edCargador = true; window.__edNube = true;
     const go = () => setTimeout(() => { try { (0, eval)(bot); } catch (e) { console.error('[ED nube] no pude cargar el bot', e); } }, 1500);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
-  }, { datos: guardado, bot: BOT, modo: MODO });
+  }, { datos: guardado, bot: BOT, modo: MODO, extra: process.env.ED_HOST_EXTRA || '' });
 
   let page = await ctx.newPage();
   const enganchar = p => {
@@ -104,15 +116,24 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   }
 
   // Bucle de vigilancia: el bot trabaja solo; aquí solo se re-loguea si la sesión se cae y se guardan fotos.
-  let n = 0;
+  let n = 0, sesionesCaidas = 0;
   while ((Date.now() - t0) / 60000 < MINUTOS) {
-    await sleep(30000); n++;
+    await sleep(10000); n++;   // AJUSTADA v21.6: revisar cada 10 s (antes 30) → re-login más rápido
     // ¿el bot terminó (modo completar/barrer desactivado)? → cerrar antes
     const fin = await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return !!(s && s.fin && !s.active); } catch (e) { return false; } }).catch(() => false);
     if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); break; }
     if (page.isClosed()) { page = await ctx.newPage(); enganchar(page); await login(); continue; }
-    if (/#\/login/i.test(page.url())) { log('La sesión se cerró → vuelvo a entrar'); await login(); }
-    if (n % 20 === 0) { await foto('ultima'); await guardar(); }
+    // AJUSTADA v21.6: ED también puede mostrar "Tu sesión no está más activa en tu dispositivo" (pasa si la cuenta
+    // se abre en otro lugar o vence la sesión). Antes el robot solo reaccionaba a la página de login.
+    const echado = await page.evaluate(() => /no est[aá] m[aá]s activa|no longer active|session (has )?expired|sesi[oó]n (ha )?expirado|vuelve a acceder/i.test((document.body && document.body.innerText) || '')).catch(() => false);
+    if (/#\/login/i.test(page.url()) || echado) {
+      log(echado ? '⚠ ED cerró la sesión ("no está más activa") → vuelvo a entrar. ¿Se abrió esta cuenta en otro lugar?' : 'La sesión se cerró → vuelvo a entrar');
+      if (echado) { await foto('sesion-cerrada'); await page.getByText(/^(Aceptar|Accept|OK)$/).first().click({ timeout: 3000 }).catch(() => {}); await sleep(2000); }
+      sesionesCaidas++;
+      if (sesionesCaidas > 6) { log('❌ ED cerró la sesión demasiadas veces → termino para no insistir'); break; }
+      await login();
+    }
+    if (n % 60 === 0) { await foto('ultima'); await guardar(); }   // cada ~10 min
   }
   log('⏱ Fin de la ejecución → guardo, leo los porcentajes del Home y escribo el resumen');
   await guardar(); await foto('final');

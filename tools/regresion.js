@@ -284,6 +284,16 @@ const FIX = {
   // NUEVO v21.3 — MODO COMPLETAR en el Home: salta la unidad 1 (Completed!), abre la 2 y entra a la 1.ª lección NO completa
   completarHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', false], [3, 'Getting Help', false]], 95, 25),
     ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) }, setup: HOME_SETUP },
+  // NUEVO v21.6 — HOME REAL de la nube (31/10): ED en ESPAÑOL ("¡Terminado!") y la lista de lecciones aparece
+  // SOLO al pasar el mouse por la tarjeta (un clic no la abre). Debe saltar 1 y 2 y entrar a la 3.
+  completarHomeES: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Couples', true], [2, 'Sport And Fitness', true], [3, 'Problems At Work', false]], 94, 83).replace(/Completed!/g, '¡Terminado!'),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) },
+    setup: w => { const d = w.document;
+      d.querySelectorAll('.home__unitW').forEach(card => card.addEventListener('mouseenter', () => {
+        if (card.querySelector('.home__courseListItem')) return;
+        card.insertAdjacentHTML('beforeend', [[1, 'Directions', 100], [2, 'Clean-House Agency', 40]].map(([n, t, p]) =>
+          `<div class="home__courseListItem"><a class="home__courseListItemLink"><span class="home__courseListItemNumber">${n}.</span> <span class="home__courseListItemName">${t}</span></a><span class="home__courseListItemProgress"><span style="width: ${p}%"></span></span></div>`).join(''));
+      })); } },
   // NUEVO v21.3 — MODO COMPLETAR: todas las unidades hechas y promedio 95 % → pasa al barrido de tests
   completarATests: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 95, 100),
     ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) } },

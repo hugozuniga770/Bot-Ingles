@@ -215,6 +215,12 @@
     "trace": "click home__unit:2Healthy Eating | click home__courseListItemLink:2. Clean-House ",
     "ls": null
   },
+  "completarHomeES": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_abre_unidad\",\"unidad\":3}",
+    "trace": "click home__courseListItemLink:2. Clean-House ",
+    "ls": null
+  },
   "completarATests": {
     "kind": "mcq_default",
     "r": "{\"did\":\"completar_a_tests\"}",
