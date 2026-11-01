@@ -1,5 +1,22 @@
 # Changelog
 
+## v21.8 — mapa de My Progress: rehacer SOLO los tests < 100
+- Nuevo `core/progress-map.js` (dumps de Hugo del 01/11): al empezar el barrido o "completar", el bot entra a **My Progress**, despliega cada unidad y anota por lección el **Last Test Score** y si está **Terminado** (sin dar ningún test). Guarda el mapa en `ed:progress:v1`.
+- **Barrido con mapa:** va directo a cada test < 100 (unidad → lección → test) y solo a esos. Los de 100 no se tocan.
+- **Completar con mapa:** entra solo a unidades con realización < 100 % y a la 1.ª lección no terminada. Al final relee My Progress y, si quedan tests < 100, pasa al barrido.
+- Un test que ED marca terminado se rehace solo si My Progress dice < 100.
+- Resumen de Actions: tests < 100 y lecciones sin terminar según la última lectura de My Progress.
+- Sin My Progress disponible, todo funciona como en v21.7.
+
+## v21.7 — arreglos de la corrida de Nelson en la nube (5 h 24 min, unidades 2→14, 59 tests en 100 %)
+- **Varios bots a la vez:** en la nube el bot se inyectaba también en los MARCOS (iframes). Ahora en un marco solo se atiende el aviso de ED; el bot completo corre únicamente en la página principal.
+- **Aviso "You haven't submitted your test"** (MsgPage.html): Continue si el bot está saliendo (Home/desplegables), Cancel si no. Causó 1,5 h de vueltas Home ↔ página desconocida.
+- **Atasco de 2,5 h** en un test sin preguntas visibles (unidad 14): si "lo pendiente" es 3 veces el mismo lugar → se anota (`atascado_en_el_mismo_lugar`) y sigue con la siguiente unidad; tope por unidad 150 → 45 min; no se recarga la pestaña a mitad de un test; el conteo de reintentos sobrevive a las recargas.
+- **No rehacer tests terminados** (`retakeDoneTests: false`) y **test exprés apagado** por defecto: el promedio de Nelson bajó de 98 % a 96 % aunque todos los tests terminaron en 100 → los intentos (incluido el envío en blanco) parecen contar.
+- **Robot:** "You are already logged in" → pulsa **Login on This Device**; un error en la vigilancia ya no lo corta sin resumen. Probado con Chrome real.
+- **Ejercicios:** MCQ con IMÁGENES ("Choose the correct picture"); "Select the place in the text where this sentence best fits" (`.addInText`, por candidatos; si no los halla, el reporte guarda el texto de lectura).
+- **Reportes:** incluyen el texto visible de la pantalla y los marcos (iframes).
+
 ## v21.6 — arreglos de la 1.ª corrida real en la nube (cuenta de Hugo, 31/10)
 Lo que mostraron los zips: 83 % / 94 %, unidades 1–6 "¡Terminado!", pero el bot no hizo trabajo real.
 - **ED en español:** las unidades listas dicen "¡Terminado!" (el bot buscaba "Completed") → creía que ninguna estaba hecha.

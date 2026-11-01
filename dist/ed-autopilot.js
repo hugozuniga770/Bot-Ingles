@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.6  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.8  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,25 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.6';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.8';   // ← ÚNICO lugar donde se cambia la versión
+
+  // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
+  // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
+  // de ED "You haven't submitted your test" (MsgPage.html): Continue si el bot está saliendo, Cancel si no.
+  if (window.top !== window.self) {
+    const atender = () => {
+      try {
+        const ok = document.querySelector('#popupButtonsWrapper #btnOk, .popupButtonsWrapper #btnOk');
+        if (!ok || !/submitted your test|no has enviado|resultados no se/i.test(document.body.innerText || '')) return;
+        const saliendo = +(localStorage.getItem('ed:saliendo') || 0) > Date.now() - 120000;
+        const b = saliendo ? ok : (document.getElementById('btnCancel') || ok);
+        console.log('%c[ED]', 'color:#27ae61', '🪟 Aviso de test sin enviar → ' + (saliendo ? 'Continue (salgo)' : 'Cancel (vuelvo al test)'));
+        b.click();
+      } catch (e) {}
+    };
+    setTimeout(atender, 800); setTimeout(atender, 2500);
+    return;
+  }
   if (window.__ed && window.__ed._v === V) { console.log('%c[ED]', 'color:#27ae61', 'v' + V + ' ya instalado → __ed.help()'); return; }
   try { window.__ed && window.__ed.stop && window.__ed.stop(); } catch (e) {}
   try { clearInterval(window.__ed && window.__ed._hudTimer); } catch (e) {}
@@ -55,16 +73,19 @@
     solveWithoutTaskNav: true, // NUEVO: resolver ejercicios aunque no haya navegador de tareas (como v17)
     stopIfNot100: true,        // NUEVO v20.1: si tras maxTestAttempts no llega a 100 % → DETENERSE y avisar
     harvestPause: 600,         // RECUPERADO v20.2 (v17.1/17.3): pausa extra antes de leer el review en pantallas no-MCQ
-    testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
+    testExpress: false,        // AJUSTADA v21.7 (antes true): el envío en blanco parece CONTAR en el promedio de ED
+                               // (Nelson: 98 % → 96 % con todos los tests terminando en 100). 1.er intento: se responde.
+    retakeDoneTests: false,    // NUEVO v21.7: NO rehacer un test que ED ya marca como terminado (salvo puntaje conocido < 100)
     practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
     verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
     fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
     reloadEveryMin: 40,
-    maxMinPorUnidad: 150,      // NUEVO v21.3: modo completar: tope de minutos por unidad antes de pasar a la siguiente        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
-    cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
+    maxMinPorUnidad: 45,       // AJUSTADA v21.7 (antes 150): una unidad normal toma ~8 min; 45 es tope de sobra        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
+    cfgV: 3                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
   // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
   if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
+  if (!(CFG.cfgV >= 3)) { CFG.testExpress = false; CFG.retakeDoneTests = false; CFG.maxMinPorUnidad = 45; CFG.cfgV = 3; }   // NUEVO v21.7
 
   const K_ANS = 'ed:answers:v1';
   const K_ANS2 = 'ed:testAns:v2';
@@ -409,6 +430,9 @@
         url: location.href.slice(0, 90), leccion: NavigationManager.lessonLabel(), step: NavigationManager.stepLabel(),
         contador: (NavigationManager.counter() || {}).s || null, tarea: t ? t.n + (t.done ? '✓' : '·') : null, kind,
         instruccion: txt(q('.learning__headerIW')).slice(0, 160),
+        // NUEVO v21.7: texto VISIBLE de la pantalla (sin menús) y marcos (iframes) → entender casos raros
+        textoVisible: (() => { try { return ((qv('.learning__practiceArea, .learning__body, #mainContent') || document.body).innerText || '').replace(/\s+/g, ' ').trim().slice(0, 1200); } catch (e) { return ''; } })(),
+        marcos: qa('iframe').map(f => (f.getAttribute('src') || f.id || '?').slice(0, 120) + (vis(f) ? ' (visible)' : '')).slice(0, 8),
         clases: Object.fromEntries(Object.entries(clases).sort((a, b) => b[1] - a[1]).slice(0, 45)),
         html: limpio(area)
       };
@@ -766,6 +790,83 @@
     }
   }
 
+  // ▼▼▼ src/core/progress-map.js ▼▼▼
+  // =====================================================================
+  //  MAPA DE PROGRESO — lee "My Progress" (sin dar ningún test)
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.8 (dumps de Hugo del 01/11). Página #/MyProgress/Course/<id>/Unit/:
+  //    .myProgress__unitW → .myProgress__unitTitle ("Unit 1"), .myProgress__unitName, .myProgress__unitCompletionData
+  //      ("100%"), bloqueada si .myProgress__unitHeader--locked. Se DESPLIEGA pulsando .myProgress__unitHeader.
+  //    Desplegada → .myProgress__unitLesson: _number, _name, _testScore ("100%" | "No test"), _statusLabel
+  //      ("Terminado"), pasos .myProgress__unitLesson_step (hecho: .myProgress__unitLesson_stepProgressIW--done).
+  //  Guarda el mapa en ed:progress:v1. De ahí salen: unidades sin terminar, lecciones pendientes y los tests < 100
+  //  (los únicos que se rehacen: cada intento parece contar en el promedio de ED).
+  //  DEPENDE DE: utils/dom.js, utils/press.js
+  //  EXPONE:     ProgressMap
+  // =====================================================================
+
+  const K_PROGRESS = 'ed:progress:v1';
+
+  class ProgressMap {
+    static get() { try { return JSON.parse(localStorage.getItem(K_PROGRESS) || 'null'); } catch (e) { return null; } }
+    static set(m) { try { localStorage.setItem(K_PROGRESS, JSON.stringify(m)); } catch (e) {} }
+    static isPage() { return /#\/MyProgress/i.test(location.href) || !!qv('.myProgress__main'); }
+
+    // URL de My Progress a partir del Home (id del curso en la clase del carrusel: BSslide--523991431)
+    static url() {
+      const el = qa('[class*="BSslide--"]')[0];
+      const id = el && (el.className.match(/BSslide--(\d+)/) || [])[1];
+      return id ? location.href.split('#')[0] + '#/MyProgress/Course/' + id + '/Unit/' : null;
+    }
+    static async ir() {
+      const b = qa('a, button, div, span').filter(e => vis(e) && /^(my progress|mi progreso)$/i.test(txt(e)) && !e.children.length)[0];
+      if (b) { click(b); if (await waitFor(() => this.isPage(), 6000, 300)) return true; }
+      const u = this.url(); if (u) { location.href = u; return !!(await waitFor(() => this.isPage(), 8000, 300)); }
+      return false;
+    }
+
+    static async leer() {
+      await waitFor(() => qa('.myProgress__unitW').length > 0, 8000, 300);
+      const num = (el, d = null) => { const m = txt(el).match(/(\d{1,3})/); return m ? +m[1] : d; };
+      const unidades = [];
+      for (const uw of qa('.myProgress__unitW')) {
+        const u = { n: num(q('.myProgress__unitTitle', uw), 0), nombre: txt(q('.myProgress__unitName', uw)),
+          completion: num(q('.myProgress__unitCompletionData', uw)), locked: !!q('.myProgress__unitHeader--locked, .myProgress__unitLock--locked', uw), lecciones: [] };
+        if (!u.locked) {
+          if (!qa('.myProgress__unitLesson', uw).length) {
+            try { uw.scrollIntoView({ block: 'center' }); } catch (e) {}
+            await press(q('.myProgress__unitHeaderIW', uw) || q('.myProgress__unitHeader', uw) || uw, () => qa('.myProgress__unitLesson', uw).length > 0, 3000);
+          }
+          for (const L of qa('.myProgress__unitLesson', uw)) {
+            const ts = txt(q('.myProgress__unitLesson_testScore', L)), m = ts.match(/(\d{1,3})\s*%/);
+            const pasos = qa('.myProgress__unitLesson_step', L), hechos = pasos.filter(p => q('.myProgress__unitLesson_stepProgressIW--done', p)).length;
+            const estado = txt(q('.myProgress__unitLesson_statusLabel', L));
+            u.lecciones.push({ n: num(q('.myProgress__unitLesson_number', L), 0), nombre: txt(q('.myProgress__unitLesson_name', L)),
+              test: m ? +m[1] : (/no test|sin (test|prueba)|no hay/i.test(ts) ? 'sin' : null),
+              terminado: /terminad|complet|done|finaliz/i.test(estado) || (pasos.length > 0 && hechos === pasos.length), pasos: pasos.length, hechos });
+          }
+        }
+        unidades.push(u);
+      }
+      const w = { completion: num(q('.home__studentWidgetCompletion .home__studentWidgetData, #home__studentWidgetCompletionData')), avg: num(q('.home__studentWidgetTestScores .home__studentWidgetData, #home__studentWidgetTestScoresData')) };
+      const mapa = { fecha: new Date().toISOString(), widgets: w, unidades };
+      this.set(mapa);
+      const bajos = this.testsBajos(mapa), pend = this.leccionesPendientes(mapa);
+      log('🗺️ My Progress leído:', unidades.length, 'unidades ·', pend.length, 'lecciones sin terminar ·', bajos.length, 'tests < 100',
+        bajos.length ? '→ ' + bajos.map(b => `U${b.unidad} L${b.leccion} (${b.test} %)`).join(', ') : '');
+      return mapa;
+    }
+
+    static testsBajos(m = this.get()) {
+      return !m ? [] : m.unidades.flatMap(u => u.lecciones.filter(l => typeof l.test === 'number' && l.test < 100).map(l => ({ unidad: u.n, leccion: l.n, nombre: l.nombre, test: l.test })));
+    }
+    static leccionesPendientes(m = this.get()) {
+      return !m ? [] : m.unidades.filter(u => !u.locked).flatMap(u => u.lecciones.filter(l => !l.terminado).map(l => ({ unidad: u.n, leccion: l.n, nombre: l.nombre })));
+    }
+    // ¿El test de esta lección quedó < 100 según My Progress? (permite rehacerlo aunque ED lo marque terminado)
+    static testBajo(unidad, leccion) { return this.testsBajos().some(b => b.unidad === unidad && b.leccion === leccion); }
+  }
+
   // ▼▼▼ src/core/sweep.js ▼▼▼
   // =====================================================================
   //  BARRIDO DE TESTS — busca tests con nota < 100, lección por lección y unidad por unidad
@@ -811,6 +912,8 @@
       const s = this.get(); if (!s) return;
       const k = this.lessonKey();
       if (!s.lessonsDone.includes(k)) s.lessonsDone.push(k);
+      const ul = this.unitNum() + '|' + (+lessonNum(NavigationManager.lessonLabel()) || 0);   // NUEVO v21.8
+      s.objHechos = s.objHechos || []; if (!s.objHechos.includes(ul)) s.objHechos.push(ul);
       s.resultados.push({ unidad: this.unitNum(), leccion: NavigationManager.lessonLabel(), pct, nota });
       this.set(s);
     }
@@ -820,6 +923,7 @@
     static async lessonStep() {
       const s = this.get(); if (!s || !s.active) return null;
       if (s.mode === 'completar') return await this.completarStep(s);   // NUEVO v21.3
+      if (s.mapaHecho && Array.isArray(s.objetivos)) return await this.objetivosStep(s);   // NUEVO v21.8: con mapa
       if (s.phase === 'entering_unit' || s.phase === 'home') {
         s.phase = 'lesson'; this.set(s);
         log('🧭 Barrido: unidad', this.unitNum(), '→ empiezo por la lección 1');
@@ -836,6 +940,29 @@
         this.markLesson(null, 'sin step de test');
       }
       return await this.nextLesson();
+    }
+
+    // NUEVO v21.8 — barrido con MAPA: solo los tests que My Progress muestra < 100, yendo directo a cada uno
+    static pendientesObj(s) { return (s.objetivos || []).filter(o => !(s.objHechos || []).includes(o.unidad + '|' + o.leccion)); }
+    static async objetivosStep(s) {
+      if (s.phase !== 'lesson') { s.phase = 'lesson'; this.set(s); }
+      const u = this.unitNum(), ln = +lessonNum(NavigationManager.lessonLabel()) || 0;
+      const pend = this.pendientesObj(s);
+      if (pend.some(o => o.unidad === u && o.leccion === ln)) {
+        const enTest = RE_TEST_STEP.test(NavigationManager.stepLabel()) || TestManager.isTestStart() || TestManager.isScore() || TestManager.isReview() || TestManager.inTest();
+        const run = StorageManager.getRun();
+        if (enTest || (run && (run.phase === 'review' || run.phase === 'replay'))) { if (!(TestManager.isScore() && this.lessonDone())) return null; }
+        if (!this.lessonDone()) {
+          log('🎯 Test < 100 según My Progress →', NavigationManager.lessonLabel());
+          if (await DropdownNav.gotoStep(RE_TEST_ITEM)) return { did: 'sweep_goto_test' };
+          this.markLesson(null, 'sin step de test');
+        }
+      }
+      const resto = this.pendientesObj(this.get());
+      const otra = resto.find(o => o.unidad === u);
+      if (otra) { log('🎯 Siguiente test < 100 en esta unidad → lección', otra.leccion); await DropdownNav.gotoLesson(otra.leccion); return { did: 'sweep_next_lesson', leccion: otra.leccion }; }
+      log(resto.length ? '🎯 Quedan tests < 100 en otras unidades → Home' : '🏁 Ya no quedan tests < 100 → Home');
+      return await this.irHome();
     }
 
     static async nextLesson() {
@@ -871,7 +998,7 @@
       return m ? +m[1] : null;
     }
     // Abre la unidad (despliega su lista) y entra a la 1.ª lección no completa (o la 1.ª). false si no pudo.
-    static async abrirUnidad(u) {
+    static async abrirUnidad(u, preferida = null) {   // AJUSTADA v21.8: preferida = n.º de lección (del mapa)
       try { u.el.scrollIntoView({ block: 'center' }); } catch (e) {}
       await sleep(700);
       const caja = () => u.el.closest('.home__unitW') || u.el;
@@ -894,7 +1021,8 @@
       lista = qav('.home__courseListItem', caja());
       if (!lista.length) lista = qav('.home__courseListItem');   // por si ED pinta la lista fuera de la tarjeta
       if (!lista.length) return false;
-      const it = lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
+      const numL = x => +((txt(q('.home__courseListItemNumber', x)).match(/\d+/) || [0])[0]);
+      const it = (preferida && lista.find(x => numL(x) === preferida)) || lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
       const link = q('.home__courseListItemLink', it) || it;
       log('🧭 Unidad', u.n, '→ lección', txt(q('.home__courseListItemNumber', it)) + ' ' + txt(q('.home__courseListItemName', it)));
       click(link);
@@ -903,6 +1031,7 @@
     }
     static async irHome() {
       const s = this.get(); if (s) { s.phase = 'home'; this.set(s); }
+      try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}   // NUEVO v21.7: el aviso "test sin enviar" → Continue
       const home = qv('.sitemenu__itemHome--learningArea a') || qv('.sitemenu__itemHome--learningArea') || qv('.sitemenu__itemHome a') || qv('.sitemenu__itemHome');
       if (home) click(home); else if (s && s.homeUrl) location.href = s.homeUrl;
       await sleep(4000);
@@ -920,10 +1049,14 @@
     static async completarHome(s) {
       s.widgets = this.leerWidgets(); this.set(s);
       log('📊 Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
-      const pend = this.unidades().filter(u => !u.completa && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
+      // AJUSTADA v21.8: con el mapa de My Progress, las unidades pendientes son las de realización < 100 %
+      const m = ProgressMap.get(), conMapa = s.mapaHecho && m && m.unidades && m.unidades.length;
+      const nums = conMapa ? m.unidades.filter(x => !x.locked && (x.completion == null || x.completion < 100)).map(x => x.n) : null;
+      const pend = this.unidades().filter(u => (nums ? nums.includes(u.n) : !u.completa) && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
       if (!pend.length) {
-        if (s.widgets.avg != null && s.widgets.avg < 100 && !s.testsHechos) {
-          Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], testsHechos: true }); this.set(s);
+        if (!s.testsHechos && (conMapa ? ProgressMap.testsBajos(m).length > 0 || (s.widgets.avg != null && s.widgets.avg < 100) : s.widgets.avg != null && s.widgets.avg < 100)) {
+          // mapaHecho = false → se vuelve a leer My Progress (los puntajes pudieron cambiar) antes del barrido
+          Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], objHechos: [], testsHechos: true, mapaHecho: false }); this.set(s);
           log('🧭 Unidades recorridas; promedio de tests', s.widgets.avg + '% → barrido de tests < 100');
           return { did: 'completar_a_tests' };
         }
@@ -933,8 +1066,9 @@
         return { did: 'completar_fin', widgets: s.widgets };
       }
       const u = pend[0];
+      const lu = conMapa ? (m.unidades.find(x => x.n === u.n) || { lecciones: [] }).lecciones.find(l => !l.terminado) : null;   // NUEVO v21.8
       Object.assign(s, { phase: 'entering_unit', unitTarget: u.n, unitStart: Date.now() }); this.set(s);
-      if (!(await this.abrirUnidad(u))) {
+      if (!(await this.abrirUnidad(u, lu ? lu.n : null))) {
         Reporter.capture('home_no_abre_lista_de_lecciones', { unidad: u.n, titulo: u.t });
         const s2 = this.get(); s2.unitsDone.push(u.n); s2.phase = 'home'; this.set(s2);
         return { did: 'completar_unidad_fallida', unidad: u.n };
@@ -957,7 +1091,13 @@
       const tope = min > (CFG.maxMinPorUnidad || 150);
       if (TestSweep._same >= 6 || tope) {
         TestSweep._same = 0;
-        if (!tope) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
+        // AJUSTADA v21.7: si el "pendiente" es siempre el MISMO (corrida de Nelson: el mismo test 257 veces en 2,5 h),
+        // a la 3.ª vez se da por perdido y se sigue con la siguiente unidad.
+        const dondeAhora = this.unitNum() + '|' + txt(qv('.learning__dropDownListTitleW--lessons')) + '|' + txt(qv('.learning__dropDownListTitleW--steps'));
+        TestSweep._saltos = TestSweep._saltosDe === dondeAhora ? (TestSweep._saltos || 0) + 1 : 1; TestSweep._saltosDe = dondeAhora;
+        const mismo = TestSweep._saltos >= 3;
+        if (mismo) Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
+        if (!tope && !mismo) { try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {} const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
         else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
         const s2 = this.get(); if (!s2.unitsDone.includes(u)) s2.unitsDone.push(u); this.set(s2);
         log('🏁 Unidad', u, tope ? 'cortada por tiempo' : 'sin pendientes', '→ Home');
@@ -979,8 +1119,35 @@
         return { did: 'sesion_cerrada_por_ed' };
       }
       if (/#\/login/i.test(location.href) || qv('input[name="userName"]')) return { did: 'esperando_login' };   // sin sesión: no anotar fallos
+      // NUEVO v21.8 — My Progress: leer el mapa (unidades, lecciones, Last Test Score) y volver al Home
+      if (ProgressMap.isPage()) {
+        const homeUrl = s.homeUrl || location.href.split('#')[0] + '#/home';
+        if (!s.mapaHecho) {
+          const mapa = await ProgressMap.leer();
+          Object.assign(s, { mapaHecho: true, sinMapa: !mapa.unidades.length, objetivos: ProgressMap.testsBajos(mapa), objHechos: s.objHechos || [], phase: 'home', homeUrl, widgets: mapa.widgets.completion != null ? mapa.widgets : s.widgets });
+          this.set(s);
+          if (!mapa.unidades.length) Reporter.capture('my_progress_sin_unidades');
+        }
+        location.href = homeUrl; await sleep(4000);
+        return { did: 'mapa_leido', tests_bajos: (s.objetivos || []).length };
+      }
       if (/#\/home/i.test(location.href) || qv('.home__unitW')) {
         s.homeUrl = location.href.split('#')[0] + '#/home'; this.set(s);
+        // NUEVO v21.8: antes de nada, leer My Progress (una vez por fase); si no se puede, se sigue sin mapa
+        if (!s.mapaHecho && !s.sinMapa) {
+          if (await ProgressMap.ir()) return { did: 'voy_a_my_progress' };
+          s.sinMapa = true; this.set(s); Reporter.capture('no_pude_abrir_my_progress');
+        }
+        if (s.mode !== 'completar' && s.mapaHecho && Array.isArray(s.objetivos)) {   // NUEVO v21.8: barrido con mapa
+          const o = this.pendientesObj(s)[0];
+          if (!o) { s.active = false; s.fin = new Date().toISOString(); this.set(s); log('🏁 BARRIDO COMPLETO: no quedan tests < 100.'); window.__ed.stop(); return { did: 'sweep_finished', resultados: s.resultados }; }
+          const u = this.unidades().find(x => x.n === o.unidad);
+          if (!u) { s.objHechos.push(o.unidad + '|' + o.leccion); this.set(s); Reporter.capture('objetivo_sin_unidad_en_home', o); return { did: 'objetivo_saltado', o }; }
+          Object.assign(s, { phase: 'entering_unit', unitTarget: u.n }); this.set(s);
+          log('🎯 Voy al test < 100: unidad', o.unidad, 'lección', o.leccion, '(' + o.test + ' %)');
+          if (!(await this.abrirUnidad(u, o.leccion))) { s.objHechos.push(o.unidad + '|' + o.leccion); this.set(s); Reporter.capture('home_no_abre_lista_de_lecciones', { unidad: u.n }); }
+          return { did: 'sweep_open_unit', unidad: u.n, leccion: o.leccion };
+        }
         if (s.mode === 'completar') return await this.completarHome(s);
         s.widgets = this.leerWidgets(); this.set(s);
         const units = this.unidades();
@@ -1313,7 +1480,13 @@
 
       for (const s of sets) {
         const labels = qa('label.prMCQ__answerLabel, input[type="checkbox"], input[type="radio"]', s).filter(vis);
-        if (!labels.length) continue;
+        // NUEVO v21.7 — opciones con IMÁGENES (reporte Watch again · "Choose the correct picture"): no hay labels;
+        // se pulsa la imagen (o su caja). Práctica: la 1.ª basta; ED marca la correcta y la tarea.
+        if (!labels.length) {
+          const imgs = qa('.prMCQ__answerImage, .prMCQ__answers .multiRadioWrapper', s).filter(vis);
+          if (imgs.length && !q('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', s)) { click(imgs[0]); marked++; await sleep(400); }
+          continue;
+        }
         const checked = q('input[type="radio"]:checked, input[type="checkbox"]:checked', s);
         if (checked) continue;
 
@@ -1899,6 +2072,47 @@
     }
   }
 
+  // ▼▼▼ src/exercises/add-in-text.js ▼▼▼
+  // =====================================================================
+  //  "Select the place in the text where this sentence best fits."  (.addInText)
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.7 (reporte de la nube, Nelson: Tiny Homes · Read again 4/4 y Hobby · Read again 4/5).
+  //  A la derecha solo está la frase (.sentenceNoteWrapper); los LUGARES donde insertarla están en el texto de
+  //  lectura (izquierda). Su estructura aún no está confirmada → se prueban los candidatos más probables, uno por
+  //  uno, hasta que ED marque la tarea. Si no hay candidatos, el reporte guarda el HTML del texto de lectura.
+  //  DEPENDE DE: utils/dom.js, utils/press.js, utils/reporter.js, core/navigation.js
+  //  EXPONE:     AddInTextSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class AddInTextSolver {
+    static isAddInText() { return !!qv('.addInText'); }
+
+    static lugares() {
+      const zona = qv('.learning__resourcesArea') || document;
+      const sel = '[class*="addIn" i]:not(.addInText):not(.answersWrapper), [class*="insert" i], [class*="place" i], [class*="gap" i], [class*="square" i], [class*="marker" i], [onclick]';
+      let c = qa(sel, zona).filter(e => vis(e) && !e.closest('.answersWrapper') && !e.closest('.layout__mediaControlsW, .learning__RAMediaTools'));
+      if (!c.length) c = qa('span, a, b, i', zona).filter(e => vis(e) && /^\s*(\[?[A-H1-9]\]?|■|□|▢|\(\s*\))\s*$/.test(txt(e)));   // [A] [B] ■ ...
+      return c.filter(e => !c.some(o => o !== e && e.contains(o)));
+    }
+
+    static async solveAddInText() {
+      log('📍 [Insertar frase] Buscando los lugares en el texto...');
+      const tn = NavigationManager.curTask()?.n;
+      const ls = this.lugares();
+      if (!ls.length) {
+        Reporter.capture('insertar_frase_sin_lugares', { textoLectura: (qv('.learning__resourcesArea') || {}).outerHTML ? qv('.learning__resourcesArea').outerHTML.replace(/\s+/g, ' ').slice(0, 2500) : null });
+        return { did: 'add_in_text', probados: 0 };
+      }
+      let i = 0;
+      for (const l of ls.slice(0, 8)) {
+        i++;
+        await press(l, () => tn && NavigationManager.taskDone(tn), 1500);
+        if (tn && NavigationManager.taskDone(tn)) return { did: 'add_in_text', probados: i, ok: true };
+      }
+      return { did: 'add_in_text', probados: i, ok: false, clases: ls.slice(0, 5).map(e => e.className || e.tagName) };
+    }
+  }
+
   // ▼▼▼ src/exercises/index.js ▼▼▼
   // =====================================================================
   //  EXERCISES INDEX — junta todos los solvers en PracticeSolver
@@ -1940,7 +2154,8 @@
     DropTargetSolver,
     LegacyMCQSolver,
     LegacyDDLSolver,
-    MemoryGameSolver
+    MemoryGameSolver,
+    AddInTextSolver   // NUEVO v21.7
   );
 
   // ▼▼▼ src/tests/test-manager.js ▼▼▼
@@ -1961,6 +2176,14 @@
 
   class TestManager {
     static isTestStart() { return !!qv('.btnStartTest'); }
+
+    // NUEVO v21.7: ¿ED ya marca este test (o su lección) como terminado? Se mira el paso actual en el desplegable de
+    // pasos (barra .progressBar__progress--done o texto "Completed/Terminado").
+    static yaTerminado() {
+      const it = qa('.learning__dropDownListW--steps .learning__dropDownList_item--current, .learning__dropDownListW--steps [class*="item--current"]')[0];
+      if (!it) return false;
+      return !!q('.progressBar__progress--done', it) || RE_ST_DONE.test(txt(it));
+    }
 
     // NUEVA (de v17): ¿estamos contestando preguntas de un test?
     static inTest() { return RE_TEST_STEP.test(NavigationManager.stepLabel()) || !!qv('a.tasksBtnext.learning__submitTestLink'); }
@@ -2345,9 +2568,12 @@
     }
 
     // NUEVA: tope de reintentos. Cuenta las veces que se ve la pantalla de puntaje < 100 %.
+    // AJUSTADA v21.7: el conteo se guarda en localStorage (antes en memoria → la recarga periódica lo reiniciaba)
     static tooManyRetries(key) {
-      scoreVisits[key] = (scoreVisits[key] || 0) + 1;
-      return scoreVisits[key] > CFG.maxTestAttempts;
+      let m = {}; try { m = JSON.parse(localStorage.getItem('ed:scoreVisits:v1') || '{}'); } catch (e) {}
+      m[key] = Math.max(m[key] || 0, scoreVisits[key] || 0) + 1; scoreVisits[key] = m[key];
+      try { localStorage.setItem('ed:scoreVisits:v1', JSON.stringify(m)); } catch (e) {}
+      return m[key] > CFG.maxTestAttempts;
     }
   }
 
@@ -2380,6 +2606,7 @@
       if (qav('a.chooseCaracterArrow').length || qv('.speakingInteract') || qv('.answersWrapper.interact2')) return 'interactive_speaking';   // AJUSTADA v21.2: Interact 2 no trae flechas
       if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
       if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
+      if (PracticeSolver.isAddInText()) return 'add_in_text';           // NUEVO v21.7
       if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
       if (PracticeSolver.isDragAndDrop()) return 'dnd';
       if (qv('.DDLOptions__selected')) return 'fitb';
@@ -2401,6 +2628,7 @@
         case 'interactive_speaking': return PracticeSolver.solveInteractive();
         case 'sr_choice': return PracticeSolver.solveSRChoice();
         case 'memory': return PracticeSolver.solveMemoryGame();         // NUEVO v20.8
+        case 'add_in_text': return PracticeSolver.solveAddInText();     // NUEVO v21.7
         case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
         case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
         case 'fitb': return PracticeSolver.solveFITB();
@@ -2413,6 +2641,16 @@
     }
 
     static async step() {
+      // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
+      for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
+        const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
+        if (ok && /submitted your test|no has enviado/i.test((d.body && d.body.innerText) || '')) {
+          const saliendo = +(localStorage.getItem('ed:saliendo') || 0) > Date.now() - 120000;
+          const b = saliendo ? ok : (d.getElementById('btnCancel') || ok);
+          log('🪟 Aviso de test sin enviar →', saliendo ? 'Continue (salgo)' : 'Cancel (vuelvo al test)'); b.click(); await sleep(1500);
+          return { did: 'aviso_test_sin_enviar', boton: saliendo ? 'Continue' : 'Cancel' };
+        }
+      }
       if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
         const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
         return sw || { did: 'not_in_lesson' };
@@ -2422,6 +2660,16 @@
 
       if (TestManager.isTestStart()) {
         const key = NavigationManager.testKey();
+        // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
+        // salvo que sepamos que quedó < 100 %.
+        if (!CFG.retakeDoneTests && TestManager.yaTerminado() && !ProgressMap.testBajo(TestSweep.unitNum(), +lessonNum(NavigationManager.lessonLabel()) || 0)) {   // AJUSTADA v21.8
+          const sc = StorageManager.getScores()[key];
+          if (!(sc != null && sc < 100)) {
+            log('⏭️ Test ya terminado (' + (sc != null ? sc + ' %' : 'puntaje no conocido') + ') → no lo rehago:', key);
+            await NavigationManager.goNext();
+            return { did: 'test_ya_terminado', key, pct: sc ?? null };
+          }
+        }
         log('🚀 [Test Start] Iniciando test:', key);
         click(qv('.btnStartTest'));
         // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que desaparezca el botón Start (mismo tope)
@@ -2587,7 +2835,8 @@
       while (this._running) {
         if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
         // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
-        if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+        // AJUSTADA v21.7: nunca a mitad de un test (se perdía la cuenta de intentos)
+        if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
         // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
         try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
         await sleep(CFG.tickMs);

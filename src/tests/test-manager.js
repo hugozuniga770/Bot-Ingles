@@ -16,6 +16,14 @@ const scoreVisits = {};   // veces que se vio la pantalla de puntaje de cada tes
 class TestManager {
   static isTestStart() { return !!qv('.btnStartTest'); }
 
+  // NUEVO v21.7: ¿ED ya marca este test (o su lección) como terminado? Se mira el paso actual en el desplegable de
+  // pasos (barra .progressBar__progress--done o texto "Completed/Terminado").
+  static yaTerminado() {
+    const it = qa('.learning__dropDownListW--steps .learning__dropDownList_item--current, .learning__dropDownListW--steps [class*="item--current"]')[0];
+    if (!it) return false;
+    return !!q('.progressBar__progress--done', it) || RE_ST_DONE.test(txt(it));
+  }
+
   // NUEVA (de v17): ¿estamos contestando preguntas de un test?
   static inTest() { return RE_TEST_STEP.test(NavigationManager.stepLabel()) || !!qv('a.tasksBtnext.learning__submitTestLink'); }
 
@@ -399,8 +407,11 @@ class TestManager {
   }
 
   // NUEVA: tope de reintentos. Cuenta las veces que se ve la pantalla de puntaje < 100 %.
+  // AJUSTADA v21.7: el conteo se guarda en localStorage (antes en memoria → la recarga periódica lo reiniciaba)
   static tooManyRetries(key) {
-    scoreVisits[key] = (scoreVisits[key] || 0) + 1;
-    return scoreVisits[key] > CFG.maxTestAttempts;
+    let m = {}; try { m = JSON.parse(localStorage.getItem('ed:scoreVisits:v1') || '{}'); } catch (e) {}
+    m[key] = Math.max(m[key] || 0, scoreVisits[key] || 0) + 1; scoreVisits[key] = m[key];
+    try { localStorage.setItem('ed:scoreVisits:v1', JSON.stringify(m)); } catch (e) {}
+    return m[key] > CFG.maxTestAttempts;
   }
 }

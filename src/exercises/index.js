@@ -38,5 +38,6 @@ const PracticeSolver = mixStatics(
   DropTargetSolver,
   LegacyMCQSolver,
   LegacyDDLSolver,
-  MemoryGameSolver
+  MemoryGameSolver,
+  AddInTextSolver   // NUEVO v21.7
 );

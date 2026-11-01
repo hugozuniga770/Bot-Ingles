@@ -19,7 +19,8 @@ window.__ed = {
     while (this._running) {
       if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
       // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
-      if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+      // AJUSTADA v21.7: nunca a mitad de un test (se perdía la cuenta de intentos)
+      if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
       // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
       try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
       await sleep(CFG.tickMs);

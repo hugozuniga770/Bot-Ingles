@@ -24,16 +24,19 @@ const CFG = Object.assign({
   solveWithoutTaskNav: true, // NUEVO: resolver ejercicios aunque no haya navegador de tareas (como v17)
   stopIfNot100: true,        // NUEVO v20.1: si tras maxTestAttempts no llega a 100 % → DETENERSE y avisar
   harvestPause: 600,         // RECUPERADO v20.2 (v17.1/17.3): pausa extra antes de leer el review en pantallas no-MCQ
-  testExpress: true,         // NUEVO v20.7: 1.er intento del test (sin respuestas) → directo al Submit, sin resolver
+  testExpress: false,        // AJUSTADA v21.7 (antes true): el envío en blanco parece CONTAR en el promedio de ED
+                             // (Nelson: 98 % → 96 % con todos los tests terminando en 100). 1.er intento: se responde.
+  retakeDoneTests: false,    // NUEVO v21.7: NO rehacer un test que ED ya marca como terminado (salvo puntaje conocido < 100)
   practiceOneAction: true,   // NUEVO v20.7: en prácticas, UNA acción; si ED no marca la tarea como hecha, completa todo
   verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
   fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
   reloadEveryMin: 40,
-  maxMinPorUnidad: 150,      // NUEVO v21.3: modo completar: tope de minutos por unidad antes de pasar a la siguiente        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
-  cfgV: 2                    // versión de la config (para migrar valores viejos guardados)
+  maxMinPorUnidad: 45,       // AJUSTADA v21.7 (antes 150): una unidad normal toma ~8 min; 45 es tope de sobra        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
+  cfgV: 3                    // versión de la config (para migrar valores viejos guardados)
 }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
 // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
 if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
+if (!(CFG.cfgV >= 3)) { CFG.testExpress = false; CFG.retakeDoneTests = false; CFG.maxMinPorUnidad = 45; CFG.cfgV = 3; }   // NUEVO v21.7
 
 const K_ANS = 'ed:answers:v1';
 const K_ANS2 = 'ed:testAns:v2';

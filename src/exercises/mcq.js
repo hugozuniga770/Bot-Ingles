@@ -33,7 +33,13 @@ class MCQSolver {
 
     for (const s of sets) {
       const labels = qa('label.prMCQ__answerLabel, input[type="checkbox"], input[type="radio"]', s).filter(vis);
-      if (!labels.length) continue;
+      // NUEVO v21.7 — opciones con IMÁGENES (reporte Watch again · "Choose the correct picture"): no hay labels;
+      // se pulsa la imagen (o su caja). Práctica: la 1.ª basta; ED marca la correcta y la tarea.
+      if (!labels.length) {
+        const imgs = qa('.prMCQ__answerImage, .prMCQ__answers .multiRadioWrapper', s).filter(vis);
+        if (imgs.length && !q('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', s)) { click(imgs[0]); marked++; await sleep(400); }
+        continue;
+      }
       const checked = q('input[type="radio"]:checked, input[type="checkbox"]:checked', s);
       if (checked) continue;
 

@@ -26,6 +26,7 @@ class MainEngine {
     if (qav('a.chooseCaracterArrow').length || qv('.speakingInteract') || qv('.answersWrapper.interact2')) return 'interactive_speaking';   // AJUSTADA v21.2: Interact 2 no trae flechas
     if ((qv('.questionInstructionsSR') || qv('.questionAnswersSet.speaker')) && qv('a.button.continue')) return 'sr_choice';
     if (PracticeSolver.isMemoryGame()) return 'memory';               // NUEVO v20.8
+    if (PracticeSolver.isAddInText()) return 'add_in_text';           // NUEVO v21.7
     if (PracticeSolver.isDropTargetScreen()) return 'droptarget';   // NUEVO v20.6: antes caía en 'media' (por el video)
     if (PracticeSolver.isDragAndDrop()) return 'dnd';
     if (qv('.DDLOptions__selected')) return 'fitb';
@@ -47,6 +48,7 @@ class MainEngine {
       case 'interactive_speaking': return PracticeSolver.solveInteractive();
       case 'sr_choice': return PracticeSolver.solveSRChoice();
       case 'memory': return PracticeSolver.solveMemoryGame();         // NUEVO v20.8
+      case 'add_in_text': return PracticeSolver.solveAddInText();     // NUEVO v21.7
       case 'droptarget': return PracticeSolver.solveDropTarget();      // NUEVO v20.6
       case 'dnd': return PracticeSolver.solveDragAndDrop(false);   // false = colocar TODOS los elementos
       case 'fitb': return PracticeSolver.solveFITB();
@@ -59,6 +61,16 @@ class MainEngine {
   }
 
   static async step() {
+    // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
+    for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
+      const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
+      if (ok && /submitted your test|no has enviado/i.test((d.body && d.body.innerText) || '')) {
+        const saliendo = +(localStorage.getItem('ed:saliendo') || 0) > Date.now() - 120000;
+        const b = saliendo ? ok : (d.getElementById('btnCancel') || ok);
+        log('🪟 Aviso de test sin enviar →', saliendo ? 'Continue (salgo)' : 'Cancel (vuelvo al test)'); b.click(); await sleep(1500);
+        return { did: 'aviso_test_sin_enviar', boton: saliendo ? 'Continue' : 'Cancel' };
+      }
+    }
     if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
       const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
       return sw || { did: 'not_in_lesson' };
@@ -68,6 +80,16 @@ class MainEngine {
 
     if (TestManager.isTestStart()) {
       const key = NavigationManager.testKey();
+      // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
+      // salvo que sepamos que quedó < 100 %.
+      if (!CFG.retakeDoneTests && TestManager.yaTerminado() && !ProgressMap.testBajo(TestSweep.unitNum(), +lessonNum(NavigationManager.lessonLabel()) || 0)) {   // AJUSTADA v21.8
+        const sc = StorageManager.getScores()[key];
+        if (!(sc != null && sc < 100)) {
+          log('⏭️ Test ya terminado (' + (sc != null ? sc + ' %' : 'puntaje no conocido') + ') → no lo rehago:', key);
+          await NavigationManager.goNext();
+          return { did: 'test_ya_terminado', key, pct: sc ?? null };
+        }
+      }
       log('🚀 [Test Start] Iniciando test:', key);
       click(qv('.btnStartTest'));
       // AJUSTADA v20.7: antes 3 s fijos; ahora hasta que desaparezca el botón Start (mismo tope)

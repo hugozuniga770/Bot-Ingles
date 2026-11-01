@@ -215,6 +215,60 @@
     "trace": "click home__unit:2Healthy Eating | click home__courseListItemLink:2. Clean-House ",
     "ls": null
   },
+  "mcqImagenes": {
+    "kind": "mcq",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0},\"taskMarked\":false}",
+    "trace": "click multiRadioWrapper: | click multiRadioWrapper: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "myProgressLeer": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"mapa_leido\",\"tests_bajos\":1}",
+    "trace": "click myProgress__unitHeaderIW:Unit 1Couples10 | click myProgress__unitHeaderIW:Unit 2Sport And",
+    "ls": null
+  },
+  "barridoMapaHome": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"sweep_open_unit\",\"unidad\":1,\"leccion\":2}",
+    "trace": "click home__unit:Completed!1Coup | click home__courseListItemLink:2. Clean-House ",
+    "ls": null
+  },
+  "completarMapaHome": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_abre_unidad\",\"unidad\":2}",
+    "trace": "click home__unit:2Sport | click home__courseListItemLink:1. Directions t",
+    "ls": null
+  },
+  "testTerminadoBajo": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_started\"}",
+    "trace": "click btnStartTest:Start Test",
+    "ls": null
+  },
+  "testYaTerminado": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_ya_terminado\",\"key\":\"Lesson 1: Food||Step 3: Test\",\"pct\":null}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "testSinTerminar": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_started\"}",
+    "trace": "click btnStartTest:Start Test",
+    "ls": null
+  },
+  "avisoTestSalgo": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"aviso_test_sin_enviar\",\"boton\":\"Continue\"}",
+    "trace": "click okButton:",
+    "ls": null
+  },
+  "avisoTestVuelvo": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"aviso_test_sin_enviar\",\"boton\":\"Cancel\"}",
+    "trace": "click utils__cancelLInk:Cancel",
+    "ls": null
+  },
   "completarHomeES": {
     "kind": "mcq_default",
     "r": "{\"did\":\"completar_abre_unidad\",\"unidad\":3}",

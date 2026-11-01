@@ -51,6 +51,8 @@ Agrega líneas a `ED_CUENTAS` y lanza con `todas` (o los números que quieras). 
 En `nube.yml`, quita los `#` de `schedule` / `cron` (cada 6 h). Ojo: corre aunque no lo mires.
 
 ## Límites conocidos
+- Si entras a la cuenta mientras el robot corre, ED cierra una de las dos sesiones y el robot vuelve a entrar
+  pulsando "Login on This Device" (te sacaría a ti). Si necesitas entrar, primero cancela la ejecución en Actions.
 - GitHub corta cada ejecución a las 6 h (por eso el tope de 330 min).
 - ED podría pedir captcha, desconfiar de servidores o de la misma cuenta abierta en 2 lugares:
   no abras la cuenta en tu PC mientras corre en la nube (ED cierra la sesión del robot: "Tu sesión no está más

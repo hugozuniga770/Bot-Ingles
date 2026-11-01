@@ -84,6 +84,22 @@ function HOME_SETUP(w) {
   }));
 }
 
+// ---- My Progress (v21.8), con las clases reales de los dumps del 01/11 ----
+const MP_UNIT = (n, nombre, comp, locked) => `<div class="myProgress__unitW" id="mu${n}"><div class="myProgress__unitHeader${locked ? ' myProgress__unitHeader--locked' : ''}"><div class="myProgress__unitHeaderIW">
+<span class="myProgress__unitTitle">Unit ${n}</span><span class="myProgress__unitName">${nombre}</span><span class="myProgress__unitCompletionData">${comp}%</span><span class="myProgress__unitArrow myProgress__unitArrow--closed"></span></div></div></div>`;
+const MP_HTML = `<div class="myProgress__main"><div class="home__studentWidgetCompletion"><div class="home__studentWidgetData">83</div></div><div class="home__studentWidgetTestScores"><div class="home__studentWidgetData">94</div></div>
+${MP_UNIT(1, 'Couples', 100)}${MP_UNIT(2, 'Sport And Fitness', 60)}${MP_UNIT(3, 'Locked', 0, true)}</div>`;
+const MP_LECC = { 1: [[1, 'Nick and Emily', '100%', 'Terminado', 3], [2, 'A New Acquaintance', '80%', 'Terminado', 3], [3, 'Divorced', 'No test', 'Terminado', 3]],
+  2: [[1, 'Food', '100%', 'Terminado', 3], [2, 'Gym', '', 'En progreso', 1]] };
+function MP_SETUP(w) {
+  const d = w.document;
+  d.querySelectorAll('.myProgress__unitW').forEach(uw => { const n = +uw.id.slice(2); uw.querySelector('.myProgress__unitHeaderIW').addEventListener('click', () => {
+    if (uw.querySelector('.myProgress__unitLesson') || !MP_LECC[n]) return;
+    uw.insertAdjacentHTML('beforeend', MP_LECC[n].map(([ln, nm, ts, st, hechos]) => `<div class="myProgress__unitLesson"><span class="myProgress__unitLesson_number">${ln}</span><span class="myProgress__unitLesson_name">${nm}</span>
+${[1, 2, 3].map(k => `<div class="myProgress__unitLesson_step"><div class="myProgress__unitLesson_stepProgressIW${k <= hechos ? ' myProgress__unitLesson_stepProgressIW--done' : ''}"></div></div>`).join('')}
+<span class="myProgress__unitLesson_testScore">${ts}</span><span class="myProgress__unitLesson_statusLabel">${st}</span></div>`).join('')); }); });
+}
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -214,6 +230,7 @@ const FIX = {
   testExpress: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 9: Express</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
 <div class="learning__tasksNav">${[1, 2, 3, 4, 5].map(n => `<a class="learning__tasksNav_task${n === 1 ? ' learning__tasksNav_task--current' : ''}" id="t${n}">${n}</a>`).join('')}</div>
 <div class="learning__headerIW">Choose the correct answer.</div><label class="prMCQ__answerLabel">A</label><span>1 / 5</span><a class="tasksBtnext learning__nextItemLink" id="nx">Next</a>`,
+    ls: { 'ed:cfg:v18.11': JSON.stringify({ testExpress: true, cfgV: 3 }) },   // AJUSTADA v21.7: el exprés ahora viene apagado; aquí se activa a mano
     setup: w => { const d = w.document; d.getElementById('t5').addEventListener('click', () => {
       d.querySelectorAll('.learning__tasksNav_task').forEach(t => t.classList.remove('learning__tasksNav_task--current'));
       d.getElementById('t5').classList.add('learning__tasksNav_task--current');
@@ -284,6 +301,42 @@ const FIX = {
   // NUEVO v21.3 — MODO COMPLETAR en el Home: salta la unidad 1 (Completed!), abre la 2 y entra a la 1.ª lección NO completa
   completarHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', false], [3, 'Getting Help', false]], 95, 25),
     ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }) }, setup: HOME_SETUP },
+  // NUEVO v21.7 — reporte de la nube (Nelson): "Choose the correct picture" → opciones con IMÁGENES, sin labels
+  mcqImagenes: { html: `${NAV}<div class="learning__dropDownListTitleW--steps">Step 3: Watch again</div><div class="learning__tasksNav_task learning__tasksNav_task--current">2</div>
+<div class="prMCQ__main prMCQ__main--ansImages"><div class="prMCQ__qaInnerSet"><div class="prMCQ__questionText">What does Molly suggest they do together?</div>
+<div class="prMCQ__answersW"><div class="prMCQ__answers"><div class="multiRadioWrapper"><div class="checkAnswerIcon"></div><img class="prMCQ__answerImage" id="i1" src="a.png"></div></div><div class="prMCQ__answers"><div class="multiRadioWrapper"><img class="prMCQ__answerImage" id="i2" src="b.png"></div></div></div></div></div>` },
+  // NUEVO v21.8 — MY PROGRESS (dumps del 01/11): despliega cada unidad y lee Last Test Score / Terminado
+  myProgressLeer: { url: 'https://ed.engdis.com/upbstacruz#/MyProgress/Course/523991431/Unit/', html: MP_HTML,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'tests', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: 'https://ed.engdis.com/upbstacruz#/home' }) },
+    setup: MP_SETUP },
+  // NUEVO v21.8 — barrido CON MAPA en el Home: va directo a la unidad 1, lección 2 (único test < 100)
+  barridoMapaHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Couples', true], [2, 'Sport', false]], 96, 83),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'tests', phase: 'home', mapaHecho: true, objetivos: [{ unidad: 1, leccion: 2, nombre: 'Clean-House Agency', test: 80 }], objHechos: [], lessonsDone: [], unitsDone: [], resultados: [] }) }, setup: HOME_SETUP },
+  // NUEVO v21.8 — completar CON MAPA: la unidad 2 está al 60 % y su 1.ª lección sin terminar es la 1 (no la 2 que diría la barrita)
+  completarMapaHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Couples', false], [2, 'Sport', false]], 96, 83),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', mapaHecho: true, objetivos: [], objHechos: [], lessonsDone: [], unitsDone: [], resultados: [] }),
+      'ed:progress:v1': JSON.stringify({ unidades: [{ n: 1, completion: 100, locked: false, lecciones: [{ n: 1, test: 100, terminado: true }] }, { n: 2, completion: 60, locked: false, lecciones: [{ n: 1, test: 'sin', terminado: false }, { n: 2, test: null, terminado: false }] }] }) }, setup: HOME_SETUP },
+  // NUEVO v21.8 — test TERMINADO pero My Progress dice 80 % → SÍ se rehace
+  testTerminadoBajo: { html: `<div class="learning__dropDownList_unitName">Unit 1: Couples</div><div class="learning__dropDownListTitleW--lessons">Lesson 2: A New Acquaintance</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
+<section class="learning__dropDownListW learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current"><div class="learning__dropDownList_itemNameText">3. Test</div><div class="progressBar__progress progressBar__progress--done"><span>Terminado</span></div></div></section>
+<a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    ls: { 'ed:progress:v1': JSON.stringify({ unidades: [{ n: 1, completion: 100, locked: false, lecciones: [{ n: 2, nombre: 'A New Acquaintance', test: 80, terminado: true }] }] }) } },
+  // NUEVO v21.7 — test YA TERMINADO (barra "done" en el desplegable de pasos) → no se rehace, se pasa al siguiente
+  testYaTerminado: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 1: Food</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
+<section class="learning__dropDownListW learning__dropDownListW--steps"><div class="learning__dropDownList_item"><div class="learning__dropDownList_itemNameText">1. Explore</div><div class="progressBar__progress progressBar__progress--done"><span>Terminado</span></div></div>
+<div class="learning__dropDownList_item learning__dropDownList_item--current"><div class="learning__dropDownList_itemNameText">3. Test</div><div class="progressBar__progress progressBar__progress--done"><span>Terminado</span></div></div></section>
+<a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>` },
+  // ... y uno SIN terminar → se empieza
+  testSinTerminar: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 1: Food</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
+<section class="learning__dropDownListW learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current"><div class="learning__dropDownList_itemNameText">3. Test</div><div class="progressBar__progress"></div></div></section>
+<a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>` },
+  // NUEVO v21.7 — aviso de ED "You haven't submitted your test": si el bot está SALIENDO → Continue
+  avisoTestSalgo: { html: `<div class="popupWrapper"><div class="popupText"><h1 class="PopupSubTitle">Review</h1><div class="hebDir">You haven't submitted your test. If you exit now, your test results will not be recorded.</div></div>
+<div class="buttonsDiv popupButtonsWrapper" id="popupButtonsWrapper"><input type="button" id="btnOk" value="Continue" class="okButton"><span><a id="btnCancel" class="utils__cancelLInk">Cancel</a></span></div></div>`,
+    ls: { 'ed:saliendo': String(Date.now()) } },
+  // ... y si NO está saliendo → Cancel (vuelve al test)
+  avisoTestVuelvo: { html: `<div class="popupWrapper"><div class="popupText"><div class="hebDir">You haven't submitted your test. If you exit now, your test results will not be recorded.</div></div>
+<div class="buttonsDiv popupButtonsWrapper" id="popupButtonsWrapper"><input type="button" id="btnOk" value="Continue" class="okButton"><span><a id="btnCancel" class="utils__cancelLInk">Cancel</a></span></div></div>` },
   // NUEVO v21.6 — HOME REAL de la nube (31/10): ED en ESPAÑOL ("¡Terminado!") y la lista de lecciones aparece
   // SOLO al pasar el mouse por la tarjeta (un clic no la abre). Debe saltar 1 y 2 y entrar a la 3.
   completarHomeES: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Couples', true], [2, 'Sport And Fitness', true], [3, 'Problems At Work', false]], 94, 83).replace(/Completed!/g, '¡Terminado!'),

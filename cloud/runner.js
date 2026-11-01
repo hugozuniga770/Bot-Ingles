@@ -95,11 +95,19 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     await u.fill(USER);
     await page.locator('input[name="password"]').fill(PASS);
     await page.waitForFunction(() => { const b = document.querySelector('#submit1'); return b && !b.disabled; }, null, { timeout: 10000 }).catch(() => {});
-    await page.locator('#submit1').click();
-    try { await page.waitForFunction(() => !/#\/login/i.test(location.href), null, { timeout: 45000 }); }
-    catch (e) {
-      const msg = await page.locator('.siteLogin__messageText:visible').allInnerTexts().catch(() => []);
-      log('❌ No pude iniciar sesión.', msg.join(' | ') || '(sin mensaje)'); await foto('login-fallido'); return false;
+    await page.locator('#submit1').click({ timeout: 8000 }).catch(() => {});
+    // NUEVO v21.7 (corrida de Nelson: no pudo volver a entrar): si la sesión anterior sigue abierta, ED muestra
+    // "You are already logged in to English Discoveries" [Cancel] [Login on This Device] → pulsar el 2.º.
+    const t1 = Date.now(); let dentro = false;
+    while (Date.now() - t1 < 45000) {
+      if (!/#\/login/i.test(page.url())) { dentro = true; break; }
+      const otro = page.getByText(/^(Login on This Device|Iniciar sesi[oó]n en este dispositivo|Ingresar en este dispositivo)$/i).first();
+      if (await otro.isVisible().catch(() => false)) { log('🔁 ED dice que la cuenta ya estaba abierta → "Login on This Device"'); await otro.click({ timeout: 5000 }).catch(() => {}); await sleep(3000); continue; }
+      await sleep(1000);
+    }
+    if (!dentro) {
+      const msg = await page.locator('.siteLogin__messageText:visible, .confirmPopup__main:visible').allInnerTexts().catch(() => []);
+      log('❌ No pude iniciar sesión.', msg.join(' | ').replace(/\s+/g, ' ') || '(sin mensaje)'); await foto('login-fallido'); return false;
     }
     log('✅ Sesión iniciada →', page.url().replace(/\?.*/, ''));
     return true;
@@ -118,22 +126,24 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   // Bucle de vigilancia: el bot trabaja solo; aquí solo se re-loguea si la sesión se cae y se guardan fotos.
   let n = 0, sesionesCaidas = 0;
   while ((Date.now() - t0) / 60000 < MINUTOS) {
-    await sleep(10000); n++;   // AJUSTADA v21.6: revisar cada 10 s (antes 30) → re-login más rápido
-    // ¿el bot terminó (modo completar/barrer desactivado)? → cerrar antes
-    const fin = await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return !!(s && s.fin && !s.active); } catch (e) { return false; } }).catch(() => false);
-    if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); break; }
-    if (page.isClosed()) { page = await ctx.newPage(); enganchar(page); await login(); continue; }
-    // AJUSTADA v21.6: ED también puede mostrar "Tu sesión no está más activa en tu dispositivo" (pasa si la cuenta
-    // se abre en otro lugar o vence la sesión). Antes el robot solo reaccionaba a la página de login.
-    const echado = await page.evaluate(() => /no est[aá] m[aá]s activa|no longer active|session (has )?expired|sesi[oó]n (ha )?expirado|vuelve a acceder/i.test((document.body && document.body.innerText) || '')).catch(() => false);
-    if (/#\/login/i.test(page.url()) || echado) {
-      log(echado ? '⚠ ED cerró la sesión ("no está más activa") → vuelvo a entrar. ¿Se abrió esta cuenta en otro lugar?' : 'La sesión se cerró → vuelvo a entrar');
-      if (echado) { await foto('sesion-cerrada'); await page.getByText(/^(Aceptar|Accept|OK)$/).first().click({ timeout: 3000 }).catch(() => {}); await sleep(2000); }
-      sesionesCaidas++;
-      if (sesionesCaidas > 6) { log('❌ ED cerró la sesión demasiadas veces → termino para no insistir'); break; }
-      await login();
-    }
-    if (n % 60 === 0) { await foto('ultima'); await guardar(); }   // cada ~10 min
+    try {   // AJUSTADA v21.7: un error aquí (p. ej. en el login) ya no corta al robot sin resumen
+      await sleep(10000); n++;   // AJUSTADA v21.6: revisar cada 10 s (antes 30) → re-login más rápido
+      // ¿el bot terminó (modo completar/barrer desactivado)? → cerrar antes
+      const fin = await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return !!(s && s.fin && !s.active); } catch (e) { return false; } }).catch(() => false);
+      if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); break; }
+      if (page.isClosed()) { page = await ctx.newPage(); enganchar(page); await login(); continue; }
+      // AJUSTADA v21.6: ED también puede mostrar "Tu sesión no está más activa en tu dispositivo" (pasa si la cuenta
+      // se abre en otro lugar o vence la sesión). Antes el robot solo reaccionaba a la página de login.
+      const echado = await page.evaluate(() => /no est[aá] m[aá]s activa|no longer active|session (has )?expired|sesi[oó]n (ha )?expirado|vuelve a acceder/i.test((document.body && document.body.innerText) || '')).catch(() => false);
+      if (/#\/login/i.test(page.url()) || echado) {
+        log(echado ? '⚠ ED cerró la sesión ("no está más activa") → vuelvo a entrar. ¿Se abrió esta cuenta en otro lugar?' : 'La sesión se cerró → vuelvo a entrar');
+        if (echado) { await foto('sesion-cerrada'); await page.getByText(/^(Aceptar|Accept|OK)$/).first().click({ timeout: 3000 }).catch(() => {}); await sleep(2000); }
+        sesionesCaidas++;
+        if (sesionesCaidas > 6) { log('❌ ED cerró la sesión demasiadas veces → termino para no insistir'); break; }
+        await login();
+      }
+      if (n % 60 === 0) { await foto('ultima'); await guardar(); }   // cada ~10 min
+    } catch (e) { log('⚠ Error en la vigilancia (sigo):', String(e && e.message || e).split('\n')[0]); await sleep(15000); }
   }
   log('⏱ Fin de la ejecución → guardo, leo los porcentajes del Home y escribo el resumen');
   await guardar(); await foto('final');
@@ -154,11 +164,16 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
       rep = fs.existsSync(path.join(OUT, 'reporte.txt')) ? fs.readFileSync(path.join(OUT, 'reporte.txt'), 'utf8') : '';
     } catch (e) { log('No pude armar el resumen:', e.message); }
     const nfallos = (rep.match(/REPORTE DE FALLOS \((\d+)\)/) || [])[1] || '0';
+    // NUEVO v21.8: lo que vio el bot en My Progress (tests < 100 y lecciones sin terminar)
+    let mapa = null; try { mapa = await page.evaluate(() => JSON.parse(localStorage.getItem('ed:progress:v1') || 'null')); } catch (e) {}
+    const bajos = mapa ? mapa.unidades.flatMap(u => u.lecciones.filter(l => typeof l.test === 'number' && l.test < 100).map(l => `U${u.n} L${l.n} ${l.nombre} (${l.test} %)`)) : [];
+    const sinTerminar = mapa ? mapa.unidades.filter(u => !u.locked).flatMap(u => u.lecciones.filter(l => !l.terminado).map(l => `U${u.n} L${l.n} ${l.nombre}`)) : [];
     const md = [
       `## ${NOMBRE} (cuenta ${CUENTA}) · modo ${MODO}`,
       `| Course Completion | Average Test Score | Fallos anotados | Minutos |`, `|---|---|---|---|`,
       `| ${w.completion ?? '?'}% | ${w.avg ?? '?'}% | ${nfallos} | ${Math.round((Date.now() - t0) / 60000)} |`, '',
       sw && sw.unitsDone ? `**Unidades recorridas:** ${sw.unitsDone.join(', ') || '—'}` : '',
+      mapa ? `**Según My Progress (última lectura):** tests < 100: ${bajos.length ? bajos.join(' · ') : 'ninguno 🎉'} — lecciones sin terminar: ${sinTerminar.length ? sinTerminar.join(' · ') : 'ninguna 🎉'}` : '',
       sw && sw.resultados && sw.resultados.length ? `**Tests revisados:** ${sw.resultados.map(r => `U${r.unidad} ${r.leccion}: ${r.pct ?? '?'}%`).join(' · ')}` : '',
       '', (w.completion === 100 && w.avg === 100) ? '🎉 **¡100 % y 100 %!**' : '',
       '', '<details><summary>📋 Reporte completo de fallos (cópialo y pégalo en el chat)</summary>', '', '```text', rep || 'Sin fallos anotados.', '```', '</details>', ''
