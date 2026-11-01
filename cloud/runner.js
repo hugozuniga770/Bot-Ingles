@@ -15,8 +15,14 @@
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 
-const USER = process.env.ED_USER, PASS = process.env.ED_PASS;
 const CUENTA = process.env.CUENTA || '1';
+// NUEVO v21.4: la cuenta sale del secret ED_CUENTAS (línea número CUENTA); si está vacío, de ED_USER_n / ED_PASS_n
+const { leerCuentas } = require('./cuentas');
+const deLista = leerCuentas(process.env.ED_CUENTAS).find(c => String(c.n) === String(CUENTA));
+const USER = deLista ? deLista.user : process.env.ED_USER, PASS = deLista ? deLista.pass : process.env.ED_PASS;
+const NOMBRE = deLista ? deLista.nombre : `cuenta ${CUENTA}`;
+// Que GitHub tape usuario y contraseña en TODOS los registros (comando de Actions; esta línea no se muestra)
+if (process.env.GITHUB_ACTIONS) for (const v of [USER, PASS]) if (v) console.log('::add-mask::' + v);
 const MODO = (process.env.MODO || 'completar').toLowerCase();      // completar | barrer | auto
 const MINUTOS = +(process.env.MINUTOS || 330);                        // GitHub corta a los 360
 const LOGIN = process.env.ED_LOGIN || 'https://ed.engdis.com/upbstacruz#/login';
@@ -26,10 +32,10 @@ const OUT = path.join(RAIZ, 'salida');
 fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(path.dirname(EST), { recursive: true });
 const BOT = fs.readFileSync(path.join(RAIZ, 'dist', 'ed-autopilot.js'), 'utf8');
 const t0 = Date.now();
-const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}] [cuenta ${CUENTA}]`, ...a);
+const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}] [${typeof NOMBRE !== 'undefined' ? NOMBRE : 'cuenta ' + CUENTA}]`, ...a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-if (!USER || !PASS) { console.error(`Faltan los secrets ED_USER_${CUENTA} / ED_PASS_${CUENTA} (Settings → Secrets and variables → Actions).`); process.exit(1); }
+if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta ${CUENTA}: revisa la línea ${CUENTA} del secret ED_CUENTAS (o ED_USER_${CUENTA} / ED_PASS_${CUENTA}).`); process.exit(1); }
 
 (async () => {
   const guardado = fs.existsSync(EST) ? JSON.parse(fs.readFileSync(EST, 'utf8')) : {};
@@ -128,7 +134,7 @@ if (!USER || !PASS) { console.error(`Faltan los secrets ED_USER_${CUENTA} / ED_P
     } catch (e) { log('No pude armar el resumen:', e.message); }
     const nfallos = (rep.match(/REPORTE DE FALLOS \((\d+)\)/) || [])[1] || '0';
     const md = [
-      `## Cuenta ${CUENTA} · modo ${MODO}`,
+      `## ${NOMBRE} (cuenta ${CUENTA}) · modo ${MODO}`,
       `| Course Completion | Average Test Score | Fallos anotados | Minutos |`, `|---|---|---|---|`,
       `| ${w.completion ?? '?'}% | ${w.avg ?? '?'}% | ${nfallos} | ${Math.round((Date.now() - t0) / 60000)} |`, '',
       sw && sw.unitsDone ? `**Unidades recorridas:** ${sw.unitsDone.join(', ') || '—'}` : '',

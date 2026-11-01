@@ -1,5 +1,11 @@
 # Changelog
 
+## v21.4 — varias cuentas en un solo secret y elegir cuáles correr
+- Secret único **`ED_CUENTAS`**: una cuenta por línea (`usuario contraseña Nombre`). Se edita en Settings cuando quieras.
+- *Run workflow* → campo **cuentas**: `1` · `2,3` · `todas`. Un job `preparar` (`cloud/cuentas.js`) arma la lista y lanza una máquina por cuenta (matriz dinámica).
+- El robot toma su línea del secret, marca usuario y contraseña con `::add-mask::` (tapados en todos los registros) y usa el Nombre en el registro y el resumen.
+- Compatibilidad: sin `ED_CUENTAS` se usan `ED_USER_1` / `ED_PASS_1`.
+
 ## v21.3 — modo COMPLETAR y Home real
 - **Home real** (dumps del 31/10): pulsar una unidad NO entra, despliega su lista de lecciones (`.home__courseListItemLink`). El barrido de v20.8 se habría quedado abriendo/cerrando esa lista. Ahora `abrirUnidad()` despliega la lista (verificado) y entra a la 1.ª lección no completa (por el ancho de su barra de progreso; si no se puede leer, la 1.ª).
 - **Modo completar** (`__ed.completar()`, modo por defecto en la nube): lee Course Completion / Average Test Score, recorre las unidades sin "Completed!" haciendo prácticas y tests; si se atasca (misma pantalla 6 pasos) va a lo pendiente con los desplegables; sin pendientes o tras `maxMinPorUnidad` (150) min → Home → siguiente unidad. Al final, si el promedio < 100 → barrido de tests. Página desconocida 15 veces → vuelve al Home.

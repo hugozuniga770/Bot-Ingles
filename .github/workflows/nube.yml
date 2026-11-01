@@ -1,15 +1,26 @@
 # =====================================================================
 #  nube.yml — corre el bot en la nube (sin tu PC). Actions → "nube" → Run workflow.
-#  Cuentas: Settings → Secrets and variables → Actions → New repository secret:
-#      ED_USER_1 / ED_PASS_1   (y ED_USER_2 / ED_PASS_2 ... para más cuentas)
-#  Para varias cuentas a la vez, agrega sus números en matrix.cuenta (ej. [1, 2, 3]).
-#  Cada ejecución dura como máximo ~5,5 h (GitHub corta a las 6 h); la siguiente retoma
-#  con la memoria guardada (respuestas cosechadas, barrido). Nunca se guardan cookies.
+#
+#  CUENTAS (una sola vez, y las editas cuando quieras):
+#    Settings → Secrets and variables → Actions → New repository secret
+#      Nombre:  ED_CUENTAS
+#      Valor:   una cuenta por línea →   usuario contraseña Nombre
+#               (el Nombre es opcional, solo para reconocerla en el resumen)
+#    Ejemplo:
+#      hugo123 miClave1 Hugo
+#      otro456 otraClave Prueba
+#  Al lanzar, en "cuentas" escribe cuáles: 1   ·   2,3   ·   todas
+#  NUNCA escribas contraseñas en el formulario de Run workflow ni en el código:
+#  en un repo público eso queda visible en los registros. En el secret están cifradas.
+#  (Compatibilidad: si ED_CUENTAS no existe, se usa ED_USER_1 / ED_PASS_1.)
 # =====================================================================
 name: nube
 on:
   workflow_dispatch:
     inputs:
+      cuentas:
+        description: 'Qué cuentas del secret ED_CUENTAS correr: 1 · 2,3 · todas'
+        default: 'todas'
       modo:
         description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · auto = sigue la lección actual'
         type: choice
@@ -18,7 +29,7 @@ on:
       minutos:
         description: 'Minutos de trabajo (máx. 330)'
         default: '330'
-  # Para que se relance solo cada 6 h, quita el # de las 2 líneas siguientes:
+  # Para que se relance solo cada 6 h (todas las cuentas), quita el # de las 2 líneas siguientes:
   # schedule:
   #   - cron: '0 */6 * * *'
 
@@ -27,13 +38,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    outputs:
+      lista: ${{ steps.elegir.outputs.lista }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Elegir cuentas
+        id: elegir
+        run: node cloud/cuentas.js lista
+        env:
+          ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
+          HAY_USER_1: ${{ secrets.ED_USER_1 != '' }}
+          ELEGIDAS: ${{ github.event.inputs.cuentas || 'todas' }}
+
   correr:
+    needs: preparar
     runs-on: ubuntu-latest
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
-        cuenta: [1]
+        cuenta: ${{ fromJson(needs.preparar.outputs.lista) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +76,7 @@ jobs:
         run: node cloud/runner.js
         env:
           CUENTA: ${{ matrix.cuenta }}
+          ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
           ED_USER: ${{ secrets[format('ED_USER_{0}', matrix.cuenta)] }}
           ED_PASS: ${{ secrets[format('ED_PASS_{0}', matrix.cuenta)] }}
           MODO: ${{ github.event.inputs.modo || 'completar' }}

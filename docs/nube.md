@@ -3,19 +3,29 @@
 GitHub Actions enciende una computadora virtual con Chrome, inicia sesión en ED con tu cuenta,
 carga el bot y lo deja trabajar hasta ~5,5 h. Gratis en repos públicos.
 
-## 1. Guardar la cuenta (una sola vez)
+## 1. Guardar las cuentas (una vez; las editas cuando quieras)
 GitHub → tu repo → **Settings → Secrets and variables → Actions → New repository secret**:
 
-| Nombre | Valor |
-|---|---|
-| `ED_USER_1` | tu usuario de ED |
-| `ED_PASS_1` | tu contraseña de ED |
+- **Name:** `ED_CUENTAS`
+- **Secret:** una cuenta por línea → `usuario contraseña Nombre` (el Nombre es opcional, solo para reconocerla en el resumen):
 
-Los secrets están cifrados: nadie los puede leer (ni siquiera tú después) y en los registros salen como `***`.
-**Nunca** escribas usuarios o contraseñas en el código ni en el chat.
+```
+hugo123 miClave1 Hugo
+otro456 otraClave Prueba
+```
+
+Para agregar, quitar o cambiar cuentas: en la lista de secrets, el lápiz ✏️ de `ED_CUENTAS` → **Update**
+(GitHub no te deja ver lo que había: vuelve a escribir la lista completa).
+Las líneas que empiezan con `#` se ignoran. También vale `usuario:contraseña` o `usuario,contraseña`.
+
+⚠ **Nunca** escribas contraseñas en el formulario de *Run workflow*, en el código ni en el chat: en un repo público
+eso queda visible en los registros. En el secret están cifradas y en los registros salen como `***`.
+(Compatibilidad: si no existe `ED_CUENTAS`, se usa `ED_USER_1` / `ED_PASS_1`.)
 
 ## 2. Lanzarlo
-GitHub → **Actions → nube → Run workflow** → elige el modo:
+GitHub → **Actions → nube → Run workflow**:
+- **cuentas:** cuáles de la lista correr → `1` · `2,3` · `todas` (cada una en su propia máquina, en paralelo).
+- **modo:**
 - `completar` (recomendado): en el Home lee **Course Completion** y **Average Test Score**, entra a la primera
   unidad sin "Completed!" (despliega su lista y abre la 1.ª lección incompleta), hace prácticas y tests, vuelve
   al Home y sigue con la siguiente. Al final, si el promedio de tests < 100, pasa solo al barrido de tests.
@@ -32,9 +42,7 @@ Los artifacts se borran solos a los 3 días. La memoria del bot (respuestas cose
 (caché de Actions) y la siguiente ejecución la retoma. **No se guardan cookies de sesión.**
 
 ## 4. Más cuentas a la vez
-1. Agrega `ED_USER_2` / `ED_PASS_2`, `ED_USER_3` / `ED_PASS_3`, …
-2. En `.github/workflows/nube.yml` cambia `cuenta: [1]` por `cuenta: [1, 2, 3]`.
-Cada cuenta corre en su propia máquina, en paralelo.
+Agrega líneas a `ED_CUENTAS` y lanza con `todas` (o los números que quieras). Ya no hay que tocar el workflow.
 
 ## 5. Que se relance solo
 En `nube.yml`, quita los `#` de `schedule` / `cron` (cada 6 h). Ojo: corre aunque no lo mires.
