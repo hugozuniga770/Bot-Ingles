@@ -31,6 +31,7 @@ const ORDEN = [
   'utils/press.js',
   'utils/reporter.js',
   'utils/corrida.js',
+  'utils/tablero.js',
   'utils/fake-mic.js',
   'core/storage.js',
   'core/navigation.js',

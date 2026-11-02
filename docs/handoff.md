@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.12, 02/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.13, 02/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -6,7 +6,9 @@ La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cu
 incluye y agrega todo lo que Hugo explicó el 02/11 con dumps (video, tarjetas, memoria, speaking interactivo y
 ramificado, writing de corregir, Watch again con imágenes) y lo de los zips de Roy y Mateo (unidad 8 abandonada,
 atascos tras el test de la lección 1, test sin preguntas). **Todo solo en simulación (78 pantallas).**
-**Lo próximo:** Hugo sube la v21.12, corre una cuenta en `completar` y pasa el zip → revisar cada fila de la tabla.
+**v21.13** suma el tablero en vivo (Issues → "📊 Tablero del bot": cuadro por cuenta con nombre, cuadritos
+Login → unidades, unidades desplegables con lección/paso/test) y el banco de respuestas por curso.
+**Lo próximo:** Hugo sube la v21.13, corre 2–3 cuentas en `completar`, mira el tablero y pasa los zips → revisar cada fila.
 **Pregunta abierta a Hugo:** Roy tiene DOS cursos en el carrusel del Home (UPB Beginners 1 con 51 % y Beginners 2,
 el que hizo el bot): ¿hay que completar también Beginners 1?
 
@@ -21,6 +23,7 @@ el que hizo el bot): ¿hay que completar también Beginners 1?
 | v21.10 | "Voy a lo pendiente" compara número Y nombre de lección; atascos contados por lugar (no solo seguidos); el reporte quita los menús y guarda más HTML | 2.ª corrida de Jose: 40 min saltando Drama ↔ Family (lecciones ya completas) por un 97 % de OTRA unidad; reportes de "Explore" con solo el menú |
 | v21.11 | Regla permanente de Hugo: reporte = dump completo (antes/después, panel izquierdo); 2 fallos por corrida y no se reintenta (tests 2 reintentos, atascos 2); Unit Tests; Explore; memoria corta; reintentos por corrida; memoria de la nube por persona | Revisión de Hugo con otra IA: faltaba atender TODOS los fallos |
 | v21.12 | Explore con video (play) y con tarjetas (abrir y cerrar con la X); memoria (cara visible, 2 cartas); speaking interactivo (frase + Start) y ramificado (Start → grabar); writing de corregir (una letra); Watch again con imágenes (esperar y verificar); atascos → primero avanzar; test sin preguntas → recargar 1 vez; más tiempo de carga; curso en el resumen | Dumps y explicaciones de Hugo (02/11) + zips de Roy y Mateo (v21.8) |
+| v21.13 | Tablero en vivo con checks (issue del repo, un cuadro por cuenta con nombre; unidades desplegables) y banco de respuestas por curso compartido entre cuentas; reporte con número fijo | Ideas de Hugo (02/11): ver avance unidad por unidad y no cosechar dos veces lo mismo |
 
 ## Hipótesis — resueltas con la corrida de Jose (v21.8)
 1. **✅ ED NO promedia cada intento: vale el último (o el mejor).** Jose: 1.os intentos en 34, 20, 30, 17, 10, 60, 80,
@@ -68,6 +71,9 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 26 | Roy: "fui al Home y me sacó todo" | a (no era un fallo) | El carrusel del Home mostraba OTRO curso (UPB Beginners 1, 51 %); el bot hizo Beginners 2 (88 → 97 %, promedio 100 %). Ahora el registro y el resumen dicen el curso. Pregunta a Hugo: ¿completar también Beginners 1? |
 | 27 | Funciones nuevas "cronometradas" (Hugo: "dales más tiempo para cargar") | a | Esperas de 20–30 s para detectar, 100 s de video, 25 s para pantallas que cargan (`mcqImagenesCargando`, `exploreVideo`, `exploreAudioTarde`) |
 | 28 | Resumen con filas vacías "U1 L0 ·" en "lecciones sin terminar" | a | Se omiten; el Unit Test sale como "U1 Unit Test" |
+| 29 | Commit "v21.10" de Hugo con el bot v21.8 (la otra IA lo notó) | no era fallo | Ese commit solo traía la v21.8c (docs). Por eso Roy y Mateo corrieron v21.8. El commit v21.12 (02:28) quedó idéntico a la versión entregada (✓ verificar #15) |
+| 30 | Cuenta 1 de la ejecución nube #8 terminó con error (exit 1) | b | Casi seguro el login. Desde v21.13 el tablero muestra "❌ Login (mensaje de ED)"; falta su zip o la próxima corrida |
+| 31 | Reporte que se queda solo con los últimos 40 fallos y cambia los números (Mateo) | a | Número fijo por fallo (`#num`) y el tablero lo usa (`tableroFalla`) |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests
 - Speaking que exige DECIR una opción ("elegir la respuesta hablando"): ED reconoce voz y el micrófono simulado no dice
@@ -141,6 +147,8 @@ difieren solo en mayúsculas ("Weren't"/"weren't": siempre coincidencia EXACTA p
   campo `cuentas` = `1` · `2,3` · `todas`. Mientras corre, nadie debe entrar a esa cuenta.
 
 ## Próximos pasos sugeridos (en orden)
+0. Ver el tablero en vivo (Issues → "📊 Tablero del bot") durante la primera corrida con v21.13 y el log
+   `📚 Banco de ...` (¿leyó el curso? ¿cuántos tests trajo?).
 1. Zip de la corrida con v21.12 (`completar`) → `rescatar-zip.py` si viene cortado → `analizar-registro.py`.
    Revisar CADA fila de la tabla: `explore` con `intentos` (`play:`, `tarjeta1`, `cerrar:`), `memory_one_action`
    (`forma`), `branching_speaking`, `frase+start`, `editados`, `completar_avance` (¿llegó a U8 L6?), `test_sin_preguntas`.

@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.12  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.13  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.12';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.13';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -523,8 +523,16 @@
         const s = this.snapshot();
         const lista = this.all();
         const clave = [motivo, s.leccion, s.step, s.contador, s.tarea].join('|');
-        if (lista.some(r => r.clave === clave)) return;                     // ya anotado
-        const e = Object.assign({ clave, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
+        // NUEVO v21.13: cada fallo lleva un número FIJO (#num; antes el número era la posición y cambiaba cuando la lista
+        // pasaba de 40 y se soltaban los viejos: a Mateo se le perdieron así los primeros). El tablero marca el paso
+        // con ❌, el motivo y ese número (ahí está el dump completo tomado en el momento).
+        const tt = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
+        const i = lista.findIndex(r => r.clave === clave);
+        if (i >= 0) { Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: lista[i].num || i + 1 }); return; }   // ya anotado
+        const num = (+localStorage.getItem('ed:report:num:v1') || 0) + 1;
+        try { localStorage.setItem('ed:report:num:v1', String(num)); } catch (_) {}
+        Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: num });
+        const e = Object.assign({ clave, num, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
         // NUEVO v21.11: el "antes" de la acción del bot, si es del mismo lugar y de hace menos de 3 min
         const t = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
         const lugar = [s.leccion, s.step, s.contador || '', t ? t.n : ''].join('|');
@@ -544,7 +552,7 @@
     static text() {
       const lista = this.all();
       if (!lista.length) return 'ED-Autopilot v' + V + ' — sin fallos anotados.';
-      const resumen = lista.map((r, i) => `${i + 1}. [${r.motivo}] ${r.leccion} · ${r.step} · ${r.contador || ''} · kind=${r.kind}`).join('\n');
+      const resumen = lista.map((r, i) => `#${r.num || i + 1}. [${r.motivo}] ${r.leccion} · ${r.step} · ${r.contador || ''} · kind=${r.kind}`).join('\n');   // AJUSTADA v21.13: #num fijo
       return `ED-Autopilot v${V} — REPORTE DE FALLOS (${lista.length})\n${resumen}\n\n--- DETALLE (JSON) ---\n` + JSON.stringify(lista.map(r => { const c = Object.assign({}, r); delete c.clave; return c; }), null, 1);
     }
 
@@ -598,6 +606,74 @@
       const c = this.get(); c.fallos[l] = (c.fallos[l] || 0) + 1;
       try { localStorage.setItem(K_CORRIDA, JSON.stringify(c)); } catch (e) {}
       return c.fallos[l];
+    }
+  }
+
+  // ▼▼▼ src/utils/tablero.js ▼▼▼
+  // =====================================================================
+  //  TABLERO — qué hizo el bot en ESTA corrida: unidad por unidad, paso por paso, test por test (v21.13)
+  // ---------------------------------------------------------------------
+  //  Pedido de Hugo (02/11): "que se vaya viendo todo bonito, unidad por unidad, step por step y test por test, qué
+  //  funcionó y qué falló". Cada paso queda anotado: ok · falla (motivo + n.º de reporte, donde está el dump completo
+  //  tomado EN ESE MOMENTO) · saltado (ya falló en esta corrida, regla 4) · visto (sin tarea que verificar); los
+  //  tests con su puntaje. La nube (cloud/tablero.js) lo dibuja como tabla con checks en GitHub.
+  //  Se reinicia con cada corrida (Corrida.idActual()). Nunca rompe nada: todo va dentro de try.
+  //  DEPENDE DE: core/navigation.js, core/sweep.js, utils/corrida.js (en tiempo de ejecución)
+  //  EXPONE:     Tablero
+  // =====================================================================
+
+  const K_TABLERO = 'ed:tablero:v1';
+
+  class Tablero {
+    static get() {
+      let t = null; try { t = JSON.parse(localStorage.getItem(K_TABLERO) || 'null'); } catch (e) {}
+      const id = Corrida.idActual();
+      if (!t || t.corrida !== id) t = { corrida: id, pasos: {} };
+      return t;
+    }
+    static lugar() {
+      try {
+        const leccion = NavigationManager.lessonLabel(), paso = NavigationManager.stepLabel();
+        if (!leccion || !paso) return null;
+        return { u: TestSweep.unitNum(), l: +lessonNum(leccion) || 0, p: +stepNum(paso) || 0, leccion, paso };
+      } catch (e) { return null; }
+    }
+    // estado: 'ok' | 'falla' | 'saltado' | 'visto'.  extra: { tarea, kind, motivo, reporte }
+    static anotar(estado, extra) {
+      try {
+        const L = this.lugar(); if (!L) return;
+        const t = this.get(), k = L.u + '|' + L.l + '|' + L.p;
+        const e = Object.assign(t.pasos[k] || { tareas: {} }, L);
+        const tn = extra && extra.tarea != null && extra.tarea !== '' ? String(extra.tarea) : '-';
+        const prev = e.tareas[tn];
+        // "visto" no pisa nada; "saltado" no pisa una falla; un "ok" posterior sí pisa una falla (se resolvió)
+        if (!(prev && (estado === 'visto' || (estado === 'saltado' && prev === 'falla')))) e.tareas[tn] = estado;
+        if (estado === 'falla' && extra && extra.motivo) { e.motivo = extra.motivo; if (extra.reporte) e.reporte = extra.reporte; }
+        if (extra && extra.kind) e.kind = extra.kind;
+        e.hora = new Date().toISOString();
+        t.pasos[k] = e; t.ultimo = k;
+        localStorage.setItem(K_TABLERO, JSON.stringify(t));
+      } catch (e) {}
+    }
+    // dónde está el bot AHORA (cada paso del engine; en un test con el contador "5/10"). No cambia ningún estado.
+    static aqui() {
+      try {
+        const L = this.lugar(); if (!L) return;
+        const t = this.get(), c = (() => { try { return NavigationManager.counter(); } catch (e) { return null; } })();
+        const a = Object.assign({}, L, { contador: (c && c.s) || '' });
+        if (t.ahora && t.ahora.u === a.u && t.ahora.l === a.l && t.ahora.p === a.p && t.ahora.contador === a.contador) return;
+        t.ahora = a; localStorage.setItem(K_TABLERO, JSON.stringify(t));
+      } catch (e) {}
+    }
+    static test(pct) {
+      try {
+        const L = this.lugar(); if (!L) return;
+        const t = this.get(), k = L.u + '|' + L.l + '|' + L.p;
+        const e = Object.assign(t.pasos[k] || { tareas: {} }, L);
+        e.test = pct; e.esTest = true; e.hora = new Date().toISOString();
+        t.pasos[k] = e; t.ultimo = k;
+        localStorage.setItem(K_TABLERO, JSON.stringify(t));
+      } catch (e) {}
     }
   }
 
@@ -1048,6 +1124,7 @@
       s.objHechos = s.objHechos || []; if (!s.objHechos.includes(ul)) s.objHechos.push(ul);
       s.resultados.push({ unidad: this.unitNum(), leccion: NavigationManager.lessonLabel(), pct, nota });
       this.set(s);
+      Tablero.test(pct);   // NUEVO v21.13
     }
     static lessonDone() { const s = this.get(); return !!(s && s.lessonsDone.includes(this.lessonKey())); }
     // NUEVO v21.9: ¿en ESTA corrida (barrido/completar) ya me rendí con el test de esta lección (< 100 tras reintentos)?
@@ -3223,6 +3300,7 @@
     static async step() {
       // NUEVO v21.11: ¿empezó una corrida nueva? → se olvidan los fallos y reintentos de la anterior (regla 4)
       Corrida.get();
+      Tablero.aqui();   // NUEVO v21.13: el tablero muestra por dónde va (unidad → lección → paso/test)
       // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
       for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
         const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
@@ -3395,11 +3473,13 @@
             if (res.waitDone) await sleep(Math.min(res.waitDone, 4000));
             if (NO_RETRY_KINDS.has(kind)) Corrida.fallo(lugar0);
           }
+          // NUEVO v21.13: tablero (paso sin tareas: "visto", u "ok" si el solver confirmó que ED lo marcó)
+          Tablero.anotar(res.marcado ? 'ok' : 'visto', { kind });
         }
         await NavigationManager.goNext();
         return res;
       }
-      if (t.done) { await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
+      if (t.done) { Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
 
       // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
       let kind = MainEngine.detectKind();
@@ -3415,6 +3495,7 @@
       const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
       if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
         log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
+        Tablero.anotar('saltado', { tarea: t.n, kind });
         await NavigationManager.goNext();
         return { did: 'saltado_ya_fallo', kind, veces: previos };
       }
@@ -3437,6 +3518,7 @@
         res.taskMarked = !!done;
         if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
         if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
+        Tablero.anotar(done ? 'ok' : 'falla', { tarea: t.n, kind });   // NUEVO v21.13
       }
 
       await sleep(400);   // AJUSTADA v20.7: era 800

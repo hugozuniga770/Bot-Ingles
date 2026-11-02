@@ -457,6 +457,36 @@
     "ls": null,
     "v": "X--"
   },
+  "tableroOk": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\",\"taskMarked\":true}",
+    "trace": "pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "8|6|2": {
+        "tareas": {
+          "1": "ok"
+        },
+        "motivo": null,
+        "reporte": null
+      }
+    }
+  },
+  "tableroFalla": {
+    "kind": "text",
+    "r": "{\"did\":\"text_solved\",\"n\":1,\"editados\":0,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500},\"taskMarked\":false}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "10|3|2": {
+        "tareas": {
+          "1": "falla"
+        },
+        "motivo": "tarea_no_marcada",
+        "reporte": 42
+      }
+    }
+  },
   "completarAvanzaPaso": {
     "kind": "mcq_default",
     "r": "{\"did\":\"completar_avance\",\"a\":\"paso 2\"}",

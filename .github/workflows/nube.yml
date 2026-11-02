@@ -37,11 +37,17 @@ concurrency:
   group: nube-${{ github.ref }}
   cancel-in-progress: false
 
+# NUEVO v21.13: issues: write → el tablero en vivo (un issue del repo con la tabla de checks de cada cuenta)
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   preparar:
     runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a 26 y Playwright 1.48 no lo soporta
     outputs:
       lista: ${{ steps.elegir.outputs.lista }}
+      issue: ${{ steps.tablero.outputs.issue }}
     steps:
       - uses: actions/checkout@v4
       - name: Elegir cuentas
@@ -51,6 +57,12 @@ jobs:
           ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
           HAY_USER_1: ${{ secrets.ED_USER_1 != '' }}
           ELEGIDAS: ${{ github.event.inputs.cuentas || 'todas' }}
+      - name: Tablero en vivo (issue del repo)
+        id: tablero
+        continue-on-error: true
+        run: node cloud/tablero.js issue
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   correr:
     needs: preparar
@@ -72,9 +84,17 @@ jobs:
           path: estado
           key: ed-estado-${{ matrix.cuenta }}-${{ github.run_id }}
           restore-keys: ed-estado-${{ matrix.cuenta }}-
+      - name: Recuperar el banco de respuestas (por curso, de todas las cuentas)
+        uses: actions/cache/restore@v4
+        with:
+          path: banco
+          key: ed-banco-${{ github.run_id }}
+          restore-keys: ed-banco-
       - name: Correr el bot
         run: node cloud/runner.js
         env:
+          GH_TOKEN: ${{ github.token }}
+          TABLERO_ISSUE: ${{ needs.preparar.outputs.issue }}
           CUENTA: ${{ matrix.cuenta }}
           ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
           ED_USER: ${{ secrets[format('ED_USER_{0}', matrix.cuenta)] }}
@@ -94,3 +114,38 @@ jobs:
           name: cuenta-${{ matrix.cuenta }}
           path: salida/
           retention-days: 3
+      - name: Pasar el banco de esta cuenta al job "juntar"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: banco-${{ matrix.cuenta }}
+          path: banco/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # NUEVO v21.13: junta los bancos de todas las cuentas (por curso) y los guarda en la caché para la próxima corrida
+  juntar:
+    needs: correr
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Banco anterior
+        uses: actions/cache/restore@v4
+        with:
+          path: banco
+          key: ed-banco-${{ github.run_id }}
+          restore-keys: ed-banco-
+      - name: Bancos de esta corrida
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: banco-*
+          path: artefactos
+      - name: Juntar por curso
+        run: node cloud/banco.js juntar artefactos banco
+      - name: Guardar el banco para la próxima corrida
+        uses: actions/cache/save@v4
+        with:
+          path: banco
+          key: ed-banco-${{ github.run_id }}

@@ -1,5 +1,23 @@
 # Changelog
 
+## v21.13 — tablero en vivo con checks y banco de respuestas por curso (ideas de Hugo, 02/11)
+- **Tablero en vivo** (`cloud/tablero.js`, `src/utils/tablero.js`): un issue del repo ("📊 Tablero del bot") con un
+  cuadro por cuenta, con su NOMBRE, que se actualiza cada ~3 min: fila de cuadritos `1 · Login → U1 → U2 → …` con
+  por dónde va (`🔄 L3 · Test 4/10`), y cada unidad como desplegable con lección por lección, paso por paso y cada
+  test (✅/❌/⚠️/⏭️/⬜/🔄). Lo que falló lleva el lugar exacto y el n.º de reporte (el dump de ese momento). También
+  en el resumen de la ejecución y en el zip (`tablero.md`). Si el login falla, el cuadro lo dice con el mensaje de ED.
+- **Banco de respuestas por curso** (`cloud/banco.js` + job `juntar` en `nube.yml`): lo que cosecha una cuenta lo
+  usan las demás del mismo curso desde la ejecución siguiente (entran al test con las respuestas). En la caché
+  privada de Actions, nunca en el repo (`banco/` está en `.gitignore`). Lo de cada cuenta manda sobre el banco.
+- **Reporte con número fijo** (`#num`): antes el número era la posición en la lista y cambiaba al pasar de 40
+  (a Mateo se le perdieron así los primeros fallos). El tablero usa ese número.
+- El bot anota en el tablero (`Tablero.anotar/aqui/test`): tareas verificadas, saltadas (regla 4), vistas, cada
+  fallo del reporte, el puntaje de cada test y dónde está ahora (con el contador del test).
+- Pruebas: `tools/probar-banco-tablero.js` (también en `npm test`), pantallas `tableroOk` y `tableroFalla`,
+  `tools/probar-nube.sh` con una API de GitHub falsa (`tools/sitio-prueba/api-falsa.js`) y un banco de ejemplo.
+  Las otras 78 pantallas no cambian.
+- **Solo simulación.** Falta verlo en GitHub real (permisos `issues: write` del flujo `nube`).
+
 ## v21.12 — dumps y explicaciones de Hugo (02/11) + corridas de Roy (cuenta 3) y Mateo (cuenta 2), las dos con v21.8
 (Incluye v21.9–v21.11, que todavía no se subieron.)
 - **Explore con VIDEO** (U5 L1, U7 L1, U8 L1; Roy y Mateo: `tipo_desconocido`, mcq_default): espera hasta 30 s a que

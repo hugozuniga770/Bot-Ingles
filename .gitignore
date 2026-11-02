@@ -5,3 +5,6 @@ Thumbs.db
 salida/
 estado/
 __pycache__/
+# NUEVO v21.13: el banco de respuestas NUNCA va al repo (es público): vive en la caché privada de Actions
+banco/
+artefactos/

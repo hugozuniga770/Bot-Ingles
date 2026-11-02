@@ -175,6 +175,8 @@ function U8_HTML(leccion, paso) {
 <div class="learning__unitW--noTaskInstructions"><div class="readingExploreWrapper"><p>Dear Customer Service, ...</p></div></div><div class="sitemenu__itemHome"><a>Home</a></div><a class="tasksBtnext learning__nextItemLink">Next</a>`;
 }
 
+// NUEVO v21.13: lo que el bot dejó en el tablero (ed:tablero:v1)
+const TABLERO = w => { const t = JSON.parse(w.localStorage.getItem('ed:tablero:v1') || '{}'); return Object.fromEntries(Object.entries(t.pasos || {}).map(([k, e]) => [k, { tareas: e.tareas, motivo: e.motivo || null, reporte: e.reporte || null }])); };
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -567,6 +569,11 @@ const FIX = {
   mcqImagenesEnTest: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 4: What Do You Do in Your Spare Time?</div><div class="learning__dropDownListTitleW--steps">Step 7: Test</div><div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a></div><a class="tasksBtnext learning__submitTestLink">Submit</a><div class="prMCQ__main prMCQ__main--ansImages"><div class="prMCQ__qaInnerSet"><div class="prMCQ__questionText">What does Molly like to do?</div><div class="prMCQ__answersW">${[1, 2, 3].map(k => `<div class="prMCQ__answers"><div class="multiRadioWrapper"><img class="prMCQ__answerImage"></div></div>`).join('')}</div></div></div>`,
     setup: w => { const ops = [...w.document.querySelectorAll('.prMCQ__answers')]; ops.forEach(op => op.addEventListener('click', () => { ops.forEach(o => o.classList.remove('selected')); op.classList.add('selected'); })); },
     verificar: w => [...w.document.querySelectorAll('.prMCQ__answers')].map(o => o.classList.contains('selected') ? 'X' : '-').join('') },
+  // NUEVO v21.13 — TABLERO: cada tarea queda anotada (ok / falla con motivo y n.º de reporte FIJO)
+  tableroOk: { html: PRACT_U('Unit 8: A Bad Day', 'Lesson 6: Work', 'Step 2: Practice', '<a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a>') + `<div class="dndBank dndZone"><span class="dnditem">uno</span><span class="dnditem">dos</span></div><p>a <span class="dndZone"></span> b <span class="dndZone"></span></p>`,
+    setup: w => w.document.addEventListener('mouseup', () => MARCAR_HECHA(w)), verificar: TABLERO },
+  tableroFalla: { html: PRACT_U('Unit 10: Hobbies', 'Lesson 3: Plans for the Weekend', 'Step 2: Practice', '<a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a>') + `<input type="text" id="t1">`,
+    ls: { 'ed:report:num:v1': '41' }, verificar: TABLERO },
   // ATASCO EN UN PASO SIN TAREAS (Mateo, U8 L2 · Step 1: Explore, "Read the e-mail"; Next no avanza): antes volvía al mismo
   // paso y a la 3.ª abandonaba la UNIDAD (lecciones 2–6 sin hacer). Ahora avanza al paso 2.
   completarAvanzaPaso: { html: U8_HTML(2, 1), steps: 7,

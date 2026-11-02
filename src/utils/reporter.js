@@ -129,8 +129,16 @@ class Reporter {
       const s = this.snapshot();
       const lista = this.all();
       const clave = [motivo, s.leccion, s.step, s.contador, s.tarea].join('|');
-      if (lista.some(r => r.clave === clave)) return;                     // ya anotado
-      const e = Object.assign({ clave, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
+      // NUEVO v21.13: cada fallo lleva un número FIJO (#num; antes el número era la posición y cambiaba cuando la lista
+      // pasaba de 40 y se soltaban los viejos: a Mateo se le perdieron así los primeros). El tablero marca el paso
+      // con ❌, el motivo y ese número (ahí está el dump completo tomado en el momento).
+      const tt = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
+      const i = lista.findIndex(r => r.clave === clave);
+      if (i >= 0) { Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: lista[i].num || i + 1 }); return; }   // ya anotado
+      const num = (+localStorage.getItem('ed:report:num:v1') || 0) + 1;
+      try { localStorage.setItem('ed:report:num:v1', String(num)); } catch (_) {}
+      Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: num });
+      const e = Object.assign({ clave, num, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
       // NUEVO v21.11: el "antes" de la acción del bot, si es del mismo lugar y de hace menos de 3 min
       const t = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
       const lugar = [s.leccion, s.step, s.contador || '', t ? t.n : ''].join('|');
@@ -150,7 +158,7 @@ class Reporter {
   static text() {
     const lista = this.all();
     if (!lista.length) return 'ED-Autopilot v' + V + ' — sin fallos anotados.';
-    const resumen = lista.map((r, i) => `${i + 1}. [${r.motivo}] ${r.leccion} · ${r.step} · ${r.contador || ''} · kind=${r.kind}`).join('\n');
+    const resumen = lista.map((r, i) => `#${r.num || i + 1}. [${r.motivo}] ${r.leccion} · ${r.step} · ${r.contador || ''} · kind=${r.kind}`).join('\n');   // AJUSTADA v21.13: #num fijo
     return `ED-Autopilot v${V} — REPORTE DE FALLOS (${lista.length})\n${resumen}\n\n--- DETALLE (JSON) ---\n` + JSON.stringify(lista.map(r => { const c = Object.assign({}, r); delete c.clave; return c; }), null, 1);
   }
 

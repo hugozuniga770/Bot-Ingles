@@ -44,6 +44,26 @@ Además, en la ejecución → **Artifacts → cuenta-1**: trae `reporte.txt` (fa
 Los artifacts se borran solos a los 3 días. La memoria del bot (respuestas cosechadas) se guarda aparte
 (caché de Actions) y la siguiente ejecución la retoma. **No se guardan cookies de sesión.**
 
+## 3b. Tablero en vivo (NUEVO v21.13)
+En el repo → pestaña **Issues** → **"📊 Tablero del bot"**. Cada cuenta tiene su cuadro con su **nombre** (la 3.ª
+palabra de su línea en `ED_CUENTAS`) y se actualiza solo cada ~3 minutos mientras corre:
+- arriba, una fila de **cuadritos** como el gráfico de Actions: `1 · Login` → `U1` → `U2` → … y en la unidad donde
+  está, por dónde va (p. ej. `🔄 L3 · Test 4/10`);
+- debajo, **cada unidad es un desplegable**: al tocarla se ve lección por lección, paso por paso y cada test
+  (✅ hecho · ❌ falló + n.º de reporte · ⚠️ test < 100 · ⏭️ ya falló, no se repite · ⬜ pendiente · 🔄 ahora);
+- al final, "Qué falló en esta corrida", con el lugar exacto y el n.º de reporte (el dump completo de ese momento
+  está en `reporte.txt` del zip, con ese mismo número).
+El mismo cuadro sale en el resumen de la ejecución y en el zip (`tablero.md`). **El repo es público**: el issue lo
+puede ver cualquiera. Nunca salen usuarios ni contraseñas, pero sí el nombre que pongas en el secret: si no quieres
+nombres reales, usa apodos o iniciales ahí.
+
+## 3c. Banco de respuestas por curso (NUEVO v21.13)
+Las respuestas que cosecha una cuenta se guardan en un **banco por curso** (UPB Beginners 1, Beginners 2,
+Intermediate…), en la memoria privada de Actions (nunca en el repo). Las demás cuentas del mismo curso entran a los
+tests con esas respuestas y no necesitan cosechar. El banco se junta al final de cada ejecución (job **juntar**): las
+cuentas que corren al mismo tiempo no se pasan respuestas entre sí; la ejecución siguiente ya las tiene todas.
+En el registro: `📚 Banco de "UPB Beginners 2": N tests con respuestas · esta cuenta tenía X, ahora Y`.
+
 ## 4. Más cuentas a la vez
 Agrega líneas a `ED_CUENTAS` y lanza con `todas` (o los números que quieras). Ya no hay que tocar el workflow.
 

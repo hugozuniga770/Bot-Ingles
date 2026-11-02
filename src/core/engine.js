@@ -67,6 +67,7 @@ class MainEngine {
   static async step() {
     // NUEVO v21.11: ¿empezó una corrida nueva? → se olvidan los fallos y reintentos de la anterior (regla 4)
     Corrida.get();
+    Tablero.aqui();   // NUEVO v21.13: el tablero muestra por dónde va (unidad → lección → paso/test)
     // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
     for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
       const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
@@ -239,11 +240,13 @@ class MainEngine {
           if (res.waitDone) await sleep(Math.min(res.waitDone, 4000));
           if (NO_RETRY_KINDS.has(kind)) Corrida.fallo(lugar0);
         }
+        // NUEVO v21.13: tablero (paso sin tareas: "visto", u "ok" si el solver confirmó que ED lo marcó)
+        Tablero.anotar(res.marcado ? 'ok' : 'visto', { kind });
       }
       await NavigationManager.goNext();
       return res;
     }
-    if (t.done) { await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
+    if (t.done) { Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
 
     // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
     let kind = MainEngine.detectKind();
@@ -259,6 +262,7 @@ class MainEngine {
     const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
     if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
       log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
+      Tablero.anotar('saltado', { tarea: t.n, kind });
       await NavigationManager.goNext();
       return { did: 'saltado_ya_fallo', kind, veces: previos };
     }
@@ -281,6 +285,7 @@ class MainEngine {
       res.taskMarked = !!done;
       if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
       if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
+      Tablero.anotar(done ? 'ok' : 'falla', { tarea: t.n, kind });   // NUEVO v21.13
     }
 
     await sleep(400);   // AJUSTADA v20.7: era 800

@@ -33,6 +33,7 @@ src/                      código fuente (NO hay import/export; build.js los peg
   core/unit-tests.js      UnitTests: buscar/entrar a los Unit Tests (My Progress → Home → desplegable) (v21.11)
   utils/                  dom (q, qa, qv, vis, txt, norm, pick/exacto), drag, press, reporter (dump completo), fake-mic...
   utils/corrida.js        Corrida: lo que ya falló en ESTA corrida (regla 4: 2 fallos y no se reintenta) (v21.11)
+  utils/tablero.js        Tablero: qué hizo el bot paso por paso (ok/falla/saltado + test) para el tablero en vivo (v21.13)
   exercises/              un archivo por tipo de ejercicio (class XSolver { static ... })
   exercises/index.js      mixStatics(...) une todos los solvers en PracticeSolver
   tests/test-manager.js   tests: puntaje, review, cosecha de respuestas, reintento (replay)
@@ -40,8 +41,11 @@ src/                      código fuente (NO hay import/export; build.js los peg
 dist/ed-autopilot.js      GENERADO con `node build.js` (nunca editar a mano). Es lo que se carga en ED.
 cloud/runner.js           robot de la nube (Playwright): login, inyecta el bot, vigila, guarda zip y resumen
 cloud/cuentas.js          lee las cuentas del secret ED_CUENTAS y elige cuáles correr
+cloud/tablero.js          dibuja el tablero (unidades desplegables) y lo publica en el issue del repo (v21.13)
+cloud/banco.js            banco de respuestas por curso, compartido entre cuentas (caché privada; job juntar) (v21.13)
 .github/workflows/        verificar.yml (build + pruebas en cada push) · nube.yml (correr el bot)
-tools/regresion.js        ~78 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
+tools/regresion.js        ~80 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
+tools/probar-banco-tablero.js  prueba el banco por curso y el dibujo del tablero (también en `npm test`)
 tools/regresion-chrome.js  las mismas pantallas en Chrome real (Playwright), para cuando npm no tiene internet
 tools/comparar-con.sh     corre las pantallas con OTRO bot (la versión vieja) y muestra diferencias
 tools/probar-nube.sh      prueba cloud/runner.js con Chrome real contra tools/sitio-prueba (copia falsa de ED)

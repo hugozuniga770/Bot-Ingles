@@ -6,7 +6,7 @@ function render(){
   if (location.hash === '#/home') {
     if (!sessionStorage.getItem('echado')) { sessionStorage.setItem('echado','1'); setTimeout(() => { location.hash = '#/kicked'; }, 5000); }
     const U = [[1,'Buying and Selling',true],[2,'Healthy Eating',false],[3,'Getting Help',false]];
-    app.innerHTML = `<div class="home__studentWidgetCompletion"><span>25%</span> Course Completion</div><div class="home__studentWidgetTestScores"><span>95%</span> Average Test Score</div>` +
+    app.innerHTML = `<h2 class="home__courseTitle">UPB Beginners 2</h2><div class="home__studentWidgetCompletion"><span>25%</span> Course Completion</div><div class="home__studentWidgetTestScores"><span>95%</span> Average Test Score</div>` +
       U.map(([n,t,h]) => `<div class="home__unitW home__unitW--notLocked"><div class="home__unitIW"><div class="home__unit" id="u${n}">${h?'<span class="home__status">Completed!</span>':''}<span class="home__detailsNumber">${n}</span><span class="home__detailsTitle">${t}</span></div></div></div>`).join('');
     app.querySelectorAll('.home__unit').forEach(u => u.addEventListener('click', () => {
       if (u.parentElement.querySelector('.home__courseListItem')) return;
