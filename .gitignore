@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 Thumbs.db
+# Resultados de tools/probar-nube.sh (y de la nube): no se suben al repo
+salida/
+estado/
+__pycache__/

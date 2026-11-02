@@ -11,6 +11,7 @@ ED real:** lo próximo es que Hugo la suba, corra la nube con 1 cuenta en modo `
 | v21.6 | Home en español ("¡Terminado!"), lista de lecciones por *hover*, sesión cerrada por ED | 1.ª corrida real (cuenta de Hugo): no hizo nada útil |
 | v21.7 | Bot solo en la página principal (no en iframes), aviso "You haven't submitted your test", "Login on This Device", atascos (mismo lugar 3 veces), no recargar a mitad de test, **no rehacer tests terminados, test exprés apagado**, MCQ con imágenes, "insertar frase" | Corrida de Nelson (zip cortado, rescatado): 2,5 h atascado en un test, 1,5 h en vueltas, no pudo volver a entrar, promedio 98 → 96 % |
 | v21.8 | `ProgressMap` lee My Progress → completar entra solo a unidades < 100 %; barrido va directo a los tests < 100 | Dumps de My Progress de Hugo |
+| v21.8b / c | Documentación para otra IA + revisión del repo (solo docs y `tools/`; el bot es el mismo v21.8) | Pasar el proyecto a otro chat |
 
 ## Hipótesis abiertas (confírmalas con la próxima corrida)
 1. **¿Cada intento de test cuenta en el promedio de ED?** Evidencia: Nelson 98 % → 96 % mientras el bot rehacía

@@ -1,6 +1,14 @@
 # Changelog
 
-## v21.8 (documentación para continuar con otra IA)
+## v21.8c (revisión del repo antes de pasarlo a otra IA; el bot NO cambia, sigue siendo v21.8)
+- `tools/probar-nube.sh`: apaga la copia falsa de ED al terminar. Antes quedaba prendida y, si la salida se leía
+  por una tubería (`| tail`), la terminal se quedaba esperando para siempre (pasó en la revisión: 7 min colgado).
+- `.gitignore`: `salida/`, `estado/` y `__pycache__/` (resultados de las pruebas locales; `git add -A` los subía).
+- `CLAUDE.md` §4: qué hacer si `npm install` no tiene internet (no afirmar que las pruebas pasaron; mirar el ✓ de
+  GitHub), zip sin `salida/`/`estado/`, entrega con la herramienta de archivos que tenga la IA.
+- `docs/pendientes.md` marcado como histórico (las prioridades están en `docs/handoff.md`); README y PROMPT-INICIO al día.
+
+## v21.8b (documentación para continuar con otra IA)
 - `CLAUDE.md` reescrito (guía maestra), `docs/handoff.md` (estado, conocimiento de ED, hipótesis abiertas, próximos pasos),
   `docs/metodo.md` (cómo diagnosticar, arreglar y probar), `docs/PROMPT-INICIO.md`, skill `.claude/skills/ed-autopilot-dev/`.
 - Herramientas: `tools/rescatar-zip.py`, `tools/analizar-registro.py` (detecta atascos por bloques de 10 min),

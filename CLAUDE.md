@@ -80,9 +80,19 @@ docs/                     handoff, método, ejercicios, arquitectura, nube, pend
 ## 4. Cómo se entrega un cambio a Hugo
 
 1. `node build.js && npm test` (y `bash tools/comparar-con.sh <viejo.js>` para el arreglo).
+   **Si `npm install` falla por la red** (algunos entornos de IA bloquean npm): `node build.js` funciona igual
+   (no necesita internet), pero NO digas que las pruebas pasaron. Díselo a Hugo y pídele que, tras el push, mire
+   el ✓ verde junto al commit en GitHub (el flujo `verificar` corre `npm test` solo). Playwright y Chrome a veces
+   ya vienen instalados globalmente:
+   `NODE_PATH="$(npm root -g):$(dirname "$(dirname "$(which node)")")/lib/node_modules" bash tools/probar-nube.sh > /tmp/nube.txt 2>&1`.
 2. Subir versión + CHANGELOG + docs tocadas.
-3. Zip: `cd .. && zip -qr Bot-Ingles-vX.Y.zip Bot-Ingles -x "Bot-Ingles/.git/*" -x "Bot-Ingles/node_modules/*"`
-   → copiarlo a `/mnt/user-data/outputs/` y presentarlo.
+3. Zip (sin `.git`, `node_modules`, ni los resultados de pruebas `salida/` y `estado/`):
+   ```bash
+   cd .. && zip -qr Bot-Ingles-vX.Y.zip Bot-Ingles -x "Bot-Ingles/.git/*" -x "Bot-Ingles/node_modules/*" \
+     -x "Bot-Ingles/salida/*" -x "Bot-Ingles/estado/*" -x "*/__pycache__/*"
+   ```
+   → entregárselo con la herramienta de archivos que tengas
+   (en claude.ai: copiarlo a `/mnt/user-data/outputs/` y `present_files`; en otros entornos: `SendUserFile` o similar).
 4. Decirle exactamente: "descomprime encima de tu carpeta" y luego, en la terminal de VS Code:
    ```powershell
    git add -A

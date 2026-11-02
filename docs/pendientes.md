@@ -1,5 +1,8 @@
 # Pendientes
 
+> ⚠ **Lista histórica (al día solo hasta v20.8).** Las prioridades ACTUALES están en `docs/handoff.md` →
+> "Próximos pasos". Usa esta lista solo como detalle de lo que quedó sin confirmar en ED real.
+
 Se trabajan **de a uno**, en este orden, y cada uno se valida en ED real antes del siguiente.
 
 ## 1. DnD en tests (prioridad actual)
