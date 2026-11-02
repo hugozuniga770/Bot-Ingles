@@ -19,7 +19,7 @@ zip `Bot-Ingles-vX.Y.zip` que le entregaste.)
 1. **Evidencia.** Lee TODO lo que Hugo pasó: reporte (motivo/kind/resultado/clases/html/textoVisible/marcos),
    dumps, capturas (idioma, botones, la cajita del bot), zip de la nube
    (`python3 tools/rescatar-zip.py` si está cortado → `python3 tools/analizar-registro.py registro.txt reporte.txt`).
-2. **Causa raíz.** Formula una teoría concreta ("ED abre sola la 1.ª lista; las demás solo con foco").
+2. **Causa raíz.** Formula una teoría concreta ("tras elegir en un hueco, ED no abre otra lista hasta un clic fuera").
    Si te falta información para decidir: pide UNA cosa concreta (dump en tal pantalla) o haz que el reporte la
    capture la próxima vez. Nunca adivines selectores a ciegas sin verificación.
 3. **Reproducir.** Pantalla falsa en `tools/regresion.js` con el HTML REAL y el comportamiento de ED en `setup`.
@@ -29,10 +29,15 @@ zip `Bot-Ingles-vX.Y.zip` que le entregaste.)
    alternativas en orden, topes a todo bucle, `Reporter.capture` cuando no se pueda. Comentario `// NUEVO vX.Y`
    en línea propia con el motivo. Inglés Y español en textos; coincidencia exacta antes que sin mayúsculas.
 5. **Probar:** `node build.js && npm test` (nada más debe cambiar) + `comparar-con.sh` (vieja falla, nueva no).
+   Sin internet para npm: `node tools/regresion-chrome.js [viejo.js] [pantallas]` (mismas pantallas en Chrome real).
    Si tocaste `cloud/`: `bash tools/probar-nube.sh` (Chrome real con Playwright contra la copia falsa de ED).
 6. **Entregar:** subir `const V` (src/bootstrap.js) y package.json, CHANGELOG (qué, por qué, qué es solo simulación),
    docs (`docs/handoff.md` siempre al día) → zip sin `.git`/`node_modules` → `/mnt/user-data/outputs/` →
    present_files → explicar a Hugo (español simple: causa, arreglo, prueba, pasos exactos, qué te tiene que pasar).
+7. **REGLA PERMANENTE DE HUGO (`CLAUDE.md` §3.12):** TODOS los fallos de todos los reportes/zips con estado a/b/c y
+   tabla al final; el reporte del bot es un dump completo (Hugo no hace dumps); si falta algo, intentarlo con lo
+   que se sabe; 2 fallos por corrida y no se reintenta; con el zip, primero archivos cambiados + si cambió dist/ +
+   pruebas; comandos solo `git add -A` / `git commit` / `git push`.
 
 ## Cómo pensar (el estilo que funcionó)
 - Detective: cada afirmación apoyada en una línea de registro, una clase del dump o algo visible en la captura.
@@ -44,6 +49,6 @@ zip `Bot-Ingles-vX.Y.zip` que le entregaste.)
 
 ## Trampas conocidas (rápido)
 iframes → solo `window.top` · recarga a mitad de test · comentario `//` en la misma línea del código ·
-"¡Terminado!" vs "Completed" · lista del Home por hover · desplegable viejo por foco · "Weren't"/"weren't" ·
+"¡Terminado!" vs "Completed" · lista del Home por hover · desplegable viejo: clic fuera tras elegir · "Weren't"/"weren't" ·
 popup "Login on This Device" · aviso "You haven't submitted your test" (MsgPage) · GitHub no muestra registros
 sin sesión (pide el zip) · zips del chat pueden llegar cortados.

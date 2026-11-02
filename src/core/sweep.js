@@ -48,10 +48,18 @@ class TestSweep {
     this.set(s);
   }
   static lessonDone() { const s = this.get(); return !!(s && s.lessonsDone.includes(this.lessonKey())); }
+  // NUEVO v21.9: ¿en ESTA corrida (barrido/completar) ya me rendí con el test de esta lección (< 100 tras reintentos)?
+  static rendido() {
+    const s = this.get(); if (!s || !s.active) return false;
+    const u = this.unitNum(), l = NavigationManager.lessonLabel();
+    return (s.resultados || []).some(r => r.unidad === u && r.leccion === l && /sin 100/.test(r.nota || ''));
+  }
 
   // Lo llama MainEngine.step() al principio, dentro del área de lecciones. null = sigue el flujo normal.
   static async lessonStep() {
     const s = this.get(); if (!s || !s.active) return null;
+    // NUEVO v21.11: Unit Test en curso (buscarlo en el desplegable o dejar correr el test)
+    if (s.ut && s.ut.actual) { const r = await UnitTests.enLeccion(s); if (r !== undefined) return r; }
     if (s.mode === 'completar') return await this.completarStep(s);   // NUEVO v21.3
     if (s.mapaHecho && Array.isArray(s.objetivos)) return await this.objetivosStep(s);   // NUEVO v21.8: con mapa
     if (s.phase === 'entering_unit' || s.phase === 'home') {
@@ -114,7 +122,17 @@ class TestSweep {
   // Widgets: .home__studentWidgetCompletion ("25% Course Completion") y .home__studentWidgetTestScores ("95%").
   static leerWidgets() {
     const num = sel => { const m = txt(q(sel)).match(/(\d{1,3})\s*%/); return m ? +m[1] : null; };
-    return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores') };
+    return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores'), curso: this.curso() };
+  }
+  // NUEVO v21.12 — Roy (02/11): Hugo vio en el Home "UPB Beginners 1" (51 %) y creyó que se había borrado todo; el bot
+  // trabajó en "UPB Beginners 2" (97 %). El Home tiene un carrusel con los cursos (flechas ‹ ›). Ahora el bot anota
+  // en qué curso trabaja (registro y resumen).
+  static curso() {
+    const c = txt(q('.learning__dropDownList_courseName'));
+    if (c) return c;
+    const t = qa('[class*="BSslide"] h1, [class*="BSslide"] h2, [class*="arousel"] h1, [class*="arousel"] h2, h1, h2').filter(vis).map(e => txt(e))
+      .find(x => x && x.length < 60 && /UPB|Beginners|Basic|Intermediate|Advanced|Elementary|Pre-?Intermediate|Level/i.test(x));
+    return t || null;
   }
   static unidades() {
     return qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]),
@@ -152,7 +170,9 @@ class TestSweep {
     if (!lista.length) lista = qav('.home__courseListItem');   // por si ED pinta la lista fuera de la tarjeta
     if (!lista.length) return false;
     const numL = x => +((txt(q('.home__courseListItemNumber', x)).match(/\d+/) || [0])[0]);
-    const it = (preferida && lista.find(x => numL(x) === preferida)) || lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
+    // AJUSTADA v21.11: preferida puede ser una función (p. ej. el ítem "Unit Test"); si ninguno cumple → false
+    if (typeof preferida === 'function' && !lista.some(preferida)) return false;
+    const it = (typeof preferida === 'function' && lista.find(preferida)) || (preferida && lista.find(x => numL(x) === preferida)) || lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
     const link = q('.home__courseListItemLink', it) || it;
     log('🧭 Unidad', u.n, '→ lección', txt(q('.home__courseListItemNumber', it)) + ' ' + txt(q('.home__courseListItemName', it)));
     click(link);
@@ -178,12 +198,14 @@ class TestSweep {
 
   static async completarHome(s) {
     s.widgets = this.leerWidgets(); this.set(s);
-    log('📊 Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
+    log('📊 Curso:', s.widgets.curso || '(no lo pude leer)', '· Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
     // AJUSTADA v21.8: con el mapa de My Progress, las unidades pendientes son las de realización < 100 %
     const m = ProgressMap.get(), conMapa = s.mapaHecho && m && m.unidades && m.unidades.length;
     const nums = conMapa ? m.unidades.filter(x => !x.locked && (x.completion == null || x.completion < 100)).map(x => x.n) : null;
     const pend = this.unidades().filter(u => (nums ? nums.includes(u.n) : !u.completa) && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
     if (!pend.length) {
+      // NUEVO v21.11: unidades recorridas → Unit Tests sin hacer o < 100 (los que están en 100 no)
+      { const r = await UnitTests.enHome(s, true); if (r) return r; }
       if (!s.testsHechos && (conMapa ? ProgressMap.testsBajos(m).length > 0 || (s.widgets.avg != null && s.widgets.avg < 100) : s.widgets.avg != null && s.widgets.avg < 100)) {
         // mapaHecho = false → se vuelve a leer My Progress (los puntajes pudieron cambiar) antes del barrido
         Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], objHechos: [], testsHechos: true, mapaHecho: false }); this.set(s);
@@ -224,16 +246,45 @@ class TestSweep {
       // AJUSTADA v21.7: si el "pendiente" es siempre el MISMO (corrida de Nelson: el mismo test 257 veces en 2,5 h),
       // a la 3.ª vez se da por perdido y se sigue con la siguiente unidad.
       const dondeAhora = this.unitNum() + '|' + txt(qv('.learning__dropDownListTitleW--lessons')) + '|' + txt(qv('.learning__dropDownListTitleW--steps'));
-      TestSweep._saltos = TestSweep._saltosDe === dondeAhora ? (TestSweep._saltos || 0) + 1 : 1; TestSweep._saltosDe = dondeAhora;
-      const mismo = TestSweep._saltos >= 3;
-      if (mismo) Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
-      if (!tope && !mismo) { try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {} const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
-      else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
+      // AJUSTADA v21.10 — 2.ª corrida de Jose (unidad 12): saltaba ALTERNANDO Drama ↔ Family y el conteo "seguido" se
+      // reiniciaba en cada cambio (40 min). Ahora se cuentan los atascos de CADA lugar.
+      // AJUSTADA v21.11 (regla 4 de Hugo): 2 atascos en el mismo lugar (antes 3) → unidad perdida, se sigue.
+      TestSweep._saltosPor = TestSweep._saltosPor || {};
+      TestSweep._saltos = TestSweep._saltosPor[dondeAhora] = (TestSweep._saltosPor[dondeAhora] || 0) + 1;
+      const mismo = TestSweep._saltos >= 2;
+      // AJUSTADA v21.12: el reporte (dump completo) se toma en CADA atasco, no solo en el 2.º
+      Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
+      try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+      if (!tope) {
+        // NUEVO v21.12 — corrida de Mateo (02/11): la UNIDAD 8 ENTERA quedó sin hacer. Atascado en "Lesson 2 · Step 1:
+        // Explore" (Next no avanzaba), "voy a lo pendiente" lo devolvía AL MISMO paso y al 3.er atasco se abandonaba
+        // la unidad (lecciones 2–6 sin tocar). Igual con Roy y Jose en el test ya hecho de la lección 1 (U3, U5, U7,
+        // U8): volvía al Explore pendiente y abandonaba. Ahora PRIMERO se avanza (siguiente paso; si es el último, la
+        // siguiente lección) y solo al final de la unidad se vuelve a lo pendiente (una vez por lugar).
+        const a = await this.avanzar();
+        if (a) { log('🧭 Atasco → avanzo a', a); return { did: 'completar_avance', a }; }
+        if (!mismo) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
+      } else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
       const s2 = this.get(); if (!s2.unitsDone.includes(u)) s2.unitsDone.push(u); this.set(s2);
       log('🏁 Unidad', u, tope ? 'cortada por tiempo' : 'sin pendientes', '→ Home');
       return await this.irHome();
     }
     return null;   // flujo normal: prácticas y tests
+  }
+
+  // NUEVO v21.12 — avanzar por los desplegables: siguiente paso de esta lección o, si es el último, la siguiente lección.
+  // Se VERIFICA que cambió la lección o el paso; si no cambió nada → null.
+  static async avanzar() {
+    const num = t => +((String(t).match(/^(\d+)\s*\./) || [])[1] || 0);
+    const antes = NavigationManager.lessonLabel() + '|' + NavigationManager.stepLabel();
+    const cambio = () => NavigationManager.lessonLabel() + '|' + NavigationManager.stepLabel() !== antes;
+    const pasoAct = +stepNum(NavigationManager.stepLabel()) || 0;
+    const pasos = DropdownNav.items('steps').map(x => num(x.t)).filter(n => n > pasoAct).sort((a, b) => a - b);
+    if (pasos.length && await DropdownNav.gotoStep(pasos[0]) && await waitFor(cambio, 4000, 300)) return 'paso ' + pasos[0];
+    const lecAct = +lessonNum(NavigationManager.lessonLabel()) || 0;
+    const lecs = DropdownNav.items('lessons').map(x => num(x.t)).filter(n => n > lecAct).sort((a, b) => a - b);
+    if (lecs.length && await DropdownNav.gotoLesson(lecs[0]) && await waitFor(cambio, 4000, 300)) return 'lección ' + lecs[0];
+    return null;
   }
 
   // Fuera del área de lecciones (Home u otra página)
@@ -251,10 +302,11 @@ class TestSweep {
     if (/#\/login/i.test(location.href) || qv('input[name="userName"]')) return { did: 'esperando_login' };   // sin sesión: no anotar fallos
     // NUEVO v21.8 — My Progress: leer el mapa (unidades, lecciones, Last Test Score) y volver al Home
     if (ProgressMap.isPage()) {
+      if (s.mapaHecho) { const r = await UnitTests.enMyProgress(s); if (r) return r; }   // NUEVO v21.11
       const homeUrl = s.homeUrl || location.href.split('#')[0] + '#/home';
       if (!s.mapaHecho) {
         const mapa = await ProgressMap.leer();
-        Object.assign(s, { mapaHecho: true, sinMapa: !mapa.unidades.length, objetivos: ProgressMap.testsBajos(mapa), objHechos: s.objHechos || [], phase: 'home', homeUrl, widgets: mapa.widgets.completion != null ? mapa.widgets : s.widgets });
+        Object.assign(s, { mapaHecho: true, sinMapa: !mapa.unidades.length, objetivos: ProgressMap.testsBajos(mapa).filter(o => o.leccion > 0), objHechos: s.objHechos || [], phase: 'home', homeUrl, widgets: mapa.widgets.completion != null ? mapa.widgets : s.widgets });
         this.set(s);
         if (!mapa.unidades.length) Reporter.capture('my_progress_sin_unidades');
       }
@@ -268,9 +320,19 @@ class TestSweep {
         if (await ProgressMap.ir()) return { did: 'voy_a_my_progress' };
         s.sinMapa = true; this.set(s); Reporter.capture('no_pude_abrir_my_progress');
       }
+      // NUEVO v21.11: un Unit Test a medio camino (buscándolo o recién salido de él)
+      if (s.ut && s.ut.actual) { const r = await UnitTests.enHome(s, s.mode === 'completar'); if (r) return r; }
       if (s.mode !== 'completar' && s.mapaHecho && Array.isArray(s.objetivos)) {   // NUEVO v21.8: barrido con mapa
         const o = this.pendientesObj(s)[0];
-        if (!o) { s.active = false; s.fin = new Date().toISOString(); this.set(s); log('🏁 BARRIDO COMPLETO: no quedan tests < 100.'); window.__ed.stop(); return { did: 'sweep_finished', resultados: s.resultados }; }
+        if (!o) {
+          // NUEVO v21.11: antes de terminar, los Unit Tests < 100 (según My Progress)
+          { const r = await UnitTests.enHome(s, false); if (r) return r; }
+          s.active = false; s.fin = new Date().toISOString(); this.set(s);
+          // AJUSTADA v21.11: el mensaje decía "no quedan tests < 100" aunque quedara uno del que se rindió
+          const rendidos = (s.resultados || []).filter(r => /sin 100/.test(r.nota || ''));
+          log(rendidos.length ? '🏁 BARRIDO TERMINADO. Quedaron < 100 (anotados en el reporte): ' + rendidos.map(r => 'U' + r.unidad + ' ' + r.leccion + ' (' + r.pct + ' %)').join(', ') : '🏁 BARRIDO COMPLETO: no quedan tests < 100.');
+          window.__ed.stop(); return { did: 'sweep_finished', resultados: s.resultados };
+        }
         const u = this.unidades().find(x => x.n === o.unidad);
         if (!u) { s.objHechos.push(o.unidad + '|' + o.leccion); this.set(s); Reporter.capture('objetivo_sin_unidad_en_home', o); return { did: 'objetivo_saltado', o }; }
         Object.assign(s, { phase: 'entering_unit', unitTarget: u.n }); this.set(s);

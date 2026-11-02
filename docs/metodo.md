@@ -2,15 +2,31 @@
 
 Este es el método con el que se llevó el bot de v19 a v21.8. Cada paso existe porque saltárselo ya costó caro.
 
+## La regla permanente de Hugo (01/11/2026) — está en `CLAUDE.md` §3.12; aquí, cómo se aplica
+1. **Todos los fallos, siempre.** Antes de entregar, haz la lista de TODOS los fallos de TODOS los reportes y zips
+   (también los viejos que siguen en el reporte: mira `hora` y `v`) y de lo que se ve en el registro aunque no esté
+   en el reporte (bucles, minutos perdidos). A cada uno: **a** (arreglado + pantalla con HTML real: vieja falla como
+   en ED, nueva no), **b** (falta info → el bot captura justo eso la próxima vez) o **c** (imposible → explicado y el
+   bot no pierde tiempo). Tabla al final de la respuesta y en `docs/handoff.md`.
+2. **El reporte es el dump.** Si un caso no se puede resolver con lo que trae el reporte, el arreglo es mejorar
+   `Reporter.dumpCompleto` / `marcarAntes`, no pedirle un dump a Hugo.
+3. **Intenta con lo que sabes.** Candidatos en orden, verificando cada uno (`press(el, cond)`), con tope de tiempo,
+   y `Reporter.capture` si ninguno sirve (ejemplos: `exercises/explore.js`, `core/unit-tests.js`).
+4. **2 fallos por corrida y basta** (`Corrida.fallos/fallo`; 1 para lo caro/imposible). Atascos: 2. Tests: 2 reintentos.
+5. **Entrega:** primero archivos cambiados, si cambió `dist/` y que las pruebas pasan; comandos solo
+   `git add -A` / `git commit` / `git push`.
+
 ## 0. Mentalidad
 - **Eres un detective, no un adivino.** Toda conclusión debe apoyarse en algo concreto: una línea del registro,
   una clase del dump, un pixel de la captura. Si no tienes la evidencia, consíguela (sonda, reporte más rico) o
   escribe código que la recoja la próxima vez.
-- **Busca la causa raíz, no el síntoma.** "No abrió la lista" era el síntoma; la causa era "ED abre sola la lista
-  del 1.er hueco y las demás se abren con el FOCO, no con clic". Arreglar el síntoma (más clics) no habría servido.
-- **Desconfía de tu primera teoría.** Si tu simulación del fallo NO reproduce lo que pasó en ED, la teoría está mal
-  (pasó con el desplegable: la primera teoría "la lista ya estaba abierta" no reproducía el fallo; la segunda,
-  "solo se abre con foco", lo reprodujo exacto).
+- **Busca la causa raíz, no el síntoma.** "No abrió la lista" era el síntoma; la causa (v21.9) era "tras ELEGIR en
+  un hueco, ED no abre otra lista hasta un clic FUERA". Más formas de abrir (foco, teclado...) no servían de nada.
+- **Desconfía de tu primera teoría, y también de la segunda.** Si tu simulación NO reproduce lo que pasó en ED, la
+  teoría está mal. Y que la reproduzca tampoco la confirma: la v20.10 ("solo se abre con foco") reproducía el
+  fallo en simulación, pero en ED siguió fallando igual (v21.6 y v21.8). Lo que la delató: el PATRÓN completo
+  ("1 bien, 2 mal, 3 bien, 4 mal": el hueco que sigue a un fallo sale bien). Confirma siempre con el registro de la
+  siguiente corrida real que aparece el método nuevo (aquí: `fuera+clic_texto`).
 - **Lee todo lo que te pasan antes de responder:** cada captura (también lo que se ve al fondo: textos, botones,
   la cajita del bot), cada campo del reporte, el final del registro. Detalles chicos resolvieron casos grandes
   ("¡Terminado!" en una captura reveló que la cuenta está en español).
@@ -63,8 +79,9 @@ Preguntas que destraban casi todo:
 
 ## 4. Probar (obligatorio)
 1. **Pantalla falsa con el HTML REAL** en `tools/regresion.js` (copia el `html`/`cajaHTML` del reporte o dump;
-   `setup:` simula el comportamiento de ED: qué pasa al hacer clic, foco, hover...). Ejemplos: `replayLegacyDDLAuto`
-   (lista que solo abre con foco), `completarHomeES` (Home en español, lista por hover), `replayDropCase` (mayúsculas).
+   `setup:` simula el comportamiento de ED: qué pasa al hacer clic, foco, hover...). Ejemplos: `replayLegacyDDL4`
+   (tras elegir, ED bloquea hasta un clic fuera), `completarHomeES` (Home en español, lista por hover), `replayDropCase` (mayúsculas).
+   **Sin jsdom** (npm sin internet): `node tools/regresion-chrome.js` corre las mismas pantallas en Chrome real.
 2. `bash tools/comparar-con.sh /tmp/viejo.js NombreDePantalla` (viejo: `git show HEAD~1:dist/ed-autopilot.js > /tmp/viejo.js`):
    - la versión vieja debe fallar **igual que en ED** (si no, tu simulación no reproduce el caso → revisa la teoría);
    - la nueva debe resolverlo.
@@ -87,8 +104,24 @@ Sigue `CLAUDE.md` §4–§5. En el mensaje a Hugo: causa en lenguaje simple → 
 - **Rehacer tests ya terminados / enviarlos en blanco** pareció bajar el promedio. Conservador: no rehacer salvo < 100.
 - **Comentario `//` en la misma línea** que el código siguiente rompió el build dos veces.
 - **Textos en español** en algunas cuentas: nunca compares solo contra inglés.
-- **Lista de lecciones del Home**: hover, no clic. **Desplegable viejo**: foco, no clic.
+- **Lista de lecciones del Home**: hover, no clic. **Desplegable viejo**: tras elegir, clic fuera antes del siguiente hueco.
+- **Un test del que el bot se rindió** se volvía a hacer entero en cada "voy a lo pendiente" (v21.9 lo evita).
+- **Las claves guardadas NO llevan unidad** ("Lesson 3: Name||Step 3: Test"): nunca compares solo el NÚMERO de
+  lección, porque "Lesson 3" existe en todas las unidades (v21.10: 40 min de bucle en la unidad 12).
+- **El reporte de un tipo desconocido sin área conocida** guardaba solo el menú (3500 caracteres): si una radiografía
+  no trae el ejercicio, arregla la radiografía antes de adivinar el ejercicio.
 - **Atascos**: la misma acción alternada (p. ej. `test_replay` ↔ `completar_salto`) no es "la misma acción
   repetida": por eso el análisis mira bloques de 10 minutos sin avance.
 - **GitHub**: registros/artifacts requieren sesión; pide el zip. Secrets ≠ Variables (las Variables se ven).
 - Los zips subidos al chat pueden llegar cortados → `rescatar-zip.py`.
+- **Atasco ≠ volver atrás** (v21.12): "voy a lo pendiente" devolvía al MISMO paso que no se podía hacer y a la 3.ª se
+  abandonaba la UNIDAD entera (Mateo perdió la unidad 8). Ante un atasco, primero AVANZAR; lo pendiente, al final.
+- **Antes de llamar "imposible" a algo, pregúntale a Hugo cómo lo hace a mano.** Interactive y Branching speaking
+  estaban como "c" (imposible) y Hugo los hace con dos clics.
+- **Dales tiempo a las pantallas nuevas**: videos, tarjetas, imágenes y memoria tardan en cargar; detectar "no hay
+  nada" al primer segundo hacía que el bot pasara de largo (Hugo: "dales más tiempo para que carguen").
+- **"Abierto/cerrado" por clases que aparecen y desaparecen**, nunca por palabras sueltas en las clases: el `<body>`
+  de ED trae `--resourcesAreaFull` y `--vocabularyCards` siempre (habría dado "abierta" para siempre).
+- **Lo que en una práctica ayuda, en un test puede bajar la nota**: escribir una letra en un campo lleno o probar
+  varias imágenes solo se hace fuera de los tests (pantallas `textoEnTestNoToca`, `mcqImagenesEnTest`).
+- **"Se borró todo"**: antes de buscar un error, mira QUÉ curso muestra el Home (el carrusel puede tener varios).

@@ -1,5 +1,96 @@
 # Changelog
 
+## v21.12 — dumps y explicaciones de Hugo (02/11) + corridas de Roy (cuenta 3) y Mateo (cuenta 2), las dos con v21.8
+(Incluye v21.9–v21.11, que todavía no se subieron.)
+- **Explore con VIDEO** (U5 L1, U7 L1, U8 L1; Roy y Mateo: `tipo_desconocido`, mcq_default): espera hasta 30 s a que
+  aparezca el play grande (`.learning__RAMRButton--play`), lo pulsa verificando y deja correr el video hasta que ED
+  marca la tarea (tope 100 s). Hugo: "es solo esperar a que cargue el video y darle play".
+- **Explore con TARJETAS de vocabulario** (U8 L6 "Work"): abre una tarjeta y la cierra con la X. Se sabe si está
+  abierta por las clases que solo existen así (`.cursor-pointer`, `.d-flex`, `.justify-between`, `_textSeparator`,
+  dumps de Hugo); la X se busca entre esos botones (fila "2/10 … X" primero), verificando que se cerró.
+- **Juego de memoria** (dump de Hugo): el clic va a la cara visible de la carta (`.memoG__cardSideBack`), no a la
+  caja; con DOS cartas abiertas ED marca la tarea ("seleccionar dos cuadritos y ya sale hecho").
+- **Interactive speaking** (U9 L4 · 4, U10 L4 · 4, U13 L1 Interact 1): tocar la 1.ª frase y pulsar **Start** cuando se
+  habilita (antes solo tocaba la frase). **Branching speaking** (U9 L4 · 6, U10 L4 · 6): Start → esperar el botón de
+  grabar → grabar → marcada. HTML real de los dumps.
+- **Personalized writing** de corregir el e-mail (U10 L3 · 4): todos los campos traen texto; se agrega una letra al
+  1.º y se verifica (antes n = 0). Solo en prácticas: en un test no se toca nada que ya esté lleno.
+- **Watch again con imágenes** (U10 L4 · 3): espera hasta 20 s a que carguen y pulsa imagen → caja → opción
+  verificando el cambio de clases; si ED no marca, la siguiente. En un test, UNA sola imagen (como antes).
+- **Atascos: primero AVANZAR** (`TestSweep.avanzar`): Mateo perdió la UNIDAD 8 entera (atascado en L2 · Explore
+  "Read the e-mail", "voy a lo pendiente" lo devolvía al mismo paso y al 3.er atasco abandonaba la unidad: L2–L6,
+  la práctica de arrastrar de L6 y su test sin hacer). Igual Roy y Mateo en el test de la lección 1 de U5, U7, U8 y
+  U3. Ahora: siguiente paso → siguiente lección; al final de la unidad, una vuelta a lo pendiente; como mucho dos
+  vueltas por unidad. El reporte (dump completo) se toma en CADA atasco.
+- **Explore/Prepare sin barra de tareas** ("Read the e-mail", "Read the story", "Listen to the recording", "Listen
+  to the examples"): si hay un reproductor que aún carga, espera hasta 25 s una vez; con que suene un audio basta
+  (tope 20 s; antes hasta 75 s por página).
+- **Test que no muestra preguntas** (Mateo, U14 L5 "Modals: Review" y L3): a la 3.ª vez, reporte y recargar la página
+  UNA vez por corrida.
+- **"Dales más tiempo para cargar"** (Hugo): pantallas no reconocidas con video/tarjetas/imágenes/memoria/speaking
+  esperan hasta 25 s (antes 4 s); tarjetas, memoria e imágenes hasta 20 s; video hasta 30 s + 100 s.
+- **Curso en el registro y en el resumen** (Roy: Hugo vio "UPB Beginners 1" con 51 % y creyó que se había borrado
+  todo; el bot trabajó en "UPB Beginners 2": 88 → 97 %, promedio 100 %). El resumen ya no lista las filas vacías
+  de My Progress ("U1 L0").
+- Desplegable viejo, variante de Roy ("1:ya_abierta, 2:clic_texto, 3:ninguno✗"): ya lo arreglaba la v21.11; probado
+  con su patrón real (`replayLegacyDDLRoy`).
+- Pantallas nuevas (15; la v21.8 falla 11 igual que en ED; de las otras 4, `dndTablaU8` ya funcionaba, `exploreLecturaSinTareas`
+  mide el tiempo y `textoEnTestNoToca`/`mcqImagenesEnTest` cuidan la nota):
+  `exploreVideo`, `exploreTarjetas`, `memoriaDorso`, `speakingFraseStart`, `speakingBranching`, `writingCorregir`,
+  `mcqImagenesCargando`, `dndTablaU8`, `exploreLecturaSinTareas`, `exploreAudioTarde`, `completarAvanzaPaso`,
+  `replayLegacyDDLRoy`, `testSinPreguntas`, `textoEnTestNoToca`, `mcqImagenesEnTest`. Cambiadas a propósito:
+  `completarAlterna` (42 pasos: avanza y a la 2.ª vuelta va al Home), `completarSaltoOtraUnidad` (primero intenta
+  avanzar), `mcqImagenes` (ya no cuenta clics sin efecto), `text`/`practiceMemory`/`memoryCorto`/`exploreParlantes`/
+  `completarFin` (campos nuevos en el resultado).
+- **Solo simulación** (78 pantallas, Chrome real). Falta confirmarlo en ED con la próxima corrida.
+
+## v21.11 — regla permanente de Hugo: TODOS los fallos con estado a/b/c (tabla en docs/handoff.md)
+(Incluye v21.9 y v21.10, que no llegaron a subirse.)
+- **Reporte = dump completo** (`utils/reporter.js`): controles con atributos, caja de la pregunta, DnD con eventos de
+  jQuery, pestañas, barra y tareas, panel izquierdo (`.learning__resourcesArea`), audios/videos, iframes del mismo
+  sitio y el ANTES de la acción (`Reporter.marcarAntes()`). Tope ~45 000 caracteres por entrada.
+- **Regla 4: 2 fallos por corrida y no se reintenta** (`utils/corrida.js`): tareas (1 si es speaking/memoria/Explore),
+  atascos 2 (antes 3), tests 2 reintentos (antes 3, migración `cfgV 4`), contador de reintentos por corrida.
+- **Unit Tests** (`core/unit-tests.js`): My Progress → Home → desplegable, verificando; misma política que los tests.
+- **Explore** (`exercises/explore.js`): parlantes → segmentos → botones play → audio/video, verificando la tarea.
+- **Memoria**: 6 intentos (antes hasta 60), 1 vez por corrida, reporte con dos cartas abiertas.
+- **Nube** (`cloud/runner.js`): id de corrida; si la cuenta N es otra persona, se guardan solo las respuestas;
+  el resumen de GitHub lleva solo la lista de fallos (el detalle va en `reporte.txt`).
+- Mensaje del barrido: ya no dice "no quedan tests < 100" si quedó uno rendido.
+- Pantallas nuevas (la v21.8 falla las 15 distintas; las demás iguales): `replayLegacyDDLNouns`, `reporteDump`,
+  `exploreParlantes`, `memoryCorto`, `saltaYaFallo`, `unitTestDesdeHome`, `unitTestMyProgress`, `unitTestHomeLista`,
+  `unitTestTermina`, `reintentosPorCorrida`. Cambiadas a propósito: `scoreGiveUp` (2 reintentos), `completarAlterna` (2 atascos).
+- Docs: regla permanente en `CLAUDE.md` §3.12 y `docs/metodo.md`; sin la ruta de la carpeta de Hugo; comandos sin correo.
+- **Solo simulación.**
+
+## v21.10 — 2.ª corrida de Jose (v21.8, modo completar): 91 % → 97 % en 87 min, promedio 100 %
+(La v21.9 no llegó a subirse: esta versión la incluye.)
+- **Bucle de 40 min en la unidad 12** (`core/dropdowns.js`): atascado en un test ya hecho, "voy a lo pendiente"
+  mandaba a "3. Drama" y "4. Family" (ya COMPLETAS) porque otra unidad tenía "Lesson 3: Present Simple: Review" en
+  97 %: se comparaba solo el NÚMERO de lección. Ahora número y nombre.
+- **Atascos alternados** (`core/sweep.js`): el "mismo lugar 3 veces" contaba solo veces SEGUIDAS; saltando Drama ↔
+  Family se reiniciaba siempre. Ahora cuenta las veces de cada lugar.
+- **Reporte** (`utils/reporter.js`): en pantallas sin área conocida (los "Step 1: Explore" con `.segment`) se
+  guardaba el `<body>` y los 3500 caracteres eran solo el menú de lecciones. Ahora se quitan los menús y se guarda
+  hasta 8000: el próximo reporte de esos Explore traerá el ejercicio (probado con el HTML real del reporte).
+- Pantallas nuevas con los desplegables REALES de la unidad 12: `completarSaltoOtraUnidad`, `completarAlterna`
+  (la v21.8 falla las dos igual que en ED; las otras 51 no cambian).
+- **3.ª confirmación** del desplegable viejo: 01:19:57, mismo test, mismo patrón "1 bien, 2 mal, 3 bien, 4 mal".
+- **Solo simulación:** todo lo de v21.9 y v21.10. Confirmarlo con el registro de la próxima corrida.
+
+## v21.9 — corrida de Jose (cuenta 2, v21.8): 1 % → 91 % en 1 h 56 min, promedio 100 %, un test en 97 %
+- **Desplegable viejo** (`exercises/ddl-legacy.js`): U14 · Lesson 3: Present Simple: Review · Test · 12/15 quedaba
+  siempre en 97 %. Patrón real (igual con Nelson en v21.6 y en Nouns · Test 3/4/7/9): "1:clic_texto, 2:ninguno✗,
+  3:clic_texto, 4:ninguno✗". Causa: tras ELEGIR en un hueco, ED no abre otra lista hasta un clic FUERA (tras un
+  fallo el bot ya hacía ese clic, por eso el hueco siguiente salía bien). Ahora, si nada abre la lista → clic fuera
+  y otra vuelta (`fuera+<método>` en el reporte). La teoría v20.10 ("solo con foco") no era la causa en ED.
+- **No repetir un test del que ya se rindió** (`core/engine.js`, `TestSweep.rendido()`): "voy a lo pendiente" volvía
+  al test de 97 % y lo hacía entero 4 veces más (≈ 10 min y 4 intentos más en ED).
+- Pantallas nuevas con el HTML real: `replayLegacyDDL4`, `testRendido` (la v21.8 falla las dos igual que en ED).
+- `tools/regresion-chrome.js`: las mismas pantallas en Chrome real para entornos sin npm (da el snapshot exacto).
+- **Confirmado en ED:** ED no promedia cada intento (1.os intentos de 10–90 % y promedio 100 %). "Insertar frase" funciona.
+- **Solo simulación:** los dos arreglos. Confirmarlos con el registro de la próxima corrida.
+
 ## v21.8c (revisión del repo antes de pasarlo a otra IA; el bot NO cambia, sigue siendo v21.8)
 - `tools/probar-nube.sh`: apaga la copia falsa de ED al terminar. Antes quedaba prendida y, si la salida se leía
   por una tubería (`| tail`), la terminal se quedaba esperando para siempre (pasó en la revisión: 7 min colgado).

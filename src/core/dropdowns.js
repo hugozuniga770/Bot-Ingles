@@ -97,8 +97,12 @@ class DropdownNav {
     d = await this.open('lessons');
     if (!d) return null;
     const ls = this.items('lessons').filter(x => /^\d+\s*\./.test(x.t));
+    // AJUSTADA v21.10 — 2.ª corrida de Jose (unidad 12, 40 min): un 97 % de "Lesson 3: Present Simple: Review" (unidad
+    // 14) mandaba a "3. Drama" (unidad 12, ya completa) porque solo se comparaba el NÚMERO. Ahora número Y nombre.
+    const mismaLeccion = (k, x) => lessonNum(k) === (x.t.match(/^(\d+)/) || [])[1] &&
+      norm(k.split('||')[0].replace(/^(?:Lesson|Lecci[oó]n)\s*\d+\s*:\s*/i, '')) === norm(this.stepItemName(x.t));
     const target = ls.find(x => !x.cur && !RE_ST_DONE.test(x.t)) ||
-      ls.find(x => !x.cur && Object.entries(StorageManager.getScores()).some(([k, v]) => v < 100 && lessonNum(k) === (x.t.match(/^(\d+)/) || [])[1]));
+      ls.find(x => !x.cur && Object.entries(StorageManager.getScores()).some(([k, v]) => v < 100 && mismaLeccion(k, x)));
     if (!target) { await this.close(d); return null; }
     click(target.el); await sleep(4500); await NavigationManager.handleModals();
     d = await this.open('steps');

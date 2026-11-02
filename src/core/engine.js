@@ -11,7 +11,7 @@
 //  MOTOR PRINCIPAL (MAIN ENGINE)
 // ===================================================================
 // Tipos que NO se repiten solos si ED no marca la tarea (caros, o repetirlos no ayuda)
-const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory']);
+const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory', 'explore']);   // AJUSTADA v21.11: + explore
 
 class MainEngine {
 
@@ -34,6 +34,9 @@ class MainEngine {
     if (qv('label.prMCQ__answerLabel') || qv('.prMCQ__qaInnerSet')) return 'mcq';
     if (PracticeSolver.isLegacyMCQ()) return 'mcq_legacy';   // NUEVO v20.7 (antes caía en 'media')
     if (PracticeSolver.textInputs().length) return 'text';
+    // AJUSTADA v21.12: Explore ANTES que media (dumps de Hugo 02/11: los "Step 1: Explore" con video se tomaban como
+    // mcq_default porque el reproductor tardaba en cargar; y si cargaba, media lo pausaba a los 3 s)
+    if (PracticeSolver.isExplore()) return 'explore';   // NUEVO v21.11: video, tarjetas de vocabulario, segmentos
     if (qv('.layout__mediaPlayPause')) return 'media';
     return 'mcq_default';   // nada reconocido: se comporta como v19.6 (solveMCQ → checkboxes sueltos)
   }
@@ -56,11 +59,14 @@ class MainEngine {
       case 'mcq_legacy': return PracticeSolver.solveLegacyMCQ();      // NUEVO v20.7
       case 'text': return PracticeSolver.solveText();
       case 'media': return PracticeSolver.solveMedia();
+      case 'explore': return PracticeSolver.solveExplore();          // NUEVO v21.11
       default: return PracticeSolver.solveMCQ();                   // 'mcq' y 'mcq_default'
     }
   }
 
   static async step() {
+    // NUEVO v21.11: ¿empezó una corrida nueva? → se olvidan los fallos y reintentos de la anterior (regla 4)
+    Corrida.get();
     // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
     for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
       const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
@@ -80,6 +86,14 @@ class MainEngine {
 
     if (TestManager.isTestStart()) {
       const key = NavigationManager.testKey();
+      // NUEVO v21.9 — corrida de Jose (01/11): tras rendirse con un test (97 % tras los reintentos), "voy a lo
+      // pendiente" lo volvía a abrir y lo hacía ENTERO 4 veces más (~10 min y 4 intentos más en ED, que podrían
+      // bajar la nota si ED cuenta el último). Si ya me rendí con él en esta corrida → no lo empiezo otra vez.
+      if (TestSweep.rendido()) {
+        log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
+        await NavigationManager.goNext();
+        return { did: 'test_rendido_no_repito', key };
+      }
       // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
       // salvo que sepamos que quedó < 100 %.
       if (!CFG.retakeDoneTests && TestManager.yaTerminado() && !ProgressMap.testBajo(TestSweep.unitNum(), +lessonNum(NavigationManager.lessonLabel()) || 0)) {   // AJUSTADA v21.8
@@ -179,7 +193,24 @@ class MainEngine {
     // NUEVO — replay: si ya hay respuestas cosechadas, contesta la pregunta actual del test.
     // Si no hay (primer intento) devuelve null y todo sigue como en v19.6.
     if (TestManager.inTest()) {
+      Reporter.marcarAntes();   // NUEVO v21.11: si el replay falla, el reporte trae la pregunta antes y después
       const rp = await TestManager.replayQuestion();
+      // NUEVO v21.12 — corrida de Mateo (U14 L5 "Modals: Review" y L3): tras Start el test NO mostró ninguna pregunta
+      // (idx null, pantalla vacía, 5 veces seguidas) y se perdió (igual que Nelson en v21.6). A la 3.ª vez: reporte con
+      // dump completo y recargar la página UNA vez por corrida (un test sin enviar no cuenta en la nota).
+      if (rp && rp.idx == null) {
+        const clave = NavigationManager.testKey(), veces = Corrida.fallo('sinPreguntas|' + clave);
+        if (veces === 3) {
+          Reporter.capture('test_sin_preguntas', { veces, marcos: qa('iframe').length });
+          if (!Corrida.fallos('recarga|' + clave)) {
+            Corrida.fallo('recarga|' + clave);
+            log('🔄 El test no muestra preguntas → recargo la página una vez');
+            try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+            (window.__edRecargar || (() => location.reload()))(); await sleep(8000);
+            return { did: 'test_sin_preguntas_recargo', veces };
+          }
+        }
+      }
       if (rp) return rp;
       // NUEVO v20.7 — TEST EXPRÉS: 1.er intento (aún sin respuestas cosechadas) → no se resuelve nada,
       // se va directo al Submit. Lo que importa es el review y el reintento. Apagar: cfg({testExpress:false})
@@ -191,11 +222,22 @@ class MainEngine {
       // NUEVO (de v17): pantallas sin navegador de tareas también se resuelven (salvo tests).
       let res = { did: 'no_task_navigated' };
       if (CFG.solveWithoutTaskNav && !TestManager.inTest()) {
-        const kind = MainEngine.detectKind();
+        let kind = MainEngine.detectKind();
         const noTasksAtAll = !NavigationManager.tasks().length;
-        if (kind !== 'mcq_default' && (kind !== 'media' || noTasksAtAll)) {
+        // NUEVO v21.11 (regla 4): lo caro sin tarea que verificar (p. ej. Explore) se intenta UNA vez por corrida
+        const lugar0 = Corrida.lugar(null);
+        // NUEVO v21.12 (Hugo: "dales más tiempo para que carguen"): Explore/Prepare sin barra de tareas (Mateo: "Listen to
+        // the recording", "Listen to the examples") con un reproductor que aún carga → esperar hasta 25 s, UNA vez por lugar
+        if (kind === 'mcq_default' && ExploreSolver.esPasoExplore() && q('.learning__RAMediaResourceW, .learning__resourcesArea audio, .learning__resourcesArea video, .learning__vocabularyCards') && !Corrida.fallos('carga|' + lugar0)) {
+          Corrida.fallo('carga|' + lugar0);
+          const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 25000, 300); if (k2) kind = k2;
+        }
+        if (NO_RETRY_KINDS.has(kind) && Corrida.fallos(lugar0) >= 1) res = { did: 'saltado_ya_intentado', kind };
+        else if (kind !== 'mcq_default' && (kind !== 'media' || noTasksAtAll)) {
+          Reporter.marcarAntes();
           res = Object.assign({}, await MainEngine.runKind(kind), { kind });
           if (res.waitDone) await sleep(Math.min(res.waitDone, 4000));
+          if (NO_RETRY_KINDS.has(kind)) Corrida.fallo(lugar0);
         }
       }
       await NavigationManager.goNext();
@@ -207,7 +249,20 @@ class MainEngine {
     let kind = MainEngine.detectKind();
     // NUEVO v21.0: si no se reconoce nada, puede que la pantalla aún esté cargando (reporte: Writing de
     // "Wrong Color" se tomó como 'mcq_default' y en la radiografía de 1 s después ya era 'writing').
-    if (kind === 'mcq_default') { const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 4000, 300); if (k2) kind = k2; }
+    // AJUSTADA v21.12 (Hugo: "dales más tiempo para que carguen"): si hay un video, tarjetas o imágenes cargando, hasta 25 s
+    if (kind === 'mcq_default') {
+      const cargando = !!q('.learning__RAMediaResourceW, .learning__resourcesArea video, .learning__vocabularyCards, .prMCQ__answerImage, .memoG__card, .speakingInteract');
+      const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, cargando ? 25000 : 4000, 300); if (k2) kind = k2;
+    }
+    // NUEVO v21.11 — REGLA 4 de Hugo: si esta tarea ya falló 2 veces en esta corrida (1 si es de las caras/imposibles:
+    // speaking, memoria, Explore...), no se vuelve a intentar: ya está en el reporte.
+    const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
+    if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
+      log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
+      await NavigationManager.goNext();
+      return { did: 'saltado_ya_fallo', kind, veces: previos };
+    }
+    Reporter.marcarAntes();   // NUEVO v21.11: estado ANTES de actuar (sale en el reporte si falla)
     const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
     // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
@@ -225,6 +280,7 @@ class MainEngine {
       }
       res.taskMarked = !!done;
       if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
+      if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
     }
 
     await sleep(400);   // AJUSTADA v20.7: era 800

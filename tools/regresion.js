@@ -100,6 +100,81 @@ ${[1, 2, 3].map(k => `<div class="myProgress__unitLesson_step"><div class="myPro
 <span class="myProgress__unitLesson_testScore">${ts}</span><span class="myProgress__unitLesson_statusLabel">${st}</span></div>`).join('')); }); });
 }
 
+// ---- ayudantes v21.10: unidad 12 de Jose con los desplegables REALES (reporte 1:07 AM, 2.ª corrida) ----
+const COMPL_ESTADO = { done: ['progressBar__progress--done', 'Completed'], inProgress: ['progressBar__progress--inProgress', 'In Progress'] };
+const COMPL_ITEM = (texto, estado, actual) => `<div class="learning__dropDownList_item${actual ? ' learning__dropDownList_item--current' : ''}"><div class="learning__dropDownList_itemName"><div class="learning__dropDownList_itemNameText">${texto}</div></div><div class="learning__dropDownList_itemProgress"><ed-progress-bar><div class="progressBar__main progressBar__main--steppedWide progressBar__main--stepped notSupportedMobiles"><div class="progressBar__wrapper" title=""><div class="progressBar__progress ${COMPL_ESTADO[estado][0]}"><span class="progressBar__tooltip">${COMPL_ESTADO[estado][1]}</span></div></div></div></ed-progress-bar></div></div>`;
+function COMPL_U12(leccion, actual, estados) {
+  const nombres = ['Ad', 'Call-in', 'Drama', 'Family', 'Friends'];
+  return `<section class="learning__dropDownListTitleW learning__dropDownListTitleW--lessons"><div class="learning__dropDownListTitle">${leccion}</div></section>
+<section class="learning__dropDownListW learning__dropDownListW--lessons"><div class="learning__dropDownList_CourseUnitInfo"><div class="learning__dropDownList_courseName">UPB Beginners 2</div><div class="learning__dropDownList_unitName">Unit 12: Additional Listening</div></div>
+${nombres.map((t, k) => COMPL_ITEM((k + 1) + '. ' + t, estados[k], k + 1 === actual)).join('')}</section>
+<section class="learning__dropDownListTitleW learning__dropDownListTitleW--steps"><div class="learning__dropDownListTitle">Step 3: Test</div></section>
+<section class="learning__dropDownListW learning__dropDownListW--steps">${COMPL_ITEM('1. Explore', 'done')}${COMPL_ITEM('2. Practice', 'done')}${COMPL_ITEM('3. Test', 'done', true)}</section>
+<div class="sitemenu__itemHome"><a>Home</a></div><a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>`;
+}
+const COMPL_SWEEP = JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 12, lessonsDone: [], unitsDone: [], resultados: [] });
+
+// ---- ayudantes v21.11 ----
+// Desplegable viejo con el comportamiento REAL de ED: tras elegir una opción, no abre otra lista hasta un clic FUERA
+function LDDL_BLOQUEO(w, ops) {
+  const d = w.document; let bloqueada = false;
+  const cerrar = () => d.querySelectorAll('.optionsWrapper').forEach(u => u.remove());
+  d.querySelectorAll('.fitb span[id]').forEach(sp => sp.addEventListener('click', () => {
+    if (bloqueada) return;
+    cerrar(); const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
+    ops.forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; cerrar(); bloqueada = true; }); ul.appendChild(li); });
+    d.body.appendChild(ow); }));
+  d.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('.fitb span[id], .optionsWrapper'))) bloqueada = false; });
+}
+// Pantalla de práctica SIN botón de audio (las de "Explore" no lo tienen)
+const PRACT_SIN_AUDIO = (leccion, step) => `<div class="learning__dropDownList_unitName">Unit 3: Getting Help</div><div class="learning__dropDownListTitleW--lessons">${leccion}</div><div class="learning__dropDownListTitleW--steps">${step}</div>
+<div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1</a></div><a class="tasksBtnext learning__nextItemLink">Next</a>`;
+// Resumen estable de la última entrada del reporte (sin la hora)
+function REP_ULTIMA(w) {
+  const l = JSON.parse(w.localStorage.getItem('ed:report:v1') || '[]'); const e = l[l.length - 1]; if (!e) return null;
+  const d = e.dump || {};
+  return { motivo: e.motivo, kind: e.kind, panelIzq: d.panelIzq ? d.panelIzq.texto.slice(0, 40) : null, controles: (d.controles || []).map(c => c.tag + '.' + c.clase.split(' ')[0] + (c.attrs && c.attrs['data-id'] ? '#' + c.attrs['data-id'] : '')).slice(0, 6),
+    caja: !!d.cajaHTML, tareas: d.barra ? d.barra.tareas : null, antes: e.antes ? (e.antes.controles || []).length : null, resultado: e.resultado ? Object.keys(e.resultado).sort() : null };
+}
+// Home con todas las unidades hechas, un enlace "My Progress" y el mapa con la fila "Unit Test" de la unidad 1
+const UT_MAPA = JSON.stringify({ unidades: [{ n: 1, completion: 100, locked: false, lecciones: [{ n: 1, nombre: 'Phone Sales', test: 100, terminado: true }, { n: 0, nombre: '', test: null, terminado: false }, { n: 0, nombre: 'Unit Test', test: null, terminado: false }] },
+  { n: 2, completion: 100, locked: false, lecciones: [{ n: 1, nombre: 'Food', test: 100, terminado: true }, { n: 0, nombre: 'Unit Test', test: 100, terminado: true }] }] });
+const UT_SWEEP = extra => JSON.stringify(Object.assign({ active: true, mode: 'completar', phase: 'home', mapaHecho: true, objetivos: [], objHechos: [], lessonsDone: [], unitsDone: [], resultados: [], homeUrl: 'https://ed.engdis.com/upbstacruz#/home', inicio: 'c1' }, extra || {}));
+
+// ---- ayudantes v21.12: HTML REAL de los dumps de Hugo (02/11) ----
+// Desplegable viejo, variante de Roy (U14 L3 12/15): ED abre SOLA la lista del 1.er hueco; el bloqueo solo se arma
+// cuando la lista se abrió con un CLIC. Patrón real: "1:ya_abierta, 2:clic_texto, 3:ninguno✗, 4:clic_texto".
+function LDDL_ROY(w, ops) {
+  const d = w.document; let bloqueada = false;
+  const cerrar = () => d.querySelectorAll('.optionsWrapper').forEach(u => u.remove());
+  const abrir = (sp, porClic) => { cerrar(); const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
+    ops.forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; cerrar(); if (porClic) bloqueada = true; }); ul.appendChild(li); });
+    d.body.appendChild(ow); };
+  const spans = [...d.querySelectorAll('.fitb span[id]')];
+  spans.forEach(sp => sp.addEventListener('click', () => { if (!bloqueada) abrir(sp, true); }));
+  d.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('.fitb span[id], .optionsWrapper'))) bloqueada = false; });
+  abrir(spans[0], false);
+}
+// Elemento que "carga" tarde: sin tamaño (invisible) hasta que pasan ms del reloj de la prueba
+function CARGA_TARDE(w, el, ms) { const t0 = w.Date.now(); el.getBoundingClientRect = () => (w.Date.now() - t0 < ms ? { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 } : { left: 10, top: 10, right: 110, bottom: 40, width: 100, height: 30 }); }
+const PRACT_U = (unidad, leccion, step, tareas) => `<div class="learning__dropDownList_unitName">${unidad}</div><div class="learning__dropDownListTitleW--lessons">${leccion}</div><div class="learning__dropDownListTitleW--steps">${step}</div>
+<div class="learning__tasksNav">${tareas || '<a class="learning__tasksNav_task learning__tasksNav_task--current">1</a>'}</div><a class="tasksBtnext learning__nextItemLink">Next</a>`;
+const VIDEO_CTRL = `<div id="video-controls" class="layout__mediaControlsW layout__videoControlsW" style=""><a id="play-pause" class="layout__mediaPlayPause layout__mediaPlayPause--play"></a><span class="layout__mediaTimeW"><span id="playing-time" class="layout__mediaPlayTime">00:00</span>/<span id="total-time" class="layout__mediaTotalTime">01:07</span></span><span class="layout__mediaSeekBarW"><input type="range" id="seek-bar" value="0" class="layout__mediaSeekBar"></span><a id="speaker" class="layout__mediaSpeaker"><span class="layout__mediaVolumeBarW"><input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1" class="layout__mediaVolumeBar"></span></a><a id="mediaSettings" class="layout__mediaSettings"><span class="layout__mediaSettingsSpeeds"><span class="speed" id="mediaSpeed_0-5">0.5x</span><span class="speed" id="mediaSpeed_0-75">0.75x</span><span class="speed speed--selected" id="mediaSpeed_1">Normal</span><span class="speed" id="mediaSpeed_1-25">1.25x</span><span class="speed" id="mediaSpeed_1-5">1.5x</span><span class="speed" id="mediaSpeed_2">2x</span></span></a><a id="full-screen" class="layout__mediafullScreen"></a></div>`;
+const SPEAK_INTERACT1 = `<div class="answersWrapper" style="height: 755px;"><div class="speakingInteract"><div class="mediaContainerWrapper"><div class="mediaContainer"><div class="bgImgContainerWrapper"><div class="generalIcon leftIcon left"><a class="chooseCaracterArrow"></a></div><div id="bgImgContainer" class="bgImgContainer"><video id="Practice1" type="video/mp4" width="300" height="200" preload="auto"><source></video></div><div id="video-controls" class="layout__mediaControlsW layout__videoControlsW"><a id="play-pause" class="layout__mediaPlayPause layout__mediaPlayPause--play"></a><span class="layout__mediaTimeW"><span id="playing-time" class="layout__mediaPlayTime">00:00</span>/<span id="total-time" class="layout__mediaTotalTime">00:35</span></span><span class="layout__mediaSeekBarW"><input type="range" id="seek-bar" value="0" class="layout__mediaSeekBar"></span><a id="speaker" class="layout__mediaSpeaker"><span class="layout__mediaVolumeBarW"><input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1" class="layout__mediaVolumeBar"></span></a><a id="mediaSettings" class="layout__mediaSettings"><span class="layout__mediaSettingsSpeeds"><span class="speed" id="mediaSpeed_0-5">0.5x</span><span class="speed" id="mediaSpeed_0-75">0.75x</span><span class="speed speed--selected" id="mediaSpeed_1">Normal</span><span class="speed" id="mediaSpeed_1-25">1.25x</span><span class="speed" id="mediaSpeed_1-5">1.5x</span><span class="speed" id="mediaSpeed_2">2x</span></span></a><a id="full-screen" class="layout__mediafullScreen"></a></div><div class="generalIcon rightIcon right"><a class="chooseCaracterArrow"></a></div></div></div><div class=""></div><div class="speakingInteractPanelsWrapper"><div class="buttonWrapper continueWrapper disable"><a class="button continue">Start</a></div><div class="recordingPanelWrapper"><div class="recordingPanelSentence"><div class="sentenceWrapper"><div class="recordingPanelSentenceText">So, what kind of student housing are you interested in?</div></div><div class="statusIcon"></div></div><div class="recordingPanelSentence"><div class="sentenceWrapper"><div class="recordingPanelSentenceText">I think I want to live in a dormitory.</div></div><div class="statusIcon"></div></div></div></div></div><div class="speakingInteractButtonWrapper"><div class="buttonWrapper startAgainWrapper left disable"><a class="button startAgain pressed"><span>Restart</span></a></div></div></div></div>`;
+const SPEAK_BRANCHING = `<div class="answersWrapper interact2 webRtc" style="height: 755px;"><div class="speakingInteract"><div class="mediaContainerWrapper"><div class="mediaContainer"><div class="bubblesContainer"><div class="bubble"><div class="bubbleTextWrapper"><div class="bubbleTextInnerWrapper"><span class="bubbleTxt">- So, what kind of student housing are you interested in?</span></div></div><div class="speakerButtonWrapper"><div class="generalIcon speaker"></div></div></div><div class="arrow-down"></div></div><div class="bgImgContainer" id="bgImgContainer"><video id="Practice2" type="video/mp4" width="300" height="200" preload="auto"><source></video></div><div id="video-controls" class="layout__mediaControlsW layout__videoControlsW"><a id="play-pause" class="layout__mediaPlayPause layout__mediaPlayPause--play"></a><span class="layout__mediaTimeW"><span id="playing-time" class="layout__mediaPlayTime">00:04</span>/<span id="total-time" class="layout__mediaTotalTime">01:18</span></span><span class="layout__mediaSeekBarW"><input type="range" id="seek-bar" value="0" class="layout__mediaSeekBar"></span><a id="speaker" class="layout__mediaSpeaker"><span class="layout__mediaVolumeBarW"><input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1" class="layout__mediaVolumeBar"></span></a><a id="mediaSettings" class="layout__mediaSettings"><span class="layout__mediaSettingsSpeeds"><span class="speed" id="mediaSpeed_0-5">0.5x</span><span class="speed" id="mediaSpeed_0-75">0.75x</span><span class="speed speed--selected" id="mediaSpeed_1">Normal</span><span class="speed" id="mediaSpeed_1-25">1.25x</span><span class="speed" id="mediaSpeed_1-5">1.5x</span><span class="speed" id="mediaSpeed_2">2x</span></span></a><a id="full-screen" class="layout__mediafullScreen"></a></div></div><div class="speakingInteractPanelsWrapper counter"><div class="buttonWrapper continueWrapper"><a class="button continue">Start</a></div><div class="recordingPanelWrapper"><div class="recordingPanelSentencesWrapper"><div class="recordingPanelSentence"><div class="sentenceWrapper"><div class="recordingPanelSentenceText">- I think I want to live in a dormitory.</div></div></div><div class="recordingPanelSentence"><div class="sentenceWrapper"><div class="recordingPanelSentenceText">- I'd like an apartment, please.</div></div></div></div><div class="recordPanelWrapperJoint"><div class="RecordButtonWrapper disable"><a class="panelButton speakIcon"></a></div></div></div></div></div><div class="speakingInteractButtonWrapper"><div class="buttonWrapper startAgainWrapper left"><a class="button startAgain"><span>Restart</span></a></div></div></div></div>`;
+const WRITING_EDIT = `<p> <span class="segment"> </span> <span class="segment">What do I like to do on the <input type="text" value="weekend." autocapitalize="off" autocorrect="off" class=""></span> <span class="segment">Well, I <input type="text" value="alway" autocapitalize="off" autocorrect="off" class=""> sleep late on Saturday morning!</span> <span class="segment">I <input type="text" value="usual" autocapitalize="off" autocorrect="off" class=""> visit my family.</span> <span class="segment"><input type="text" value="Sometime" autocapitalize="off" autocorrect="off" class=""> I go bike riding in the park with my friends.</span> <span class="segment">It's a great park.</span> <span class="segment">I also like going for long <input type="text" value="walks?" autocapitalize="off" autocorrect="off" class=""></span></p>`;
+// Unidad 8 de Mateo: desplegables de lecciones y pasos (lección 2, paso 1 "Explore" sin tareas)
+function U8_HTML(leccion, paso) {
+  const lecs = ['Lost Report', "Grumble's Department Store", "Don't Do That", 'Modals: Have To', 'Modals: May', 'Work'];
+  const pasos = ['Explore', 'Practice', 'Test'];
+  const it = (t, cur, done) => `<div class="learning__dropDownList_item${cur ? ' learning__dropDownList_item--current' : ''}"><div class="learning__dropDownList_itemName"><div class="learning__dropDownList_itemNameText">${t}</div></div><div class="learning__dropDownList_itemProgress"><div class="progressBar__progress progressBar__progress--${done ? 'done' : 'notStarted'}"><span class="progressBar__tooltip">${done ? 'Completed' : 'Not Started'}</span></div></div></div>`;
+  return `<section class="learning__dropDownListTitleW learning__dropDownListTitleW--lessons"><div class="learning__dropDownListTitle">Lesson ${leccion}: ${lecs[leccion - 1]}</div></section>
+<section class="learning__dropDownListW learning__dropDownListW--lessons"><div class="learning__dropDownList_CourseUnitInfo"><div class="learning__dropDownList_courseName">UPB Beginners 2</div><div class="learning__dropDownList_unitName">Unit 8: A Bad Day</div></div>${lecs.map((t, k) => it((k + 1) + '. ' + t, k + 1 === leccion, k === 0)).join('')}</section>
+<section class="learning__dropDownListTitleW learning__dropDownListTitleW--steps"><div class="learning__dropDownListTitle">Step ${paso}: ${pasos[paso - 1]}</div></section>
+<section class="learning__dropDownListW learning__dropDownListW--steps">${pasos.map((t, k) => it((k + 1) + '. ' + t, k + 1 === paso, false)).join('')}</section>
+<div class="learning__unitW--noTaskInstructions"><div class="readingExploreWrapper"><p>Dear Customer Service, ...</p></div></div><div class="sitemenu__itemHome"><a>Home</a></div><a class="tasksBtnext learning__nextItemLink">Next</a>`;
+}
+
 const NAV = `<div class="learning__dropDownListTitleW--lessons">Lesson 1</div><div class="learning__dropDownListTitleW--steps">STEP</div>
 <div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1<span class="learning__tasksNav_taskTooltip">x</span></a><a class="learning__tasksNav_task">2</a></div>
 <a class="tasksBtnext learning__nextItemLink">Next</a>`;
@@ -265,6 +340,23 @@ const FIX = {
         d.body.appendChild(ow); };
       spans.forEach(sp => sp.addEventListener('focus', () => abrir(sp)));   // SOLO con el foco (Tab)
       abrir(spans[0]); } },
+  // NUEVO v21.9 — corrida de Jose (01/11) y de Nelson (v21.6): U14 · Lesson 3: Present Simple: Review · Test · 12/15,
+  // HTML REAL del reporte. 4 huecos; patrón real en ED, siempre igual: "1:clic_texto, 2:ninguno✗, 3:clic_texto,
+  // 4:ninguno✗" → test en 97 % 7 veces. Lo que reproduce ese patrón: después de ELEGIR una opción, ED no abre
+  // otra lista hasta que haya un clic FUERA (el bot sí lo hacía tras un fallo con cerrarLista → por eso el
+  // hueco siguiente al fallido salía bien). La v21.8 deja 2/4; la v21.9 cierra (clic fuera) y reintenta → 4/4.
+  replayLegacyDDL4: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 3: Present Simple: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>12 / 15</span>
+<div class="answersWrapper fillInBlank"><div class="fitb"><div class="bubbleDiv"><div class="wrapBubbleLeft wrapBubbleItem"><div class="bubbleLeft bubbleItem">School <span id="1_1" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> in half an hour, Ellen.</div><div class="bubbleLeftBottom bubbleItemBottom"></div></div><div class="wrapBubbleRight wrapBubbleItem"><div class="bubbleRight bubbleItem">I know. I <span id="1_2" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> feel very well. I <span id="1_3" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span><space width="8"><span id="1_4" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span>.</space></div><div class="bubbleRightBottom bubbleItemBottom"></div></div><div class="wrapPicDiv"></div></div></div></div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 3: Present Simple: Review||Step 3: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': { 12: { lddl: ['starts', "don't", 'am not', 'going'] } } }) },
+    setup: w => { const d = w.document; let bloqueada = false;
+      const ops = { '1_1': ['start', 'starts', 'is starting'], '1_2': ["don't", "doesn't", 'am not'], '1_3': ['am not', "don't", "isn't"], '1_4': ['go', 'going', 'goes'] };
+      const cerrar = () => d.querySelectorAll('.optionsWrapper').forEach(u => u.remove());
+      d.querySelectorAll('.fitb span[id]').forEach(sp => sp.addEventListener('click', () => {
+        if (bloqueada) return;   // tras elegir, ED ignora los huecos hasta un clic fuera
+        cerrar(); const ow = d.createElement('div'); ow.className = 'optionsWrapper'; const ul = d.createElement('ul'); ow.appendChild(ul);
+        ops[sp.id].forEach(t => { const li = d.createElement('li'); li.textContent = t; li.addEventListener('click', ev => { ev.stopPropagation(); sp.querySelector('.questionText').textContent = t; cerrar(); bloqueada = true; }); ul.appendChild(li); });
+        d.body.appendChild(ow); }));
+      d.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('.fitb span[id], .optionsWrapper'))) bloqueada = false; }); } },
   // NUEVO v20.9 — tu REPORTE (Lesson 5: Pronouns · Test · 3/10): en "Correct Answer" el hueco NO trae texto, solo ans="87"
   // (= data-id de la ficha "me"). Antes se guardaba "87" y en el reintento no hallaba ficha (moves: 0).
   reviewDropAnsId: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Pronouns: Object</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div>
@@ -330,6 +422,167 @@ const FIX = {
   testSinTerminar: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 1: Food</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
 <section class="learning__dropDownListW learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current"><div class="learning__dropDownList_itemNameText">3. Test</div><div class="progressBar__progress"></div></div></section>
 <a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>` },
+  // NUEVO v21.9 — corrida de Jose (01/11): tras RENDIRSE con un test en esta corrida (97 % tras los reintentos),
+  // "voy a lo pendiente" lo volvía a abrir y lo hacía ENTERO otra vez (4 veces más, ~10 min, 4 intentos más en ED).
+  // Ahora: si ya me rendí con este test en esta corrida → no lo empiezo, paso al siguiente.
+  testRendido: { html: `<div class="learning__dropDownList_unitName">Unit 14: Review</div><div class="learning__dropDownListTitleW--lessons">Lesson 3: Present Simple: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div>
+<section class="learning__dropDownListW learning__dropDownListW--steps"><div class="learning__dropDownList_item learning__dropDownList_item--current"><div class="learning__dropDownList_itemNameText">3. Test</div><div class="progressBar__progress progressBar__progress--done"><span>Completed</span></div></div></section>
+<a class="btnStartTest">Start Test</a><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    ls: { 'ed:testScores:v1': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': 97 }),
+      'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 14, lessonsDone: ['U14||Lesson 3: Present Simple: Review'], unitsDone: [], resultados: [{ unidad: 14, leccion: 'Lesson 3: Present Simple: Review', pct: 97, nota: 'sin 100 tras reintentos' }] }) } },
+  // NUEVO v21.10 — 2.ª corrida de Jose (unidad 12, 40 min perdidos): desplegables REALES del reporte (todas las
+  // lecciones "Completed"). Atascado en un test ya hecho → "voy a lo pendiente" → mandaba a "3. Drama" porque OTRA
+  // unidad tenía "Lesson 3: Present Simple: Review" en 97 % (se comparaba solo el NÚMERO de lección). Ahora el número
+  // Y el nombre: no hay nada pendiente en esta unidad → la da por terminada → Home.
+  completarSaltoOtraUnidad: { html: COMPL_U12('Lesson 2: Call-in', 2, ['done', 'done', 'done', 'done', 'done']), steps: 7,
+    ls: { 'ed:testScores:v1': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': 97 }), 'ed:sweep:v1': COMPL_SWEEP } },
+  // NUEVO v21.10 — ... y si DOS lecciones quedan pendientes sin poder terminarlas, saltaba Drama ↔ Family sin parar
+  // (el conteo "mismo lugar 3 veces SEGUIDAS" se reiniciaba con cada cambio). Ahora cuenta las veces por lugar (v21.11: 2).
+  // AJUSTADA v21.12: 42 pasos. Ahora PRIMERO avanza (Drama → Family → Friends), vuelve UNA vez a lo pendiente y a la
+  // 2.ª vuelta se va al Home: como mucho dos vueltas por la unidad, nunca sin fin.
+  completarAlterna: { html: COMPL_U12('Lesson 3: Drama', 3, ['done', 'done', 'inProgress', 'inProgress', 'done']), steps: 42,
+    ls: { 'ed:sweep:v1': COMPL_SWEEP },
+    setup: w => { const d = w.document;
+      d.querySelectorAll('.learning__dropDownListW--lessons .learning__dropDownList_item').forEach(it => it.addEventListener('click', () => {
+        d.querySelectorAll('.learning__dropDownListW--lessons .learning__dropDownList_item').forEach(x => x.classList.remove('learning__dropDownList_item--current'));
+        it.classList.add('learning__dropDownList_item--current');
+        const [n, nombre] = it.querySelector('.learning__dropDownList_itemNameText').textContent.split('. ');
+        d.querySelector('.learning__dropDownListTitleW--lessons .learning__dropDownListTitle').textContent = 'Lesson ' + n + ': ' + nombre;
+      })); } },
+  // NUEVO v21.11 — HTML REAL de Nelson (v21.6, Lesson 5: Nouns: This/That/These/Those · Test · 3/10): mismo bloqueo del
+  // desplegable viejo que en Present Simple: Review. La v21.8 deja 1 de 2 ("2:ninguno✗", como en ED); la nueva 2 de 2.
+  replayLegacyDDLNouns: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Nouns: This/That/These/Those</div><div class="learning__dropDownListTitleW--steps">Step 4: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>3 / 10</span>
+<div class="answersWrapper fillInBlank"><div class="fitb"><div class="bubbleDiv"><div class="wrapBubbleLeft wrapBubbleItem"><div class="bubbleLeft bubbleItem">Are you enjoying <span id="1_1" class="answered" ed-trackable-click="at:User_Action;swap;id:989114065"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> hamburger?</div><div class="bubbleLeftBottom bubbleItemBottom"></div></div><div class="wrapBubbleRight wrapBubbleItem"><div class="bubbleRight bubbleItem">Yes, and <span id="1_2" class="answered" ed-trackable-click="at:User_Action;swap;id:989114065"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> pizza, too.</div><div class="bubbleRightBottom bubbleItemBottom"></div></div><div class="wrapPicDiv"></div></div></div></div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 5: Nouns: This/That/These/Those||Step 4: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 5: Nouns: This/That/These/Those||Step 4: Test': { 3: { lddl: ['that', 'this'] } } }) },
+    setup: w => LDDL_BLOQUEO(w, ['this', 'these', 'those', 'that']) },
+  // NUEVO v21.11 — REPORTE = DUMP COMPLETO (regla 2 de Hugo): pantalla que el bot no reconoce, con lectura en el panel
+  // izquierdo. El reporte debe traer el panel izquierdo, los controles con sus atributos, la caja, las tareas y el ANTES.
+  reporteDump: { html: PRACT_SIN_AUDIO('Lesson 5: Tiny Homes', 'Step 3: Read again') + `<div class="learning__resourcesArea"><div class="readingText"><p>Lisa lives in a tiny home near the lake.</p><audio src="lisa.mp3"></audio></div></div>
+<div class="answersWrapper hotspotQ"><button class="hotspot__btn" data-id="7">Here</button><button class="hotspot__btn" data-id="8">There</button></div>`,
+    verificar: REP_ULTIMA },
+  // NUEVO v21.11 — "Explore" con parlantes (clases REALES de los reportes de Jose: .segment, .speaker, .speakerTotheTop).
+  // Antes: mcq_default → nada. Ahora: pulsa parlantes uno a uno y verifica; aquí ED marca la tarea al 2.º.
+  exploreParlantes: { html: PRACT_SIN_AUDIO('Lesson 1: Directions to the Museum', 'Step 1: Explore') + `<div class="explore__text">${['Excuse me.', 'Where is the museum?', 'Go straight ahead.'].map(t => `<div class="segment"><a class="speaker speakerTotheTop"></a><span>${t}</span></div>`).join('')}</div>`,
+    setup: w => { let n = 0; w.document.querySelectorAll('.speaker').forEach(sp => sp.addEventListener('click', () => { if (++n === 2) MARCAR_HECHA(w); })); } },
+  // NUEVO v21.11 — JUEGO DE MEMORIA que no empareja: UN intento corto (antes hasta 60, ~3 min) y el reporte se toma
+  // con DOS cartas abiertas.
+  memoryCorto: { html: PRACT('Step 3: Practicing vocabulary', 2) + `<div class="memoG__wrapper">${['amenity', 'apartment', 'dorm', 'tenant'].map((wd, k) => `<div class="memoG__card memoG__card--word" data-p="w${k}"><div class="memoG__cardIW"><div class="memoG__cardSideFront">${wd}</div></div></div>`).join('')}${[0, 1, 2, 3].map(k => `<div class="memoG__card memoG__card--image" data-p="i${k}"><div class="memoG__cardIW"><div class="memoG__cardSideFront"></div></div></div>`).join('')}</div>`,
+    setup: w => { const d = w.document; let abiertas = [];
+      d.querySelectorAll('.memoG__card').forEach(c => c.addEventListener('click', () => { c.classList.add('memoG__card--flipped'); abiertas.push(c);
+        if (abiertas.length === 2) { const ab = abiertas; abiertas = []; w.setTimeout(() => ab.forEach(x => x.classList.remove('memoG__card--flipped')), 800); } })); },
+    verificar: w => { const r = REP_ULTIMA(w); const l = JSON.parse(w.localStorage.getItem('ed:report:v1') || '[]'); const m = l.find(e => e.motivo === 'memory_sin_parejas');
+      return { ultima: r && r.motivo, memoria: m ? { intentos: m.resultado.intentos, abiertas: m.resultado.abiertas.length, conAntes: !!m.antes } : null }; } },
+  // NUEVO v21.11 — REGLA 4: esta tarea ya falló 2 veces en esta corrida → no se vuelve a intentar (Next)
+  saltaYaFallo: { html: PRACT('Step 2: Practice') + `<div class="prMCQ__qaInnerSet"><label class="prMCQ__answerLabel"><input type="radio" name="a">yes</label><label class="prMCQ__answerLabel"><input type="radio" name="a">no</label></div>`,
+    ls: { 'ed:corrida:v1': JSON.stringify({ id: 'manual', fallos: { 'Lesson 1: An Unusual Guest|Step 2: Practice||2': 2 } }) } },
+  // NUEVO v21.11 — UNIT TESTS: unidades recorridas y My Progress con "Unit Test" sin hacer en la unidad 1 (la de la
+  // unidad 2 está en 100 → no se toca) → va a My Progress a buscarlo. Antes: "COMPLETAR terminado" sin hacerlos.
+  unitTestDesdeHome: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 100, 97) + '<a id="mp">My Progress</a>',
+    ls: { 'ed:sweep:v1': UT_SWEEP(), 'ed:progress:v1': UT_MAPA },
+    setup: w => { w.document.getElementById('mp').addEventListener('click', () => { w.location.hash = '#/MyProgress/Course/1/Unit/'; }); } },
+  // ... en My Progress: despliega la unidad 1, pulsa la fila "Unit Test" y verifica que entró al test
+  unitTestMyProgress: { url: 'https://ed.engdis.com/upbstacruz#/MyProgress/Course/1/Unit/', html: `<div class="myProgress__main"><div class="myProgress__unitW" id="mu1"><div class="myProgress__unitHeader"><div class="myProgress__unitHeaderIW"><span class="myProgress__unitTitle">Unit 1</span><span class="myProgress__unitName">Buying and Selling</span></div></div>
+<div class="myProgress__unitLesson"><span class="myProgress__unitLesson_number">1</span><span class="myProgress__unitLesson_name">Phone Sales</span><span class="myProgress__unitLesson_testScore">100%</span></div>
+<div class="myProgress__unitLesson"><span class="myProgress__unitLesson_number"></span><span class="myProgress__unitLesson_name">Unit Test</span><span class="myProgress__unitLesson_testScore"></span><a class="myProgress__unitLesson_link" id="ut">Start</a></div></div></div>`,
+    ls: { 'ed:sweep:v1': UT_SWEEP({ ut: { actual: { unidad: 1, test: null, fase: 'buscar', intento: 0, pasos: 0 }, hechos: [], resultados: [] } }), 'ed:progress:v1': UT_MAPA },
+    setup: w => { w.document.getElementById('ut').addEventListener('click', () => { w.location.hash = '#/learningArea'; w.document.body.innerHTML = '<div class="learning__dropDownListTitleW--lessons">Unit Test</div><a class="btnStartTest">Start Test</a>'; }); } },
+  // ... si My Progress no sirvió: la lista de lecciones del Home (al pasar el mouse) con el ítem "Unit Test"
+  unitTestHomeLista: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 100, 97),
+    ls: { 'ed:sweep:v1': UT_SWEEP({ ut: { actual: { unidad: 1, test: null, fase: 'buscar', intento: 1, pasos: 0 }, hechos: [], resultados: [] } }), 'ed:progress:v1': UT_MAPA },
+    setup: w => { const d = w.document; d.querySelectorAll('.home__unitW').forEach(card => card.addEventListener('mouseenter', () => { if (card.querySelector('.home__courseListItem')) return;
+      card.insertAdjacentHTML('beforeend', [['1.', 'Phone Sales'], ['', 'Unit Test']].map(([n, t]) => `<div class="home__courseListItem"><a class="home__courseListItemLink"><span class="home__courseListItemNumber">${n}</span> <span class="home__courseListItemName">${t}</span></a></div>`).join('')); })); } },
+  // ... y al salir del test (ya lo vio) → Unit Test hecho → Home
+  unitTestTermina: { html: PRACT('Step 1: Explore') + '<div class="sitemenu__itemHome"><a>Home</a></div>',
+    ls: { 'ed:sweep:v1': UT_SWEEP({ phase: 'in_unit', ut: { actual: { unidad: 1, test: null, fase: 'dentro', intento: 0, pasos: 0, vioTest: true, metodo: 'my_progress:enlace' }, hechos: [], resultados: [] } }) },
+    verificar: w => JSON.parse(w.localStorage.getItem('ed:sweep:v1')).ut },
+  // NUEVO v21.11 — los reintentos de un test se cuentan POR CORRIDA (2.ª corrida de Jose: el test de 97 % tuvo UN solo
+  // intento porque el contador venía de la corrida anterior). Corrida nueva → contador en cero → abre el Review.
+  reintentosPorCorrida: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`,
+    ls: { 'ed:scoreVisits:v1': JSON.stringify({ 'Lesson 1||Step 4: Test': 5 }), 'ed:corrida:v1': JSON.stringify({ id: 'corrida-anterior', fallos: {} }), 'ed:sweep:v1': JSON.stringify({ active: false, inicio: 'corrida-nueva' }) } },
+  // ===================== NUEVO v21.12 — dumps de Hugo (02/11) y corridas de Roy y Mateo =====================
+  // EXPLORE CON VIDEO (U5 L1 "In the Restaurant", HTML real de los controles): el botón grande de play aparece cuando
+  // el video carga (aquí a los 6 s) y los controles de abajo no se ven. Antes: mcq_default (4 s de espera) → nada.
+  exploreVideo: { html: PRACT_U('Unit 5: Enjoy Your Meal!', 'Lesson 1: In the Restaurant', 'Step 1: Explore') + `<div class="listeningTV"><div class="learning__resourcesArea learning__resourcesArea--jQuery leftDiv learning__resourcesArea--full"><div class="learning__RAIWrapper left"><div class="learning__RAMediaResourceW learning__RAMediaResourceW--html5Video learning__RAMediaResourceW--newVideo"><div class="learning__RAMROverlayW"><div class="learning__RAMRButton learning__RAMRButton--play" id="ov"></div></div><div class="trContainer"><video id="vid"></video></div>${VIDEO_CTRL}</div></div><div class="learning__RATextResourceW"><div class="seeTxtContainer">${['Can I help you?', 'Yes, a table for two.'].map(t => `<span class="segment"><span class="speakerTotheTop speaker"></span>${t}</span>`).join('')}</div></div></div></div>`,
+    setup: w => { const d = w.document; CARGA_TARDE(w, d.getElementById('ov'), 6000); d.querySelectorAll('#video-controls, #video-controls *').forEach(e => CARGA_TARDE(w, e, 1e9));
+      d.getElementById('ov').addEventListener('click', () => MARCAR_HECHA(w)); } },
+  // EXPLORE CON TARJETAS DE VOCABULARIO (U8 L6 "Work", clases REALES de los dumps 15770563 y ef005917): con la tarjeta
+  // abierta ("2/10") aparecen .cursor-pointer, .d-flex, .justify-between, .mb-xs, .mb-xl y _textSeparator. La X no tiene
+  // nombre (aquí un <img> sin clase arriba a la derecha). Hugo: "darle clic a un elemento y salir con la x" → la tarea
+  // se marca al CERRAR. Antes: mcq_default (nada).
+  exploreTarjetas: { html: PRACT_U('Unit 8: A Bad Day', 'Lesson 6: Work', 'Step 1: Explore') + `<div class="learning__resourcesArea learning__resourcesArea--full learning__resourcesArea--angular"><div class="learning__angResourceOW"><div class="learning__angResourceW"><div class="learning__vocabularyCards"><div class="learning__vocabularyCards_pageTitleW"><div class="learning__vocabularyCards_pageTitle">Work</div></div><div class="learning__vocabularyCards_playOnHover learning__vocabularyCards_playOnHover--fullScreen"></div><div class="learning__vocabularyCards_container learning__vocabularyCards_container--cardSize_m learning__vocabularyCards_container--cols_3">${['a break', 'a business', 'an office'].map(t => `<div class="learning__vocabularyCards_card learning__vocabularyCards_card--m"><div class="learning__vocabularyCards_cardImageWrapper"><img class="learning__vocabularyCards_cardImage learning__vocabularyCards_cardImage-m"></div><div class="learning__vocabularyCards_cardDefinition learning__vocabularyCards_cardDefinition-m">${t}</div><div class="learning__vocabularyCards_progressContainer"></div></div>`).join('')}</div><div class="learning__vocabularyCards_cardContainer learning__vocabularyCards_cardContainer--m" id="cc"></div></div></div></div></div>`,
+    setup: w => { const d = w.document, cc = d.getElementById('cc');
+      const pos = (el, right, top) => { el.getBoundingClientRect = () => ({ left: right - 30, top, right, bottom: top + 30, width: 30, height: 30 }); };
+      d.querySelectorAll('.learning__vocabularyCards_cardImageWrapper').forEach((c, k) => c.addEventListener('click', () => {
+        cc.innerHTML = `<div class="d-flex justify-between mb-xs"><span>${k + 1}/10</span><span class="cursor-pointer" id="vx"><img src="close.svg"></span></div>`
+          + `<div class="d-flex"><span class="cursor-pointer" id="vprev">‹</span><img class="learning__vocabularyCards_cardImage"><span class="cursor-pointer" id="vnext">›</span></div>`
+          + `<div class="d-flex mb-xl"><span class="cursor-pointer" id="vaudio"></span><span>a break</span><span class="learning__vocabularyCards_textSeparator"></span><span>a short rest from work</span></div>`;
+        pos(d.getElementById('vx'), 900, 40); pos(d.getElementById('vprev'), 60, 300); pos(d.getElementById('vnext'), 900, 300); pos(d.getElementById('vaudio'), 150, 500);
+        d.getElementById('vnext').addEventListener('click', () => { cc.querySelector('span').textContent = (k + 2) + '/10'; });
+        d.getElementById('vx').addEventListener('click', () => { cc.innerHTML = ''; MARCAR_HECHA(w); });
+      })); } },
+  // JUEGO DE MEMORIA con la estructura REAL (card > IW > Sides > SideBack/SideFront): lo que escucha el clic es la cara
+  // visible. Hugo: "seleccionar dos cuadritos y ya sale hecho". Antes: clic en IW → ninguna carta se daba vuelta.
+  memoriaDorso: { html: PRACT('Step 3: Practicing vocabulary', 2) + `<div class="memoG__wrapper memoG__wrapper--rows3"><div class="memoG__board"><div class="memoG__boardIW">${[['word', 'amenity'], ['word', 'apartment'], ['word', 'tenant'], ['image', ''], ['image', ''], ['image', '']].map(([tipo, t]) => `<div class="memoG__card memoG__card--${tipo}"><div class="memoG__cardIW"><div class="memoG__cardSides"><div class="memoG__cardSide memoG__cardSideBack"></div><div class="memoG__cardSide memoG__cardSideFront">${t}</div></div></div></div>`).join('')}</div></div></div>`,
+    setup: w => { const d = w.document; let abiertas = 0;
+      d.querySelectorAll('.memoG__cardSideBack').forEach(b => b.addEventListener('click', () => { const c = b.closest('.memoG__card'); if (/flipped/.test(c.className)) return; c.classList.add('memoG__card--flipped'); if (++abiertas === 2) MARCAR_HECHA(w); })); } },
+  // INTERACTIVE SPEAKING (U9 L4 · Step 4, HTML REAL del dump): Start deshabilitado hasta tocar la 1.ª frase.
+  // Antes: tocaba la frase y terminaba (nunca pulsaba Start) → "started: true" y tarea sin marcar, como en ED.
+  speakingFraseStart: { html: PRACT_U('Unit 9: Housing', 'Lesson 4: Student Housing', 'Step 4: Interactive speaking practice') + SPEAK_INTERACT1,
+    setup: w => { const d = w.document; const cw = d.querySelector('.continueWrapper');
+      d.querySelector('.recordingPanelSentence').addEventListener('click', () => cw.classList.remove('disable'));
+      d.querySelector('a.button.continue').addEventListener('click', () => { if (!cw.classList.contains('disable')) MARCAR_HECHA(w); }); } },
+  // BRANCHING SPEAKING (U9 L4 · Step 6, HTML REAL del dump): Start → se habilita el botón de grabar → grabar → marcada.
+  speakingBranching: { html: PRACT_U('Unit 9: Housing', 'Lesson 4: Student Housing', 'Step 6: Branching speaking practice') + SPEAK_BRANCHING,
+    setup: w => { const d = w.document; const rw = d.querySelector('.RecordButtonWrapper');
+      d.querySelector('a.button.continue').addEventListener('click', () => rw.classList.remove('disable'));
+      d.querySelector('a.panelButton.speakIcon').addEventListener('click', () => { if (!rw.classList.contains('disable')) MARCAR_HECHA(w); }); } },
+  // WRITING DE CORREGIR UN E-MAIL (U10 L3 · Step 4, HTML REAL del dump): todos los campos traen texto. Antes: n = 0.
+  writingCorregir: { html: PRACT_U('Unit 10: Hobbies', 'Lesson 3: Plans for the Weekend', 'Step 4: Personalized writing', '<a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a>') + `<div class="answersWrapper writingEditFrame OpenEndedQ twoSidedResourcePractice"><div class="writingEditPracticeWrapper fitb"><div class="readingExploreWrapper postcard"><div class="readingExploreMainContent">${WRITING_EDIT}</div></div></div></div>`,
+    setup: w => { w.document.querySelectorAll('.writingEditFrame input').forEach(i => i.addEventListener('input', () => MARCAR_HECHA(w))); } },
+  // MCQ CON IMÁGENES que tardan en cargar (U10 L4 · Watch again; clases REALES del dump: prMCQ__answers > multiRadioWrapper >
+  // img.prMCQ__answerImage; al elegir: selection--x / selection--v). Antes: marked 0, como en ED.
+  mcqImagenesCargando: { html: NAV.replace('STEP', 'Step 3: Watch again') + `<div class="prMCQ__main prMCQ__main--ansImages"><div class="prMCQ__mainIW"><div class="prMCQ__qaSet"><div class="prMCQ__qaInnerSet"><div class="prMCQ__questionW"><div class="prMCQ__questionText">What does Molly like to do?</div></div><div class="prMCQ__answersW">${[1, 2, 3, 4].map(k => `<div class="prMCQ__answers"><div class="multiRadioWrapper"><div class="checkAnswerIcon"></div><img class="prMCQ__answerImage"></div></div>`).join('')}</div></div></div></div></div>`,
+    setup: w => { const d = w.document; d.querySelectorAll('.prMCQ__answerImage, .multiRadioWrapper').forEach(e => CARGA_TARDE(w, e, 6000));
+      d.querySelectorAll('.prMCQ__answers').forEach((op, k) => op.addEventListener('click', () => { const ok = k === 2; op.classList.add(ok ? 'selection--v' : 'selection--x'); op.querySelector('img').classList.add(ok ? 'prMCQ__answerImage--correct' : 'prMCQ__answerImage--incorrect'); if (ok) MARCAR_HECHA(w); })); } },
+  // U8 L6 · Step 2: Practice (dump b1468fdd de Hugo: "es un drag here"): tabla prMT_T2T, banco dragula con las 6 fichas
+  // REALES; las filas (prMT_T2T__answersRow > regContainer > regContainerIW > dndZone) salen de las clases del dump.
+  // Mateo no la hizo porque abandonó la unidad 8 en la lección 2 (ver completarAvanzaPaso); aquí se ve que, al llegar, la hace.
+  dndTablaU8: { html: PRACT_U('Unit 8: A Bad Day', 'Lesson 6: Work', 'Step 2: Practice', [1, 2, 3, 4, 5, 6].map(n => `<a class="learning__tasksNav_task${n === 1 ? ' learning__tasksNav_task--current' : ''}">${n}</a>`).join('')) + `<div class="prMT_T2T__main prMT_T2T__main--banksize_short"><div class="prMT_T2T__answersWrapper"><div class="prMT_T2T__answers"><div class="prMT_T2T__answersRowTitle">A</div><div class="prMT_T2T__answersTextTitle">B</div>${['take', 'start', 'work in', 'write', 'wear', 'earn'].map(t => `<div class="prMT_T2T__answersRow"><div class="prMT_T2T__answersTextW"><div class="prMT_T2T__answersText">${t}</div></div><div class="prMT_T2T__regContainer"><div class="prMT_T2T__regContainerIW"><ed-la-dndzone><div class="dndZone" ng-reflect-dragula="ed-bag"></div></ed-la-dndzone></div></div></div>`).join('')}</div></div><div class="prMT_T2T__wordsBankWrapper"><ed-la-dndzone><div class="dndZone" ng-reflect-dragula="ed-bag" dg_name="TTpTablePlaceHolder" id="undefined_6"> <ed-la-dnditem> <div class="dnditem draggable" ans_id="83"> a high salary </div></ed-la-dnditem><ed-la-dnditem> <div class="dnditem draggable" ans_id="79"> an office </div></ed-la-dnditem><ed-la-dnditem> <div class="dnditem draggable" ans_id="76"> a break </div></ed-la-dnditem><ed-la-dnditem> <div class="dnditem draggable" ans_id="95"> a report </div></ed-la-dnditem><ed-la-dnditem> <div class="dnditem draggable" ans_id="42"> a suit </div></ed-la-dnditem><ed-la-dnditem> <div class="dnditem draggable" ans_id="97"> a business </div></ed-la-dnditem> </div></ed-la-dndzone></div></div>`,
+    setup: w => w.document.addEventListener('mouseup', () => MARCAR_HECHA(w)) },
+  // EXPLORE DE LECTURA SIN BARRA DE TAREAS (Mateo, U8 L2 "Read the e-mail": contador y tarea vacíos). Sin tarea no hay
+  // nada que verificar → basta con que suene UN audio (antes, v21.11: hasta 75 s tocando parlantes/segmentos por página).
+  // (Los .segment/.speaker son como los del reporte de Roy en U5 L1; esta lectura aún no tiene dump propio.)
+  exploreLecturaSinTareas: { html: `<div class="learning__dropDownList_unitName">Unit 8: A Bad Day</div><div class="learning__dropDownListTitleW--lessons">Lesson 2: Grumble's Department Store</div><div class="learning__dropDownListTitleW--steps">Step 1: Explore</div><div class="learning__unitW--noTaskInstructions">Read the e-mail.</div><div class="learning__resourcesArea"><div class="readingExploreWrapper"><audio id="au"></audio><p>${['Dear Customer Service,', 'I bought a coat at your store.', 'It has a hole in the pocket.', 'Please call me.'].map(x => `<span class="segment"><span class="speakerTotheTop speaker"></span>${x}</span>`).join(' ')}</p></div></div><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    setup: w => { const d = w.document, au = d.getElementById('au'); let fin = 0;
+      Object.defineProperty(au, 'paused', { get: () => !(w.Date.now() < fin) }); Object.defineProperty(au, 'ended', { get: () => false });
+      d.querySelectorAll('.segment').forEach(sg => sg.addEventListener('click', () => { fin = w.Date.now() + 2000; })); } },
+  // EXPLORE "LISTEN TO THE RECORDING" SIN TAREAS (Mateo, U12 L3 Drama): el reproductor (controles reales del dump del
+  // video) aparece a los 8 s. Antes: mcq_default al instante → Next sin escuchar. Ahora espera (una vez) y le da play.
+  exploreAudioTarde: { html: `<div class="learning__dropDownList_unitName">Unit 12: Additional Listening</div><div class="learning__dropDownListTitleW--lessons">Lesson 3: Drama</div><div class="learning__dropDownListTitleW--steps">Step 1: Explore</div><div class="learning__unitW--noTaskInstructions">Listen to the recording.</div><div class="learning__resourcesArea"><div class="learning__RAMediaResourceW learning__RAMediaResourceW--html5Audio">${VIDEO_CTRL}</div></div><a class="tasksBtnext learning__nextItemLink">Next</a>`,
+    setup: w => { w.document.querySelectorAll('#video-controls, #video-controls *').forEach(e => CARGA_TARDE(w, e, 8000)); } },
+  // SEGURIDAD DE LA NOTA (v21.12): en un TEST el campo ya lleno es una respuesta → NO se le agrega la letra del
+  // "Personalized writing", y en un MCQ de imágenes se pulsa UNA sola (probar varias cambiaría la respuesta).
+  textoEnTestNoToca: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 4: Be-Past: Statements</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a></div><a class="tasksBtnext learning__submitTestLink">Submit</a><p>Yesterday I <input type="text" value="went"> to the park.</p>`,
+    verificar: w => w.document.querySelector('p input').value },
+  mcqImagenesEnTest: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 4: What Do You Do in Your Spare Time?</div><div class="learning__dropDownListTitleW--steps">Step 7: Test</div><div class="learning__tasksNav"><a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a></div><a class="tasksBtnext learning__submitTestLink">Submit</a><div class="prMCQ__main prMCQ__main--ansImages"><div class="prMCQ__qaInnerSet"><div class="prMCQ__questionText">What does Molly like to do?</div><div class="prMCQ__answersW">${[1, 2, 3].map(k => `<div class="prMCQ__answers"><div class="multiRadioWrapper"><img class="prMCQ__answerImage"></div></div>`).join('')}</div></div></div>`,
+    setup: w => { const ops = [...w.document.querySelectorAll('.prMCQ__answers')]; ops.forEach(op => op.addEventListener('click', () => { ops.forEach(o => o.classList.remove('selected')); op.classList.add('selected'); })); },
+    verificar: w => [...w.document.querySelectorAll('.prMCQ__answers')].map(o => o.classList.contains('selected') ? 'X' : '-').join('') },
+  // ATASCO EN UN PASO SIN TAREAS (Mateo, U8 L2 · Step 1: Explore, "Read the e-mail"; Next no avanza): antes volvía al mismo
+  // paso y a la 3.ª abandonaba la UNIDAD (lecciones 2–6 sin hacer). Ahora avanza al paso 2.
+  completarAvanzaPaso: { html: U8_HTML(2, 1), steps: 7,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 8, lessonsDone: [], unitsDone: [], resultados: [] }) },
+    setup: w => { const d = w.document; d.querySelectorAll('.learning__dropDownListW--steps .learning__dropDownList_item').forEach(it => it.addEventListener('click', () => {
+      d.querySelector('.learning__dropDownListTitleW--steps .learning__dropDownListTitle').textContent = 'Step ' + it.querySelector('.learning__dropDownList_itemNameText').textContent.replace(/^(\d+)\.\s*/, '$1: '); })); } },
+  // DESPLEGABLE VIEJO, variante REAL de Roy (U14 L3 · 12/15): "1:ya_abierta, 2:clic_texto, 3:ninguno✗, 4:clic_texto"
+  replayLegacyDDLRoy: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 3: Present Simple: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><a class="tasksBtnext learning__submitTestLink">Submit</a><span>12 / 15</span>
+<div class="answersWrapper fillInBlank"><div class="fitb"><div class="bubbleDiv"><div class="wrapBubbleLeft wrapBubbleItem"><div class="bubbleLeft bubbleItem">School <span id="1_1" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> in half an hour, Ellen.</div><div class="bubbleLeftBottom bubbleItemBottom"></div></div><div class="wrapBubbleRight wrapBubbleItem"><div class="bubbleRight bubbleItem">I know. I <span id="1_2" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span> feel very well. I <span id="1_3" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span><space width="8"><span id="1_4" class="answered" ed-trackable-click="at:User_Action;swap;id:29070"><div class="questionText"></div><div class="arrowWrapper"><div class="arrow-down"></div></div></span>.</space></div><div class="bubbleRightBottom bubbleItemBottom"></div></div><div class="wrapPicDiv"></div></div></div></div>`,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 3: Present Simple: Review||Step 3: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 3: Present Simple: Review||Step 3: Test': { 12: { lddl: ['starts', "don't", 'am not', 'going'] } } }) },
+    setup: w => LDDL_ROY(w, ['starts', 'start', "don't", "doesn't", 'am not', "isn't", 'going', 'go']) },
+  // TEST QUE NO MUESTRA PREGUNTAS (Mateo, U14 L5 "Modals: Review"): a la 3.ª vez, reporte y recargar UNA vez
+  testSinPreguntas: { html: `<div class="learning__dropDownListTitleW--lessons">Lesson 5: Modals: Review</div><div class="learning__dropDownListTitleW--steps">Step 3: Test</div><div class="learning__tasksNav">${[...Array(10)].map((_, k) => `<a class="learning__tasksNav_task${k === 0 ? ' learning__tasksNav_task--current' : ''}">${k + 1}</a>`).join('')}</div><a class="tasksBtnext learning__submitTestLink">Submit</a>`, steps: 3,
+    ls: { 'ed:testKnown:v1': JSON.stringify(['Lesson 5: Modals: Review||Step 3: Test']), 'ed:testAns:v2': JSON.stringify({ 'Lesson 5: Modals: Review||Step 3: Test': { 1: { fitb: ['can'] } } }) },
+    setup: w => { w.__edRecargar = () => { w.__recargado = (w.__recargado || 0) + 1; }; },
+    verificar: w => ({ recargas: w.__recargado || 0 }) },
   // NUEVO v21.7 — aviso de ED "You haven't submitted your test": si el bot está SALIENDO → Continue
   avisoTestSalgo: { html: `<div class="popupWrapper"><div class="popupText"><h1 class="PopupSubTitle">Review</h1><div class="hebDir">You haven't submitted your test. If you exit now, your test results will not be recorded.</div></div>
 <div class="buttonsDiv popupButtonsWrapper" id="popupButtonsWrapper"><input type="button" id="btnOk" value="Continue" class="okButton"><span><a id="btnCancel" class="utils__cancelLInk">Cancel</a></span></div></div>`,
@@ -384,7 +637,10 @@ async function run(code, fixture, ls, opts = {}) {
   if (opts.setup) opts.setup(w);
   const kind = w.__ed.kind();
   let r; for (let i = 0; i < (opts.steps || 1); i++) { try { r = await w.__ed.step(); } catch (e) { r = 'ERR ' + e.message; } }
-  return { kind, r: JSON.stringify(r), trace: trace.join(' | '), ls: w.localStorage.getItem('ed:testAns:v2') };
+  const out = { kind, r: JSON.stringify(r), trace: trace.join(' | '), ls: w.localStorage.getItem('ed:testAns:v2') };
+  // NUEVO v21.11: la pantalla puede comprobar algo más (p. ej. qué trae el reporte); solo si define verificar()
+  if (opts.verificar) { try { out.v = opts.verificar(w); } catch (e) { out.v = 'ERR ' + e.message; } }
+  return out;
 }
 (async () => {
   const actual = {};

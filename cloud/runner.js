@@ -49,6 +49,15 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
 
 (async () => {
   const guardado = fs.existsSync(EST) ? JSON.parse(fs.readFileSync(EST, 'utf8')) : {};
+  // NUEVO v21.11 — la memoria se guarda por NÚMERO de cuenta: si en ED_CUENTAS cambió quién es la cuenta N (la
+  // cuenta 2 traía el reporte y los puntajes de Nelson), solo se conservan las respuestas cosechadas (sirven en el
+  // mismo curso) y la config; se descarta lo que es de la persona (puntajes, reporte, barrido, mapa, reintentos).
+  const huella = require('crypto').createHash('sha256').update(String(USER).toLowerCase()).digest('hex').slice(0, 12);
+  if (guardado['ed:nube:cuenta'] && guardado['ed:nube:cuenta'] !== huella) {
+    for (const k of Object.keys(guardado)) if (!/^ed:(testAns|testKnown|answers|cfg)/.test(k)) delete guardado[k];
+    log('⚠️ La memoria guardada era de OTRA persona (cambió la línea de esta cuenta en ED_CUENTAS): conservo solo las respuestas.');
+  }
+  guardado['ed:nube:cuenta'] = huella;
   log(`Inicio · modo ${MODO} · tope ${MINUTOS} min · memoria previa: ${Object.keys(guardado).length} claves`);
 
   const browser = await chromium.launch({ headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
@@ -66,7 +75,8 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         // Una vez por ejecución (no en cada página): arrancar el modo pedido desde el Home
         if ((modo === 'barrer' || modo === 'completar') && !sessionStorage.getItem('ed:nube:arrancado')) {
           sessionStorage.setItem('ed:nube:arrancado', '1');
-          localStorage.setItem('ed:sweep:v1', JSON.stringify({ active: true, mode: modo === 'completar' ? 'completar' : 'tests', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [] }));
+          // AJUSTADA v21.11: + inicio (identifica la corrida: los fallos y reintentos se cuentan por corrida)
+          localStorage.setItem('ed:sweep:v1', JSON.stringify({ active: true, mode: modo === 'completar' ? 'completar' : 'tests', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], inicio: new Date().toISOString() }));
         }
       }
     } catch (e) {}
@@ -159,28 +169,37 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
       await page.goto(home.homeUrl || LOGIN.replace(/#.*/, '#/home'), { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
       await sleep(6000); await foto('home-final');
       w = await page.evaluate(() => { const num = sel => { const e = document.querySelector(sel); const m = e && (e.textContent || '').match(/(\d{1,3})\s*%/); return m ? +m[1] : null; };
-        return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores') }; }).catch(() => ({}));
+        // NUEVO v21.12: nombre del curso que muestra el Home (Roy: Hugo vio "Beginners 1" y el bot había hecho "Beginners 2")
+        const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        const curso = [...document.querySelectorAll('[class*="BSslide"] h1, [class*="BSslide"] h2, [class*="arousel"] h1, [class*="arousel"] h2, h1, h2')].filter(vis)
+          .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()).find(x => x && x.length < 60 && /UPB|Beginners|Basic|Intermediate|Advanced|Elementary|Level/i.test(x)) || null;
+        return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores'), curso }; }).catch(() => ({}));
       if (w.completion == null && sw && sw.widgets) w = sw.widgets;   // si no se pudo releer el Home, lo último que leyó el bot
+      if (!w.curso && sw && sw.widgets && sw.widgets.curso) w.curso = sw.widgets.curso;
       rep = fs.existsSync(path.join(OUT, 'reporte.txt')) ? fs.readFileSync(path.join(OUT, 'reporte.txt'), 'utf8') : '';
     } catch (e) { log('No pude armar el resumen:', e.message); }
     const nfallos = (rep.match(/REPORTE DE FALLOS \((\d+)\)/) || [])[1] || '0';
     // NUEVO v21.8: lo que vio el bot en My Progress (tests < 100 y lecciones sin terminar)
     let mapa = null; try { mapa = await page.evaluate(() => JSON.parse(localStorage.getItem('ed:progress:v1') || 'null')); } catch (e) {}
     const bajos = mapa ? mapa.unidades.flatMap(u => u.lecciones.filter(l => typeof l.test === 'number' && l.test < 100).map(l => `U${u.n} L${l.n} ${l.nombre} (${l.test} %)`)) : [];
-    const sinTerminar = mapa ? mapa.unidades.filter(u => !u.locked).flatMap(u => u.lecciones.filter(l => !l.terminado).map(l => `U${u.n} L${l.n} ${l.nombre}`)) : [];
+    // AJUSTADA v21.12: sin las filas vacías de My Progress ("U1 L0 ·") y el Unit Test como "U1 Unit Test" (zips de Roy y Mateo)
+    const sinTerminar = mapa ? mapa.unidades.filter(u => !u.locked).flatMap(u => u.lecciones.filter(l => !l.terminado && (l.nombre || '').trim()).map(l => l.n ? `U${u.n} L${l.n} ${l.nombre}` : `U${u.n} ${l.nombre}`)) : [];
     const md = [
       `## ${NOMBRE} (cuenta ${CUENTA}) · modo ${MODO}`,
       `| Course Completion | Average Test Score | Fallos anotados | Minutos |`, `|---|---|---|---|`,
       `| ${w.completion ?? '?'}% | ${w.avg ?? '?'}% | ${nfallos} | ${Math.round((Date.now() - t0) / 60000)} |`, '',
+      `**Curso:** ${w.curso || '(no se pudo leer)'} — si en el Home ves OTRO curso (p. ej. Beginners 1), cambia con las flechas ‹ › del carrusel.`, '',
       sw && sw.unitsDone ? `**Unidades recorridas:** ${sw.unitsDone.join(', ') || '—'}` : '',
       mapa ? `**Según My Progress (última lectura):** tests < 100: ${bajos.length ? bajos.join(' · ') : 'ninguno 🎉'} — lecciones sin terminar: ${sinTerminar.length ? sinTerminar.join(' · ') : 'ninguna 🎉'}` : '',
       sw && sw.resultados && sw.resultados.length ? `**Tests revisados:** ${sw.resultados.map(r => `U${r.unidad} ${r.leccion}: ${r.pct ?? '?'}%`).join(' · ')}` : '',
       '', (w.completion === 100 && w.avg === 100) ? '🎉 **¡100 % y 100 %!**' : '',
-      '', '<details><summary>📋 Reporte completo de fallos (cópialo y pégalo en el chat)</summary>', '', '```text', rep || 'Sin fallos anotados.', '```', '</details>', ''
+      // AJUSTADA v21.11: los reportes ahora son dumps completos (pesan más): aquí va solo la lista; el detalle completo
+      // está en reporte.txt (dentro del zip). GitHub no acepta resúmenes de más de 1 MB.
+      '', '<details><summary>📋 Lista de fallos (el detalle completo está en reporte.txt, dentro del zip)</summary>', '', '```text', (rep.split('\n\n--- DETALLE')[0] || 'Sin fallos anotados.').slice(0, 60000), '```', '</details>', ''
     ].join('\n');
     fs.writeFileSync(path.join(OUT, 'resumen.md'), md);
     if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');
-    log(`📊 Course Completion ${w.completion ?? '?'}% · Average Test Score ${w.avg ?? '?'}% · fallos ${nfallos}`);
+    log(`📊 ${w.curso || 'Curso ?'} · Course Completion ${w.completion ?? '?'}% · Average Test Score ${w.avg ?? '?'}% · fallos ${nfallos}`);
   }
 
   async function guardar() {

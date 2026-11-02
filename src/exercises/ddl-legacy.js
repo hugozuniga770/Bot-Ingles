@@ -126,6 +126,16 @@ class LegacyDDLSolver {
         opts = await this.openLegacy(b); metodo = this.metodo;
         hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
       }
+      // NUEVO v21.9 — corrida de Jose (01/11, U14 · Present Simple: Review · Test · 12/15: 97 % siete veces) y de
+      // Nelson (v21.6, mismo test y Nouns · Test · 3/4/7/9): tras ELEGIR en un hueco, ED no abre la lista de otro
+      // hasta que haya un clic FUERA. Patrón real: "1:clic_texto, 2:ninguno✗, 3:clic_texto, 4:ninguno✗" (el hueco
+      // que sigue a un fallo salía bien porque el fallo ya hacía cerrarLista). Ahora: si nada la abrió → clic fuera y
+      // otra vuelta. En el reporte sale como "fuera+<método>".
+      if (!hecho && metodo === 'ninguno') {
+        this.cerrarLista(); await sleep(400);
+        opts = await this.openLegacy(b); metodo = 'fuera+' + this.metodo;
+        hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
+      }
       metodos.push((i + 1) + ':' + metodo + (hecho ? '' : '✗'));
       if (hecho) { n++; ok++; }
       else { fallos.push({ hueco: i + 1, motivo: opts.length ? 'no se pudo elegir' : 'no se abrió la lista', metodo, quiere: want, opciones: opts.map(txt), huecoHTML: (b.outerHTML || '').replace(/\s+/g, ' ').slice(0, 400) }); this.cerrarLista(); }

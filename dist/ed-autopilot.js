@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.8  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.12  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.8';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.12';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -65,7 +65,7 @@
     sendToTeacher: true,
     useAIFeedback: true,
     maxTaskAttempts: 4,
-    maxTestAttempts: 3,        // ahora SÍ se usa: tope de reintentos de un test que no llega a 100 %
+    maxTestAttempts: 2,        // AJUSTADA v21.11 (regla 4 de Hugo; antes 3): reintentos de un test que no llega a 100 %
     tickMs: 700,               // AJUSTADA v20.7: era 1200 (las esperas ahora son "hasta que cambie la pantalla")
     maxIterations: 1500,
     correctTabSelector: '',
@@ -81,11 +81,13 @@
     fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
     reloadEveryMin: 40,
     maxMinPorUnidad: 45,       // AJUSTADA v21.7 (antes 150): una unidad normal toma ~8 min; 45 es tope de sobra        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
-    cfgV: 3                    // versión de la config (para migrar valores viejos guardados)
+    cfgV: 4                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
   // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
   if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
   if (!(CFG.cfgV >= 3)) { CFG.testExpress = false; CFG.retakeDoneTests = false; CFG.maxMinPorUnidad = 45; CFG.cfgV = 3; }   // NUEVO v21.7
+  // NUEVO v21.11 — regla 4 de Hugo: lo que falla 2 veces en una corrida no se reintenta (un test: 2 reintentos)
+  if (!(CFG.cfgV >= 4)) { if (CFG.maxTestAttempts > 2) CFG.maxTestAttempts = 2; CFG.cfgV = 4; }
 
   const K_ANS = 'ed:answers:v1';
   const K_ANS2 = 'ed:testAns:v2';
@@ -420,8 +422,12 @@
         if (!e) return null;
         const c = e.cloneNode(true);
         qa('script, style, svg, img, video, audio', c).forEach(x => x.remove());
+        // NUEVO v21.10 — reportes "tipo_desconocido" de los "Step 1: Explore" (corridas de Jose): sin área conocida se
+        // guardaba el <body> y los 3500 caracteres eran SOLO el menú de lecciones; el ejercicio nunca llegaba. Se
+        // quitan los menús y, si es el <body>, se guarda más.
+        qa('.learning__lessonsStepsNav, .edLADropDownList, [class*="settingsMenu"]', c).forEach(x => x.remove());
         qa('*', c).forEach(x => [...x.attributes].forEach(a => { if (/^(_ng|ng-|style$|src$|href$)/.test(a.name)) x.removeAttribute(a.name); }));
-        return c.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, 3500);
+        return c.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, e === document.body ? 8000 : 3500);
       };
       let kind = '';
       try { kind = window.__ed.kind(); } catch (e) {}
@@ -434,8 +440,81 @@
         textoVisible: (() => { try { return ((qv('.learning__practiceArea, .learning__body, #mainContent') || document.body).innerText || '').replace(/\s+/g, ' ').trim().slice(0, 1200); } catch (e) { return ''; } })(),
         marcos: qa('iframe').map(f => (f.getAttribute('src') || f.id || '?').slice(0, 120) + (vis(f) ? ' (visible)' : '')).slice(0, 8),
         clases: Object.fromEntries(Object.entries(clases).sort((a, b) => b[1] - a[1]).slice(0, 45)),
-        html: limpio(area)
+        html: limpio(area),
+        // NUEVO v21.11 (regla de Hugo: "cada reporte es un DUMP COMPLETO, sin dumps a mano")
+        dump: this.dumpCompleto()
       };
+    }
+
+    // NUEVO v21.11 — lo mismo que probes/test-dump.js y más, con tope de tamaño: controles con atributos, caja de la
+    // pregunta, DnD (+ eventos de jQuery), pestañas del review, barra de navegación y tareas, panel izquierdo
+    // (.learning__resourcesArea: lectura, video, audio), audios/videos y el contenido de los iframes del mismo sitio.
+    static dumpCompleto(ligero = false) {
+      const cls = e => (e && typeof e.className === 'string' ? e.className : '').trim();
+      const corta = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+      const attrs = e => Object.fromEntries([...(e.attributes || [])].filter(a => !/^(class|style|_ng|ng-)/.test(a.name)).slice(0, 12).map(a => [a.name, corta(a.value, 60)]));
+      const fuera = e => !!(e.closest && e.closest('.learning__lessonsStepsNav, .edLADropDownList, [class*="settingsMenu"], #ed-autopilot-hud, .learning__header, .learning__headerW, header'));
+      const limpio = (e, n) => {
+        if (!e) return null;
+        const c = e.cloneNode(true);
+        qa('script, style, svg, img, video, audio', c).forEach(x => x.remove());
+        qa('.learning__lessonsStepsNav, .edLADropDownList, [class*="settingsMenu"], #ed-autopilot-hud', c).forEach(x => x.remove());
+        qa('*', c).forEach(x => [...x.attributes].forEach(a => { if (/^(_ng|ng-|style$|src$|href$)/.test(a.name)) x.removeAttribute(a.name); }));
+        return c.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, n);
+      };
+      const eventosJQ = el => { try { const ev = window.jQuery && window.jQuery._data && window.jQuery._data(el, 'events'); return ev ? Object.keys(ev) : null; } catch (e) { return null; } };
+      const ctrlSel = 'input, select, textarea, button, [contenteditable="true"], .draggable, .droptarget, .dnditem, .dndZone, label, ' +
+        '[role="radio"], [role="checkbox"], [role="option"], [role="button"], .memoG__card, .segment, .speaker, .questionText, .optionsWrapper li, ' +
+        '.learning__resourcesArea a, .answersWrapper a, [onclick]';
+      const ctrls = qa(ctrlSel).filter(e => vis(e) && !fuera(e));
+      const controles = ctrls.slice(0, ligero ? 25 : 40).map(e => {
+        const o = { tag: e.tagName.toLowerCase(), clase: corta(cls(e), 80), texto: corta(e.textContent, 40) };
+        if (!ligero) o.attrs = attrs(e);
+        if (e.type) o.tipo = e.type;
+        if ('value' in e && e.value) o.valor = corta(e.value, 30);
+        if (e.checked) o.marcado = true;
+        return o;
+      });
+      let caja = ctrls[0] || null;
+      while (caja && !ctrls.every(c => caja.contains(c))) caja = caja.parentElement;
+      if (!caja || caja === document.body || caja === document.documentElement) caja = qv('.answersWrapper') || qv('.learning__angPracticeW') || qv('.pmContainer') || qv('.learning__practiceArea') || caja;
+      const out = { controles, nControles: ctrls.length, cajaHTML: limpio(caja, ligero ? 3000 : 5000) };
+      if (ligero) return out;
+      // DnD (como la sección A de test-dump.js)
+      const resumir = (sel, n) => qa(sel).slice(0, n).map(e => ({ clase: corta(cls(e), 70), attrs: attrs(e), texto: corta(e.textContent, 40), visible: vis(e) }));
+      const d0 = q('.draggable, .dnditem, .wordBankTile');
+      if (d0 || q('.droptarget, .dndZone')) out.dnd = {
+        huecos: resumir('.droptarget, .dndZone', 12), fichas: resumir('.draggable, .dnditem', 12),
+        eventosFicha: d0 ? eventosJQ(d0) : null, eventosDocumento: eventosJQ(document), jqueryUI: !!(window.jQuery && window.jQuery.ui)
+      };
+      // Pestañas del review ("Your Answer" / "Correct Answer" y en español)
+      const RE_TAB = /^\W*(correct\s*answers?|respuestas?\s*correctas?|your\s*answers?|(tus?|su|mis)\s*respuestas?)(\s*\(?\d+\)?)?\W*$/i;
+      out.pestanas = qa('li, a, button, span, div').filter(e => !e.children.length && RE_TAB.test(txt(e))).slice(0, 6).map(e => ({ texto: txt(e), visible: vis(e), padre: limpio(e.parentElement, 300) }));
+      // Barra de abajo y tareas
+      const nx = q('a.tasksBtnext') || q('.learning__nextItemLink') || q('.learning__submitTestLink');
+      out.barra = {
+        siguiente: nx ? { clase: corta(cls(nx), 80), texto: corta(nx.textContent, 20), visible: vis(nx) } : null,
+        atras: (e => e ? { clase: corta(cls(e), 80), visible: vis(e) } : null)(q('a.tasksBtprev, .learning__prevItemLink')),
+        tareas: qa('.learning__tasksNav_task').slice(0, 20).map(e => corta(e.textContent, 4) + (/--done/.test(cls(e)) ? '✓' : '') + (/--current/.test(cls(e)) ? '*' : '')),
+        contador: (NavigationManager.counter() || {}).s || null
+      };
+      // Panel izquierdo (lectura / video / audio)
+      const izq = qv('.learning__resourcesArea') || q('.learning__resourcesArea');
+      if (izq) out.panelIzq = { html: limpio(izq, 6000), texto: corta(izq.innerText || izq.textContent, 2000) };
+      out.medios = qa('audio, video').slice(0, 8).map(m => ({ tag: m.tagName.toLowerCase(), src: corta((m.currentSrc || m.src || '').split('/').pop(), 80), pausado: m.paused, t: Math.round(m.currentTime || 0), dur: Math.round(m.duration || 0), visible: vis(m), clasePadre: corta(cls(m.parentElement), 60) }));
+      out.iframes = qa('iframe').slice(0, 6).map(f => { const o = { id: f.id || null, src: corta(f.getAttribute('src'), 120), visible: vis(f) };
+        try { const b = f.contentDocument && f.contentDocument.body; if (b) { o.texto = corta(b.innerText || b.textContent, 300); o.html = limpio(b, 1500); } } catch (e) { o.ajeno = true; } return o; });
+      return out;
+    }
+
+    // NUEVO v21.11 — estado ANTES de que el bot actúe (el engine lo llama justo antes del solver). Si luego hay un
+    // fallo en ese mismo lugar, el reporte trae el "antes" y el "después".
+    static marcarAntes() {
+      try {
+        const t = NavigationManager.curTask();
+        this._antes = { lugar: [NavigationManager.lessonLabel(), NavigationManager.stepLabel(), (NavigationManager.counter() || {}).s || '', t ? t.n : ''].join('|'),
+          hora: Date.now(), dump: this.dumpCompleto(true) };
+      } catch (e) { this._antes = null; }
     }
 
     // motivo: 'tarea_no_marcada' | 'tipo_desconocido' | 'replay_incompleto' | 'cosecha_vacia' | 'error' | ...
@@ -445,9 +524,19 @@
         const lista = this.all();
         const clave = [motivo, s.leccion, s.step, s.contador, s.tarea].join('|');
         if (lista.some(r => r.clave === clave)) return;                     // ya anotado
-        lista.push(Object.assign({ clave, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s));
-        while (lista.length > 40 || JSON.stringify(lista).length > 450000) lista.shift();
-        localStorage.setItem(K_REPORT, JSON.stringify(lista));
+        const e = Object.assign({ clave, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
+        // NUEVO v21.11: el "antes" de la acción del bot, si es del mismo lugar y de hace menos de 3 min
+        const t = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
+        const lugar = [s.leccion, s.step, s.contador || '', t ? t.n : ''].join('|');
+        if (this._antes && this._antes.lugar === lugar && Date.now() - this._antes.hora < 180000) e.antes = this._antes.dump;
+        // Tope por entrada (~45 000 caracteres): se recortan primero los campos más grandes
+        const recortar = () => { if (e.html) e.html = e.html.slice(0, 2500); if (e.dump && e.dump.panelIzq) e.dump.panelIzq.html = (e.dump.panelIzq.html || '').slice(0, 3000);
+          if (e.dump) { e.dump.cajaHTML = (e.dump.cajaHTML || '').slice(0, 3000); (e.dump.iframes || []).forEach(f => { delete f.html; }); } if (e.antes) e.antes.cajaHTML = (e.antes.cajaHTML || '').slice(0, 2000); };
+        if (JSON.stringify(e).length > 45000) recortar();
+        lista.push(e);
+        // AJUSTADA v21.11: entradas más grandes → tope total mayor; si el navegador no tiene lugar, se sueltan las viejas
+        while (lista.length > 40 || JSON.stringify(lista).length > 900000) lista.shift();
+        for (;;) { try { localStorage.setItem(K_REPORT, JSON.stringify(lista)); break; } catch (err) { if (lista.length <= 1) throw err; lista.shift(); } }
         warn('📝 Anotado para el reporte (' + motivo + '):', s.leccion, '·', s.step, '·', s.contador || '');
       } catch (e) { warn('Reporter falló:', e.message); }
     }
@@ -470,6 +559,45 @@
       a.href = URL.createObjectURL(new Blob([this.text()], { type: 'text/plain' }));
       a.download = 'ed-reporte-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.txt';
       document.body.appendChild(a); a.click(); a.remove();
+    }
+  }
+
+  // ▼▼▼ src/utils/corrida.js ▼▼▼
+  // =====================================================================
+  //  CORRIDA — memoria de "lo que ya falló en ESTA corrida" (regla 4 de Hugo, v21.11)
+  // ---------------------------------------------------------------------
+  //  "Si algo falla 2 veces en una corrida, el bot lo anota y no lo vuelve a intentar en esa corrida."
+  //  Una corrida = un arranque de completar/barrido (su `inicio`); sin barrido activo, 'manual'.
+  //  Al empezar una corrida nueva se borran los fallos anotados y el contador de reintentos de tests
+  //  (ed:scoreVisits:v1): antes pasaba de una corrida a otra y un test rendido tenía 1 solo intento.
+  //  Lugar = lección | paso | contador | tarea.  Tope: 2 fallos; 1 si el tipo es caro (speaking, memoria, Explore...).
+  //  DEPENDE DE: core/navigation.js (en tiempo de ejecución)
+  //  EXPONE:     Corrida
+  // =====================================================================
+
+  const K_CORRIDA = 'ed:corrida:v1';
+
+  class Corrida {
+    static idActual() {
+      try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return (s && (s.inicio || s.corrida)) || 'manual'; } catch (e) { return 'manual'; }
+    }
+    static get() {
+      let c = null; try { c = JSON.parse(localStorage.getItem(K_CORRIDA) || 'null'); } catch (e) {}
+      const id = this.idActual();
+      if (!c || c.id !== id) {
+        c = { id, fallos: {} };
+        try { localStorage.removeItem('ed:scoreVisits:v1'); localStorage.setItem(K_CORRIDA, JSON.stringify(c)); } catch (e) {}
+      }
+      return c;
+    }
+    static lugar(t) {
+      try { return [NavigationManager.lessonLabel(), NavigationManager.stepLabel(), (NavigationManager.counter() || {}).s || '', t ? t.n : ''].join('|'); } catch (e) { return '?'; }
+    }
+    static fallos(l) { return this.get().fallos[l] || 0; }
+    static fallo(l) {
+      const c = this.get(); c.fallos[l] = (c.fallos[l] || 0) + 1;
+      try { localStorage.setItem(K_CORRIDA, JSON.stringify(c)); } catch (e) {}
+      return c.fallos[l];
     }
   }
 
@@ -770,8 +898,12 @@
       d = await this.open('lessons');
       if (!d) return null;
       const ls = this.items('lessons').filter(x => /^\d+\s*\./.test(x.t));
+      // AJUSTADA v21.10 — 2.ª corrida de Jose (unidad 12, 40 min): un 97 % de "Lesson 3: Present Simple: Review" (unidad
+      // 14) mandaba a "3. Drama" (unidad 12, ya completa) porque solo se comparaba el NÚMERO. Ahora número Y nombre.
+      const mismaLeccion = (k, x) => lessonNum(k) === (x.t.match(/^(\d+)/) || [])[1] &&
+        norm(k.split('||')[0].replace(/^(?:Lesson|Lecci[oó]n)\s*\d+\s*:\s*/i, '')) === norm(this.stepItemName(x.t));
       const target = ls.find(x => !x.cur && !RE_ST_DONE.test(x.t)) ||
-        ls.find(x => !x.cur && Object.entries(StorageManager.getScores()).some(([k, v]) => v < 100 && lessonNum(k) === (x.t.match(/^(\d+)/) || [])[1]));
+        ls.find(x => !x.cur && Object.entries(StorageManager.getScores()).some(([k, v]) => v < 100 && mismaLeccion(k, x)));
       if (!target) { await this.close(d); return null; }
       click(target.el); await sleep(4500); await NavigationManager.handleModals();
       d = await this.open('steps');
@@ -918,10 +1050,18 @@
       this.set(s);
     }
     static lessonDone() { const s = this.get(); return !!(s && s.lessonsDone.includes(this.lessonKey())); }
+    // NUEVO v21.9: ¿en ESTA corrida (barrido/completar) ya me rendí con el test de esta lección (< 100 tras reintentos)?
+    static rendido() {
+      const s = this.get(); if (!s || !s.active) return false;
+      const u = this.unitNum(), l = NavigationManager.lessonLabel();
+      return (s.resultados || []).some(r => r.unidad === u && r.leccion === l && /sin 100/.test(r.nota || ''));
+    }
 
     // Lo llama MainEngine.step() al principio, dentro del área de lecciones. null = sigue el flujo normal.
     static async lessonStep() {
       const s = this.get(); if (!s || !s.active) return null;
+      // NUEVO v21.11: Unit Test en curso (buscarlo en el desplegable o dejar correr el test)
+      if (s.ut && s.ut.actual) { const r = await UnitTests.enLeccion(s); if (r !== undefined) return r; }
       if (s.mode === 'completar') return await this.completarStep(s);   // NUEVO v21.3
       if (s.mapaHecho && Array.isArray(s.objetivos)) return await this.objetivosStep(s);   // NUEVO v21.8: con mapa
       if (s.phase === 'entering_unit' || s.phase === 'home') {
@@ -984,7 +1124,17 @@
     // Widgets: .home__studentWidgetCompletion ("25% Course Completion") y .home__studentWidgetTestScores ("95%").
     static leerWidgets() {
       const num = sel => { const m = txt(q(sel)).match(/(\d{1,3})\s*%/); return m ? +m[1] : null; };
-      return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores') };
+      return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores'), curso: this.curso() };
+    }
+    // NUEVO v21.12 — Roy (02/11): Hugo vio en el Home "UPB Beginners 1" (51 %) y creyó que se había borrado todo; el bot
+    // trabajó en "UPB Beginners 2" (97 %). El Home tiene un carrusel con los cursos (flechas ‹ ›). Ahora el bot anota
+    // en qué curso trabaja (registro y resumen).
+    static curso() {
+      const c = txt(q('.learning__dropDownList_courseName'));
+      if (c) return c;
+      const t = qa('[class*="BSslide"] h1, [class*="BSslide"] h2, [class*="arousel"] h1, [class*="arousel"] h2, h1, h2').filter(vis).map(e => txt(e))
+        .find(x => x && x.length < 60 && /UPB|Beginners|Basic|Intermediate|Advanced|Elementary|Pre-?Intermediate|Level/i.test(x));
+      return t || null;
     }
     static unidades() {
       return qa('.home__unitW--notLocked').map(u => ({ el: u, n: +((txt(q('.home__detailsNumber', u)).match(/\d+/) || [0])[0]),
@@ -1022,7 +1172,9 @@
       if (!lista.length) lista = qav('.home__courseListItem');   // por si ED pinta la lista fuera de la tarjeta
       if (!lista.length) return false;
       const numL = x => +((txt(q('.home__courseListItemNumber', x)).match(/\d+/) || [0])[0]);
-      const it = (preferida && lista.find(x => numL(x) === preferida)) || lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
+      // AJUSTADA v21.11: preferida puede ser una función (p. ej. el ítem "Unit Test"); si ninguno cumple → false
+      if (typeof preferida === 'function' && !lista.some(preferida)) return false;
+      const it = (typeof preferida === 'function' && lista.find(preferida)) || (preferida && lista.find(x => numL(x) === preferida)) || lista.find(x => { const pr = this.progresoLeccion(x); return pr != null && pr < 100; }) || lista[0];
       const link = q('.home__courseListItemLink', it) || it;
       log('🧭 Unidad', u.n, '→ lección', txt(q('.home__courseListItemNumber', it)) + ' ' + txt(q('.home__courseListItemName', it)));
       click(link);
@@ -1048,12 +1200,14 @@
 
     static async completarHome(s) {
       s.widgets = this.leerWidgets(); this.set(s);
-      log('📊 Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
+      log('📊 Curso:', s.widgets.curso || '(no lo pude leer)', '· Course Completion', s.widgets.completion + '%', '· Average Test Score', s.widgets.avg + '%');
       // AJUSTADA v21.8: con el mapa de My Progress, las unidades pendientes son las de realización < 100 %
       const m = ProgressMap.get(), conMapa = s.mapaHecho && m && m.unidades && m.unidades.length;
       const nums = conMapa ? m.unidades.filter(x => !x.locked && (x.completion == null || x.completion < 100)).map(x => x.n) : null;
       const pend = this.unidades().filter(u => (nums ? nums.includes(u.n) : !u.completa) && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
       if (!pend.length) {
+        // NUEVO v21.11: unidades recorridas → Unit Tests sin hacer o < 100 (los que están en 100 no)
+        { const r = await UnitTests.enHome(s, true); if (r) return r; }
         if (!s.testsHechos && (conMapa ? ProgressMap.testsBajos(m).length > 0 || (s.widgets.avg != null && s.widgets.avg < 100) : s.widgets.avg != null && s.widgets.avg < 100)) {
           // mapaHecho = false → se vuelve a leer My Progress (los puntajes pudieron cambiar) antes del barrido
           Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], objHechos: [], testsHechos: true, mapaHecho: false }); this.set(s);
@@ -1094,16 +1248,45 @@
         // AJUSTADA v21.7: si el "pendiente" es siempre el MISMO (corrida de Nelson: el mismo test 257 veces en 2,5 h),
         // a la 3.ª vez se da por perdido y se sigue con la siguiente unidad.
         const dondeAhora = this.unitNum() + '|' + txt(qv('.learning__dropDownListTitleW--lessons')) + '|' + txt(qv('.learning__dropDownListTitleW--steps'));
-        TestSweep._saltos = TestSweep._saltosDe === dondeAhora ? (TestSweep._saltos || 0) + 1 : 1; TestSweep._saltosDe = dondeAhora;
-        const mismo = TestSweep._saltos >= 3;
-        if (mismo) Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
-        if (!tope && !mismo) { try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {} const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
-        else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
+        // AJUSTADA v21.10 — 2.ª corrida de Jose (unidad 12): saltaba ALTERNANDO Drama ↔ Family y el conteo "seguido" se
+        // reiniciaba en cada cambio (40 min). Ahora se cuentan los atascos de CADA lugar.
+        // AJUSTADA v21.11 (regla 4 de Hugo): 2 atascos en el mismo lugar (antes 3) → unidad perdida, se sigue.
+        TestSweep._saltosPor = TestSweep._saltosPor || {};
+        TestSweep._saltos = TestSweep._saltosPor[dondeAhora] = (TestSweep._saltosPor[dondeAhora] || 0) + 1;
+        const mismo = TestSweep._saltos >= 2;
+        // AJUSTADA v21.12: el reporte (dump completo) se toma en CADA atasco, no solo en el 2.º
+        Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
+        try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+        if (!tope) {
+          // NUEVO v21.12 — corrida de Mateo (02/11): la UNIDAD 8 ENTERA quedó sin hacer. Atascado en "Lesson 2 · Step 1:
+          // Explore" (Next no avanzaba), "voy a lo pendiente" lo devolvía AL MISMO paso y al 3.er atasco se abandonaba
+          // la unidad (lecciones 2–6 sin tocar). Igual con Roy y Jose en el test ya hecho de la lección 1 (U3, U5, U7,
+          // U8): volvía al Explore pendiente y abandonaba. Ahora PRIMERO se avanza (siguiente paso; si es el último, la
+          // siguiente lección) y solo al final de la unidad se vuelve a lo pendiente (una vez por lugar).
+          const a = await this.avanzar();
+          if (a) { log('🧭 Atasco → avanzo a', a); return { did: 'completar_avance', a }; }
+          if (!mismo) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
+        } else Reporter.capture('unidad_sin_terminar_por_tiempo', { unidad: u, minutos: Math.round(min) });
         const s2 = this.get(); if (!s2.unitsDone.includes(u)) s2.unitsDone.push(u); this.set(s2);
         log('🏁 Unidad', u, tope ? 'cortada por tiempo' : 'sin pendientes', '→ Home');
         return await this.irHome();
       }
       return null;   // flujo normal: prácticas y tests
+    }
+
+    // NUEVO v21.12 — avanzar por los desplegables: siguiente paso de esta lección o, si es el último, la siguiente lección.
+    // Se VERIFICA que cambió la lección o el paso; si no cambió nada → null.
+    static async avanzar() {
+      const num = t => +((String(t).match(/^(\d+)\s*\./) || [])[1] || 0);
+      const antes = NavigationManager.lessonLabel() + '|' + NavigationManager.stepLabel();
+      const cambio = () => NavigationManager.lessonLabel() + '|' + NavigationManager.stepLabel() !== antes;
+      const pasoAct = +stepNum(NavigationManager.stepLabel()) || 0;
+      const pasos = DropdownNav.items('steps').map(x => num(x.t)).filter(n => n > pasoAct).sort((a, b) => a - b);
+      if (pasos.length && await DropdownNav.gotoStep(pasos[0]) && await waitFor(cambio, 4000, 300)) return 'paso ' + pasos[0];
+      const lecAct = +lessonNum(NavigationManager.lessonLabel()) || 0;
+      const lecs = DropdownNav.items('lessons').map(x => num(x.t)).filter(n => n > lecAct).sort((a, b) => a - b);
+      if (lecs.length && await DropdownNav.gotoLesson(lecs[0]) && await waitFor(cambio, 4000, 300)) return 'lección ' + lecs[0];
+      return null;
     }
 
     // Fuera del área de lecciones (Home u otra página)
@@ -1121,10 +1304,11 @@
       if (/#\/login/i.test(location.href) || qv('input[name="userName"]')) return { did: 'esperando_login' };   // sin sesión: no anotar fallos
       // NUEVO v21.8 — My Progress: leer el mapa (unidades, lecciones, Last Test Score) y volver al Home
       if (ProgressMap.isPage()) {
+        if (s.mapaHecho) { const r = await UnitTests.enMyProgress(s); if (r) return r; }   // NUEVO v21.11
         const homeUrl = s.homeUrl || location.href.split('#')[0] + '#/home';
         if (!s.mapaHecho) {
           const mapa = await ProgressMap.leer();
-          Object.assign(s, { mapaHecho: true, sinMapa: !mapa.unidades.length, objetivos: ProgressMap.testsBajos(mapa), objHechos: s.objHechos || [], phase: 'home', homeUrl, widgets: mapa.widgets.completion != null ? mapa.widgets : s.widgets });
+          Object.assign(s, { mapaHecho: true, sinMapa: !mapa.unidades.length, objetivos: ProgressMap.testsBajos(mapa).filter(o => o.leccion > 0), objHechos: s.objHechos || [], phase: 'home', homeUrl, widgets: mapa.widgets.completion != null ? mapa.widgets : s.widgets });
           this.set(s);
           if (!mapa.unidades.length) Reporter.capture('my_progress_sin_unidades');
         }
@@ -1138,9 +1322,19 @@
           if (await ProgressMap.ir()) return { did: 'voy_a_my_progress' };
           s.sinMapa = true; this.set(s); Reporter.capture('no_pude_abrir_my_progress');
         }
+        // NUEVO v21.11: un Unit Test a medio camino (buscándolo o recién salido de él)
+        if (s.ut && s.ut.actual) { const r = await UnitTests.enHome(s, s.mode === 'completar'); if (r) return r; }
         if (s.mode !== 'completar' && s.mapaHecho && Array.isArray(s.objetivos)) {   // NUEVO v21.8: barrido con mapa
           const o = this.pendientesObj(s)[0];
-          if (!o) { s.active = false; s.fin = new Date().toISOString(); this.set(s); log('🏁 BARRIDO COMPLETO: no quedan tests < 100.'); window.__ed.stop(); return { did: 'sweep_finished', resultados: s.resultados }; }
+          if (!o) {
+            // NUEVO v21.11: antes de terminar, los Unit Tests < 100 (según My Progress)
+            { const r = await UnitTests.enHome(s, false); if (r) return r; }
+            s.active = false; s.fin = new Date().toISOString(); this.set(s);
+            // AJUSTADA v21.11: el mensaje decía "no quedan tests < 100" aunque quedara uno del que se rindió
+            const rendidos = (s.resultados || []).filter(r => /sin 100/.test(r.nota || ''));
+            log(rendidos.length ? '🏁 BARRIDO TERMINADO. Quedaron < 100 (anotados en el reporte): ' + rendidos.map(r => 'U' + r.unidad + ' ' + r.leccion + ' (' + r.pct + ' %)').join(', ') : '🏁 BARRIDO COMPLETO: no quedan tests < 100.');
+            window.__ed.stop(); return { did: 'sweep_finished', resultados: s.resultados };
+          }
           const u = this.unidades().find(x => x.n === o.unidad);
           if (!u) { s.objHechos.push(o.unidad + '|' + o.leccion); this.set(s); Reporter.capture('objetivo_sin_unidad_en_home', o); return { did: 'objetivo_saltado', o }; }
           Object.assign(s, { phase: 'entering_unit', unitTarget: u.n }); this.set(s);
@@ -1174,6 +1368,141 @@
       TestSweep._unk = (TestSweep._unk || 0) + 1;
       if (TestSweep._unk >= 15 && s.homeUrl) { TestSweep._unk = 0; log('🧭 Página desconocida varias veces → vuelvo al Home'); location.href = s.homeUrl; await sleep(5000); return { did: 'sweep_unknown_go_home' }; }
       return { did: 'sweep_unknown_page' };
+    }
+  }
+
+  // ▼▼▼ src/core/unit-tests.js ▼▼▼
+  // =====================================================================
+  //  UNIT TESTS — encontrarlos, entrar y hacerlos con la misma política que los tests de lección
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.11. Corridas de Jose: My Progress lista en cada unidad una fila "Unit Test" (sin número) y el bot
+  //  NUNCA entró a ninguno. ⚠ SIN CONFIRMAR dónde se abren. Se prueban candidatos EN ORDEN, verificando cada uno
+  //  (regla 3 de Hugo); si ninguno sirve, queda el reporte con dump completo y se sigue:
+  //    1) My Progress: la fila "Unit Test" de esa unidad (enlace → nombre → puntaje → fila → botón)
+  //    2) Home: la lista de lecciones de la tarjeta (al pasar el mouse) → ítem "Unit Test"
+  //    3) dentro de la unidad: el desplegable de lecciones → ítem "Unit Test"
+  //  Política (Hugo): completar → los no hechos y los < 100; barrido → solo los < 100. Los que están en 100 NO.
+  //  Dentro, el flujo de tests de siempre (Start → cosecha → reintento). Al salir del test → listo → Home.
+  //  Estado en el barrido (ed:sweep:v1) → s.ut = { actual, hechos, resultados }.
+  //  DEPENDE DE: core/progress-map.js, core/sweep.js, core/dropdowns.js, tests/test-manager.js (en ejecución)
+  //  EXPONE:     UnitTests
+  // =====================================================================
+
+  class UnitTests {
+    static esFila(t) { return /unit\s*test|prueba\s*de\s*(la\s*)?unidad|examen\s*de\s*(la\s*)?unidad/i.test(t || ''); }
+
+    // De My Progress: completar (todos=true) → sin hacer o < 100; barrido → solo < 100. Nunca los que están en 100.
+    static pendientes(m, hechos, todos) {
+      if (!m || !m.unidades) return [];
+      return m.unidades.filter(u => !u.locked).flatMap(u => (u.lecciones || []).filter(l => this.esFila(l.nombre)).map(l => ({ unidad: u.n, test: l.test, terminado: l.terminado })))
+        .filter(x => !hechos.includes(x.unidad) && (typeof x.test === 'number' ? x.test < 100 : !!todos && !x.terminado));
+    }
+    static estado(s) { s.ut = s.ut || {}; s.ut.hechos = s.ut.hechos || []; s.ut.resultados = s.ut.resultados || []; return s.ut; }
+    static terminar(s, res) {
+      const ut = this.estado(s), a = ut.actual;
+      if (a) { ut.hechos.push(a.unidad); ut.resultados.push({ unidad: a.unidad, res, metodo: a.metodo || null }); }
+      ut.actual = null; TestSweep.set(s);
+      log('📝 Unit Test de la unidad', a ? a.unidad : '?', '→', res);
+    }
+
+    // En el Home. Devuelve una acción, o null si no hay Unit Tests que hacer (sigue el flujo de siempre).
+    static async enHome(s, todos) {
+      const ut = this.estado(s);
+      if (!ut.actual) {
+        const p = this.pendientes(ProgressMap.get(), ut.hechos, todos);
+        if (!p.length) return null;
+        ut.actual = { unidad: p[0].unidad, test: p[0].test, fase: 'buscar', intento: 0, pasos: 0 };
+        TestSweep.set(s);
+        log('📝 Unit Test de la unidad', p[0].unidad, typeof p[0].test === 'number' ? '(' + p[0].test + ' %)' : '(sin hacer)', '→ lo busco');
+      }
+      const a = ut.actual;
+      if (a.fase === 'dentro' || a.fase === 'desplegable') {   // volvió al Home: si llegó a ver el test, está hecho
+        if (!a.vioTest) Reporter.capture('unit_test_no_aparecio', { unidad: a.unidad, metodo: a.metodo || a.fase });
+        this.terminar(s, a.vioTest ? 'hecho' : 'no_aparecio_el_test');
+        return { did: 'unit_test_fin', unidad: a.unidad };
+      }
+      if (a.intento === 0) {
+        if (await ProgressMap.ir()) return { did: 'unit_test_voy_a_my_progress', unidad: a.unidad };
+        a.intento = 1; TestSweep.set(s);
+      }
+      const u = TestSweep.unidades().find(x => x.n === a.unidad);
+      if (a.intento === 1) {
+        a.intento = 2; TestSweep.set(s);
+        if (u && await TestSweep.abrirUnidad(u, it => this.esFila(txt(it)))) {
+          Object.assign(a, { fase: 'dentro', metodo: 'home', desde: Date.now() }); TestSweep.set(s);
+          return { did: 'unit_test_entrando', unidad: a.unidad, metodo: 'home' };
+        }
+      }
+      if (a.intento === 2) {
+        Object.assign(a, { intento: 3, fase: 'desplegable' }); TestSweep.set(s);
+        if (u && await TestSweep.abrirUnidad(u)) return { did: 'unit_test_busco_en_desplegable', unidad: a.unidad };
+      }
+      Reporter.capture('unit_test_no_encontrado', { unidad: a.unidad, donde: 'home', lista: qa('.home__courseListItem').map(x => txt(x).slice(0, 50)).slice(0, 15) });
+      this.terminar(s, 'no_encontrado');
+      return { did: 'unit_test_no_encontrado', unidad: a.unidad };
+    }
+
+    // En My Progress (paso 1). null = no le toca.
+    static async enMyProgress(s) {
+      const a = s.ut && s.ut.actual;
+      if (!a || a.fase !== 'buscar' || a.intento !== 0) return null;
+      a.intento = 1; TestSweep.set(s);
+      const metodo = await this.desdeMyProgress(a.unidad);
+      if (metodo) {
+        Object.assign(a, { fase: 'dentro', metodo: 'my_progress:' + metodo, desde: Date.now() }); TestSweep.set(s);
+        return { did: 'unit_test_entrando', unidad: a.unidad, metodo: 'my_progress:' + metodo };
+      }
+      Reporter.capture('unit_test_no_entra_desde_my_progress', { unidad: a.unidad, fila: this._fila || null });
+      location.href = s.homeUrl || location.href.split('#')[0] + '#/home'; await sleep(4000);
+      return { did: 'unit_test_sigo_buscando', unidad: a.unidad };
+    }
+    static async desdeMyProgress(n) {
+      this._fila = null;
+      await waitFor(() => qa('.myProgress__unitW').length > 0, 8000, 300);
+      const uw = qa('.myProgress__unitW').find(x => +((txt(q('.myProgress__unitTitle', x)).match(/\d+/) || [0])[0]) === n);
+      if (!uw) return null;
+      if (!qa('.myProgress__unitLesson', uw).length) {
+        try { uw.scrollIntoView({ block: 'center' }); } catch (e) {}
+        await press(q('.myProgress__unitHeaderIW', uw) || q('.myProgress__unitHeader', uw) || uw, () => qa('.myProgress__unitLesson', uw).length > 0, 3000);
+      }
+      const fila = qa('.myProgress__unitLesson', uw).find(L => this.esFila(txt(q('.myProgress__unitLesson_name', L))));
+      if (!fila) return null;
+      this._fila = (fila.outerHTML || '').replace(/\s+/g, ' ').slice(0, 1500);
+      const salio = () => !ProgressMap.isPage() || TestManager.isTestStart() || /learningArea/i.test(location.href);
+      const cands = [['enlace', q('a', fila)], ['nombre', q('.myProgress__unitLesson_name', fila)], ['puntaje', q('.myProgress__unitLesson_testScore', fila)],
+        ['boton', q('button, [role="button"], [class*="btn" i], [class*="Link"]', fila)], ['fila', fila]].filter(([, e]) => e);
+      for (const [nombre, el] of cands) {
+        try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+        if (await press(el, salio, 4000)) return nombre;
+      }
+      return null;
+    }
+
+    // En el área de lecciones. undefined = no hay Unit Test en curso; null = flujo normal (el test); objeto = acción.
+    static async enLeccion(s) {
+      const a = s.ut && s.ut.actual;
+      if (!a) return undefined;
+      if (a.fase === 'desplegable') {   // paso 3: buscar "Unit Test" en el desplegable de lecciones de la unidad
+        const d = await DropdownNav.open('lessons');
+        const it = d ? DropdownNav.items('lessons').find(x => this.esFila(x.t)) : null;
+        if (it) {
+          Object.assign(a, { fase: 'dentro', metodo: 'desplegable', desde: Date.now() }); TestSweep.set(s);
+          click(it.el); await sleep(4500); await NavigationManager.handleModals();
+          return { did: 'unit_test_entrando', unidad: a.unidad, metodo: 'desplegable' };
+        }
+        if (d) await DropdownNav.close(d);
+        Reporter.capture('unit_test_no_encontrado', { unidad: a.unidad, donde: 'desplegable', lecciones: DropdownNav.items('lessons').map(x => x.t.slice(0, 50)).slice(0, 15) });
+        this.terminar(s, 'no_encontrado');
+        return await TestSweep.irHome();
+      }
+      if (a.fase !== 'dentro') return undefined;
+      const run = StorageManager.getRun();
+      const enTest = TestManager.isTestStart() || TestManager.inTest() || TestManager.isScore() || TestManager.isReview() || !!(run && (run.phase === 'review' || run.phase === 'replay'));
+      if (enTest) { if (!a.vioTest) { a.vioTest = true; TestSweep.set(s); log('📝 Dentro del Unit Test de la unidad', a.unidad); } return null; }
+      a.pasos = (a.pasos || 0) + 1; TestSweep.set(s);
+      if (a.vioTest) { this.terminar(s, 'hecho'); return await TestSweep.irHome(); }
+      if (a.pasos >= 6) { Reporter.capture('unit_test_no_aparece', { unidad: a.unidad, metodo: a.metodo }); this.terminar(s, 'no_aparecio_el_test'); return await TestSweep.irHome(); }
+      return null;   // p. ej. una pantalla de introducción: el flujo normal pulsa Next
     }
   }
 
@@ -1483,8 +1812,26 @@
         // NUEVO v21.7 — opciones con IMÁGENES (reporte Watch again · "Choose the correct picture"): no hay labels;
         // se pulsa la imagen (o su caja). Práctica: la 1.ª basta; ED marca la correcta y la tarea.
         if (!labels.length) {
-          const imgs = qa('.prMCQ__answerImage, .prMCQ__answers .multiRadioWrapper', s).filter(vis);
-          if (imgs.length && !q('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', s)) { click(imgs[0]); marked++; await sleep(400); }
+          // AJUSTADA v21.12 — Mateo (U10 L4 · Watch again, "Choose the correct picture"): marked 0. Las imágenes todavía
+          // cargaban (sin tamaño = invisibles) → esperar hasta 20 s; pulsar VERIFICANDO (imagen → su caja → la opción)
+          // y, si ED no marca la tarea, la siguiente imagen (Hugo: "solo tocar en una imagen que es como seleccionable").
+          const ops = () => qa('.prMCQ__answers', s).filter(e => vis(e) && (q('.prMCQ__answerImage', e) ? vis(q('.prMCQ__answerImage', e)) : true));
+          await waitFor(() => ops().length > 0, 20000, 400);
+          if (q('.selection--v, .prMCQ__answerImage--correct', s)) continue;
+          const tn = NavigationManager.curTask()?.n;
+          // la verificación: cambió alguna clase de la opción (el dump real trae selection--x, --incorrect, correct,
+          // checked) o ED marcó la tarea; mCS_* lo pone el scroll al cargar la imagen, no cuenta
+          const firmaOp = op => [op, ...qa('*', op)].map(e => (typeof e.className === 'string' ? e.className : '')).join('|').replace(/\bmCS\w*/g, '');
+          for (const op of ops().slice(0, 6)) {
+            const yaElegida = () => !!q('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', op) || /selection--|--correct|--incorrect/.test(op.className);
+            if (yaElegida()) continue;
+            const f0 = firmaOp(op);
+            for (const el of [q('.prMCQ__answerImage', op), q('.multiRadioWrapper', op), op].filter(Boolean)) { if (await press(el, () => firmaOp(op) !== f0 || yaElegida() || !!(tn && NavigationManager.taskDone(tn)), 2000)) { marked++; break; } }
+            await sleep(400);
+            if (TestManager.inTest()) break;   // en un TEST una sola imagen (como v21.11): probar varias cambiaría la respuesta
+            if (q('.selection--v, .prMCQ__answerImage--correct', s)) break;
+            if (tn && await waitFor(() => NavigationManager.taskDone(tn), 1500, 250)) break;
+          }
           continue;
         }
         const checked = q('input[type="radio"]:checked, input[type="checkbox"]:checked', s);
@@ -1578,7 +1925,19 @@
         await sleep(150);
         if (n === 1 && await practiceEnough(tn)) break;   // NUEVO v20.7: con uno basta
       }
-      return { did: 'text_solved', n, long: isLong, waitDone: 3500 };
+      // NUEVO v21.12 — "Personalized writing" de corregir un e-mail (U10 L3, Nelson y Mateo: n = 0, tarea sin marcar):
+      // TODOS los campos ya traen texto (las palabras con error) y el bot solo llenaba los vacíos. Hugo: "escribir una
+      // letra cualquiera en el primero y ya". Se agrega una letra al 1.º y se verifica; si no, al siguiente (hasta 5).
+      // OJO: SOLO en prácticas. En un TEST los campos llenos son respuestas (del replay): tocarlas bajaría la nota.
+      let editados = 0;
+      if (!n && !TestManager.inTest()) {
+        for (const t of this.textInputs().slice(0, 5)) {
+          setNative(t, (t.value || '') + 's'); editados++;
+          await sleep(250);
+          if (!tn || await waitFor(() => NavigationManager.taskDone(tn), 2000, 250)) break;
+        }
+      }
+      return { did: 'text_solved', n, editados, long: isLong, waitDone: 3500 };
     }
   }
 
@@ -1706,22 +2065,59 @@
     // deshabilitada, pulsa Start (verificado); si no hay Start, pulsa la 1.ª frase. Luego espera mucho más
     // (ED reproduce el diálogo y no deja hacer nada hasta terminar).
     static async solveInteractive() {
+      const tn = NavigationManager.curTask()?.n;
+      const hecho = () => !!(tn && NavigationManager.taskDone(tn));
+      const startHabil = () => { const b = qv('a.button.continue'); return b && !/disable/.test((b.parentElement?.className || '') + ' ' + b.className) ? b : null; };
+      // NUEVO v21.12 — BRANCHING (dump de Hugo, U9 L4 · Step 6: .answersWrapper.interact2.webRtc con .RecordButtonWrapper).
+      // Hugo: "solo tocas Start y esperas a que salga el botón y grabe; cuando graba sale marcada".
+      if (!qav('a.chooseCaracterArrow').length && qv('.answersWrapper.interact2, .RecordButtonWrapper')) return await this.solveBranching(hecho, startHabil);
       log('🎭 [Interactive Speaking] Personaje → Start → esperar el diálogo...');
       const flecha = qav('a.chooseCaracterArrow').find(a => !/disable/.test(a.parentElement?.className || '')) || qav('a.chooseCaracterArrow')[0];
       if (flecha) { click(flecha); await sleep(1300); }
       // AJUSTADA v21.2 (reporte Piece of Cake · Interact 2): el panel viene con clase "disable" mientras ED
       // reproduce la frase del otro personaje → esperar a que se habilite antes de pulsar Start.
-      await waitFor(() => !qv('.speakingInteractPanelsWrapper.disable'), 10000, 300);
-      const st = await waitFor(() => { const b = qv('a.button.continue'); return b && !/disable/.test(b.parentElement?.className || '') ? b : null; }, 6000);
-      let started = false;
-      if (st) {
-        const antes = txt(st);
-        started = await press(st, () => { const b = qv('a.button.continue'); return !b || txt(b) !== antes || !!qv('.recordingPanelSentence .statusIcon[class*="--"], .recIndicator, [class*="recording"]'); }, 2500);
-      } else {
-        const frase = qv('.recordingPanelSentence');
-        if (frase) { click(frase); started = true; }
+      // AJUSTADA v21.12 (Hugo: "dales más tiempo para que carguen"): esperas de 10/6 s → 20/10 s
+      await waitFor(() => !qv('.speakingInteractPanelsWrapper.disable'), 20000, 300);
+      const pulsarStart = async b => { const antes = txt(b); return await press(b, () => { const x = qv('a.button.continue'); return !x || txt(x) !== antes || hecho() || !!qv('.recordingPanelSentence .statusIcon[class*="--"], .recIndicator, [class*="recording"]'); }, 3000); };
+      const st = await waitFor(startHabil, 10000, 300);
+      let started = false, metodo = '';
+      if (st) { started = await pulsarStart(st); metodo = 'start'; }
+      else {
+        // AJUSTADA v21.12 (Hugo, U9 L4 · Step 4 "Interactive speaking practice": "tocas en el primer texto y luego Start
+        // cuando se habilita"). Antes pulsaba la frase y ahí terminaba: el Start nunca se pulsaba → tarea sin marcar.
+        const frase = qv('.recordingPanelSentence .recordingPanelSentenceText') || qv('.recordingPanelSentence');
+        if (frase) {
+          await press(frase, () => !!startHabil(), 3000);
+          const st2 = await waitFor(startHabil, 20000, 400);
+          if (st2) { started = await pulsarStart(st2); metodo = 'frase+start'; } else { started = true; metodo = 'frase✗start'; }
+        }
       }
-      return { did: 'interactive_speaking', started, waitDone: 40000 };
+      return { did: 'interactive_speaking', started, metodo, waitDone: 60000 };
+    }
+
+    // NUEVO v21.12 — BRANCHING SPEAKING: Start → ED reproduce al personaje → turno del alumno: aparece el botón de grabar
+    // (o vuelve el Start) → se pulsa lo que aparezca, verificando, hasta que ED marque la tarea (tope 100 s).
+    static async solveBranching(hecho, startHabil) {
+      log('🎭 [Branching speaking] Start → espero mi turno → grabar...');
+      const grabar = () => qav('.RecordButtonWrapper a, .RecordButtonWrapper .panelButton, a.panelButton.speakIcon').find(b => !/disable/.test(b.className + ' ' + (b.parentElement?.className || ''))) || null;
+      const pasos = [];
+      const t0 = Date.now();
+      let nStart = 0, nGrabar = 0, ultimo = 0;
+      const st = await waitFor(startHabil, 20000, 400);
+      if (st) { await press(st, () => !startHabil() || hecho(), 3000); nStart++; ultimo = Date.now(); pasos.push('start'); }
+      while (Date.now() - t0 < 100000 && !hecho()) {
+        const r = grabar();
+        if (r && nGrabar < 4 && Date.now() - ultimo > 6000) {
+          await press(r, () => hecho() || /record|activ|pressed/i.test(r.className + ' ' + (r.parentElement?.className || '')), 3000);
+          nGrabar++; ultimo = Date.now(); pasos.push('grabar');
+          await sleep(Math.max(3500, CFG.recordSeconds * 1000));
+          continue;
+        }
+        const s2 = startHabil();
+        if (s2 && nStart < 3 && Date.now() - ultimo > 8000) { await press(s2, () => !startHabil() || hecho(), 3000); nStart++; ultimo = Date.now(); pasos.push('start'); continue; }
+        await sleep(800);
+      }
+      return { did: 'branching_speaking', pasos, marcado: hecho(), waitDone: 5000 };
     }
   }
 
@@ -2009,6 +2405,16 @@
           opts = await this.openLegacy(b); metodo = this.metodo;
           hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
         }
+        // NUEVO v21.9 — corrida de Jose (01/11, U14 · Present Simple: Review · Test · 12/15: 97 % siete veces) y de
+        // Nelson (v21.6, mismo test y Nouns · Test · 3/4/7/9): tras ELEGIR en un hueco, ED no abre la lista de otro
+        // hasta que haya un clic FUERA. Patrón real: "1:clic_texto, 2:ninguno✗, 3:clic_texto, 4:ninguno✗" (el hueco
+        // que sigue a un fallo salía bien porque el fallo ya hacía cerrarLista). Ahora: si nada la abrió → clic fuera y
+        // otra vuelta. En el reporte sale como "fuera+<método>".
+        if (!hecho && metodo === 'ninguno') {
+          this.cerrarLista(); await sleep(400);
+          opts = await this.openLegacy(b); metodo = 'fuera+' + this.metodo;
+          hecho = opts.length ? await this.chooseLegacy(b, opts, want) : false;
+        }
         metodos.push((i + 1) + ':' + metodo + (hecho ? '' : '✗'));
         if (hecho) { n++; ok++; }
         else { fallos.push({ hueco: i + 1, motivo: opts.length ? 'no se pudo elegir' : 'no se abrió la lista', metodo, quiere: want, opciones: opts.map(txt), huecoHTML: (b.outerHTML || '').replace(/\s+/g, ' ').slice(0, 400) }); this.cerrarLista(); }
@@ -2049,10 +2455,24 @@
       const base = c => (typeof c.className === 'string' ? c.className : '').split(/\s+/).filter(x => !/lastInRow|--word|--image/.test(x)).sort().join(' ');
       const inicial = new Map(cards.map(c => [c, base(c)]));
       const resuelta = c => base(c) !== inicial.get(c);
-      const tocar = async c => { click(q('.memoG__cardIW', c) || c); await sleep(450); };
+      // AJUSTADA v21.12 — Hugo (02/11): "es seleccionar dos cuadritos y ya sale hecho". En ED nunca se dio vuelta ninguna
+      // carta (67 intentos, 3 corridas): el clic iba al contenedor .memoG__cardIW y el que escucha es lo de adentro.
+      // Ahora se prueba, VERIFICANDO que la carta cambie: la cara visible (.memoG__cardSideBack) → .memoG__cardSides →
+      // .memoG__cardIW → la carta; lo que funcione se usa en las demás. Más tiempo para que carguen.
+      await waitFor(() => qav('.memoG__card').length >= 2, 20000, 400);
+      const estado = c => [c, ...qa('*', c)].map(e => (typeof e.className === 'string' ? e.className : '') + (e.style ? e.style.transform || '' : '')).join('|');
+      let forma = null;
+      const tocar = async c => {
+        const cands = [['dorso', q('.memoG__cardSideBack', c)], ['caras', q('.memoG__cardSides', c)], ['IW', q('.memoG__cardIW', c)], ['carta', c]].filter(([, e]) => e);
+        const orden = forma ? [cands.find(x => x[0] === forma), ...cands.filter(x => x[0] !== forma)].filter(Boolean) : cands;
+        const antes = estado(c);
+        for (const [nombre, el] of orden) { if (await press(el, () => estado(c) !== antes, 900)) { forma = nombre; await sleep(300); return true; } }
+        await sleep(300);
+        return false;
+      };
 
-      await tocar(cards[0]); await tocar(cards[1]); await sleep(900);
-      if (await practiceEnough(tn)) return { did: 'memory_one_action' };
+      const g1 = await tocar(cards[0]), g2 = await tocar(cards[1]); await sleep(900);
+      if (await practiceEnough(tn)) return { did: 'memory_one_action', forma, giraron: [g1, g2] };
 
       const words = cards.filter(c => /--word/.test(c.className)), imgs = cards.filter(c => /--image/.test(c.className));
       const A = words.length && imgs.length ? words : cards, B = words.length && imgs.length ? imgs : cards;
@@ -2064,11 +2484,21 @@
           await tocar(w); await tocar(i); await sleep(1500); intentos++;
           if (resuelta(w) && resuelta(i)) { pares++; break; }
           if (tn && NavigationManager.taskDone(tn)) return { did: 'memory_done', pares, intentos };
-          if (intentos > 60) break;
+          // AJUSTADA v21.11 (Hugo: "un solo intento corto por corrida"): antes hasta 60 parejas (~3 min, 3 veces por unidad)
+          if (intentos >= 6) break;
         }
+        if (intentos >= 6) break;
       }
-      if (!pares) Reporter.capture('memory_sin_parejas', { intentos });
-      return { did: 'memory_tried', pares, intentos };
+      // NUEVO v21.11: si no emparejó, el reporte se toma CON DOS CARTAS ABIERTAS (palabra + imagen) para ver cómo
+      // las muestra ED y qué clase cambia. El "antes" (todas cerradas) lo guarda el engine.
+      if (!pares) {
+        const c1 = A.find(c => !resuelta(c)), c2 = B.find(c => c !== c1 && !resuelta(c));
+        if (c1) await tocar(c1);
+        if (c2) await tocar(c2);
+        Reporter.capture('memory_sin_parejas', { intentos, forma, abiertas: [c1, c2].filter(Boolean).map(c => (typeof c.className === 'string' ? c.className : '') + ' | ' + txt(c).slice(0, 30)),
+          clasesAlEmpezar: [...inicial.values()].slice(0, 4) });
+      }
+      return { did: 'memory_tried', pares, intentos, forma };
     }
   }
 
@@ -2110,6 +2540,151 @@
         if (tn && NavigationManager.taskDone(tn)) return { did: 'add_in_text', probados: i, ok: true };
       }
       return { did: 'add_in_text', probados: i, ok: false, clases: ls.slice(0, 5).map(e => e.className || e.tagName) };
+    }
+  }
+
+  // ▼▼▼ src/exercises/explore.js ▼▼▼
+  // =====================================================================
+  //  EXPLORE — pasos "Explore"/"Prepare" que solo hay que ver/escuchar (video, tarjetas de vocabulario, lectura)
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.11, REHECHO v21.12 con los dumps de Hugo (02/11) y las corridas de Jose, Roy y Mateo:
+  //   • VIDEO (U5 L1 "In the Restaurant", U7 L1, U8 L1): .learning__RAMediaResourceW--html5Video con botón grande
+  //     .learning__RAMRButton--play y controles #video-controls (.layout__mediaPlayPause). Hugo: "es solo esperar a
+  //     que cargue el video y darle play". El bot lo tomaba como mcq_default porque el reproductor aún no cargaba.
+  //   • TARJETAS DE VOCABULARIO (U8 L6 "Work"): .learning__vocabularyCards_card (10). Hugo: "darle clic a un
+  //     elemento y salir con la x".
+  //   • SEGMENTOS / PARLANTES (.segment / .speaker): lectura con audio por frase.
+  //  Todo con esperas LARGAS para que cargue (Hugo: "dales más tiempo para que carguen") y verificando tras cada
+  //  intento si ED marcó la tarea (regla 3). Si nada la marca, el engine guarda el reporte con dump completo.
+  //  DEPENDE DE: utils/dom.js, utils/press.js, core/navigation.js
+  //  EXPONE:     ExploreSolver (se une a PracticeSolver)
+  // =====================================================================
+
+  class ExploreSolver {
+    static esPasoExplore() { return /explore|prepare|explora|prepara/i.test(NavigationManager.stepLabel()); }
+    static hayVideo() { return !!q('.learning__RAMediaResourceW--html5Video, .learning__RAMediaResourceW video, .learning__RAMRButton--play'); }
+    static hayTarjetas() { return qav('.learning__vocabularyCards_card').length > 0; }
+    // Solo en pasos Explore/Prepare (o con tarjetas de vocabulario): en una práctica con video a la izquierda manda la práctica
+    static isExplore() {
+      if (this.hayTarjetas() && !q('.dnditem, .dndZone .draggable, .prMCQ__qaInnerSet, .DDLOptions__selected')) return true;
+      if (!this.esPasoExplore()) return false;
+      return this.hayVideo() || qav('.speaker').length > 0 || qav('.segment').length >= 2;
+    }
+
+    static async solveExplore() {
+      const tn = NavigationManager.curTask()?.n;
+      const hecho = () => !!(tn && NavigationManager.taskDone(tn));
+      const intentos = [];
+      const fin = (marcado, extra) => Object.assign({ did: 'explore', intentos, marcado, waitDone: 3000 }, extra || {});
+      if (hecho()) return fin(true);
+      if (this.hayTarjetas()) { if (await this.tarjetas(tn, hecho, intentos)) return fin(true); }
+      if (this.hayVideo()) { if (await this.video(hecho, intentos)) return fin(true); }
+      if (await this.parlantes(hecho, intentos, !tn)) return fin(true);
+      return fin(hecho());
+    }
+
+    // ---- VIDEO: esperar a que cargue (hasta 30 s), darle play y esperar a que ED marque (hasta 100 s) ----
+    static async video(hecho, intentos) {
+      log('🎬 [Explore] Video: espero a que cargue y le doy play...');
+      const botones = () => [qv('.learning__RAMRButton--play'), qv('.layout__mediaPlayPause--play'), qv('.layout__mediaPlayPause')].filter(Boolean);
+      const vid = () => q('.learning__RAMediaResourceW video, .learning__resourcesArea video') || q('video');
+      await waitFor(() => botones().length || (vid() && vid().readyState >= 2), 30000, 400);
+      const sonando = () => { const v = vid(); return !!(v && !v.paused && !v.ended); };
+      let empezo = false;
+      for (const b of botones()) {
+        if (await press(b, () => sonando() || hecho(), 5000)) { empezo = true; intentos.push('play:' + (typeof b.className === 'string' ? b.className.split(' ')[0] : 'boton')); break; }
+      }
+      if (!empezo && vid()) {   // último recurso: reproducir el <video> directo (sin sonido)
+        try { const v = vid(); v.muted = true; const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+        empezo = !!(await waitFor(() => sonando() || hecho(), 5000, 300));
+        intentos.push('video.play' + (empezo ? '' : '✗'));
+      }
+      // dejarlo correr hasta que ED marque la tarea o termine el video (tope 100 s); NO se pausa
+      if (await waitFor(() => hecho() || (vid() && vid().ended), 100000, 500) && hecho()) return true;
+      if (!hecho()) intentos.push('video_sin_marcar');
+      return hecho();
+    }
+
+    // ---- TARJETAS DE VOCABULARIO: abrir una, cerrarla con la X y verificar; si ED no marca, la siguiente ----
+    // Dumps de Hugo (U8 L6 "Work"): con la tarjeta ABIERTA ("2/10") aparecen elementos .cursor-pointer, .d-flex y
+    // .learning__vocabularyCards_textSeparator que con las tarjetas cerradas NO existen → así se sabe si está abierta.
+    // La X no trae nombre conocido: se prueban los botones nuevos (primero los que parecen X, luego los de arriba a la
+    // derecha) y se verifica que la tarjeta se cerró. Si nada la cierra, el reporte guarda la tarjeta abierta.
+    static marcasAbierta() { return qav('.learning__vocabularyCards_textSeparator, .cursor-pointer, .d-flex, .justify-between').filter(e => !e.closest('#ed-autopilot-hud')).length; }
+    static async tarjetas(tn, hecho, intentos) {
+      log('🗂️ [Explore] Tarjetas de vocabulario: abro una y la cierro con la X...');
+      await waitFor(() => qav('.learning__vocabularyCards_card').length > 0, 20000, 400);
+      const firma = () => qa('.learning__vocabularyCards *').map(e => (typeof e.className === 'string' ? e.className : '')).join('|').length + ':' + qav('.learning__vocabularyCards_card').length + ':' + txt(q('.learning__vocabularyCards')).length;
+      const tarjetas = qav('.learning__vocabularyCards_card').slice(0, 10);
+      for (let k = 0; k < tarjetas.length; k++) {
+        const c = tarjetas[k]; if (!c.isConnected) continue;
+        const antes = firma(), base = this.marcasAbierta();
+        try { c.scrollIntoView({ block: 'center' }); } catch (e) {}
+        const abrio = await press(q('.learning__vocabularyCards_cardImageWrapper', c) || c, () => this.marcasAbierta() > base || firma() !== antes || hecho(), 4000);
+        intentos.push('tarjeta' + (k + 1) + (abrio ? '' : '✗'));
+        if (abrio) {
+          await sleep(1500);
+          if (!hecho()) Reporter.marcarAntes();   // el "antes" del reporte = la tarjeta ABIERTA (por si la X falla)
+          await this.cerrarTarjeta(base, intentos);
+        }
+        if (await waitFor(hecho, 3000, 300)) return true;
+        if (!abrio && k >= 1) break;   // dos tarjetas que ni se abren: no insistir
+      }
+      return hecho();
+    }
+    static async cerrarTarjeta(base, intentos) {
+      // OJO: nada de buscar "full"/"open" en las clases: el <body> real trae learning__body--vocabularyCards Y
+      // learning__body--resourcesAreaFull con la tarjeta abierta o cerrada (dumps de Hugo)
+      const abierta = () => this.marcasAbierta() > base;
+      if (!abierta()) return true;
+      const fuera = e => !!e.closest('#ed-autopilot-hud, .learning__lessonsStepsNav, .learning__header, header, .sitemenu, .settingsMenu__main');
+      const esX = e => { const c = (typeof e.className === 'string' ? e.className : '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.id || ''); return /close|cerrar|exit|cross|times|x-?btn|btnx|icon-?x/i.test(c) || /^\s*[×✕✖xX]\s*$/.test(txt(e)); };
+      const r = e => e.getBoundingClientRect();
+      const xs = qa('*').filter(e => vis(e) && !fuera(e) && esX(e));
+      // botones nuevos (.cursor-pointer): primero el último de una fila .justify-between (la fila "2/10 … X"), después
+      // los sin texto (íconos), y entre ellos los más arriba a la derecha
+      const prio = e => (e.parentElement && /justify-between/.test(e.parentElement.className) && !e.nextElementSibling ? 0 : 1) * 2 + (txt(e).trim().length > 2 ? 1 : 0);
+      const iconos = qav('.cursor-pointer').filter(e => !fuera(e) && !xs.includes(e) && !/^\s*\d+\s*\/\s*\d+\s*$/.test(txt(e)))
+        .sort((a, b) => (prio(a) - prio(b)) || ((r(b).right - r(b).top * 2) - (r(a).right - r(a).top * 2)));
+      for (const x of [...xs, ...iconos].slice(0, 8)) {
+        if (!abierta()) break;
+        if (await press(x, () => !abierta(), 2500)) { intentos.push('cerrar:' + ((typeof x.className === 'string' && x.className.split(' ')[0]) || x.tagName.toLowerCase())); return true; }
+      }
+      if (!abierta()) return true;
+      try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true })); } catch (e) {}
+      if (await waitFor(() => !abierta(), 1500, 200)) { intentos.push('cerrar:Escape'); return true; }
+      intentos.push('cerrar✗');
+      return false;
+    }
+
+    // ---- SEGMENTOS / PARLANTES (lectura con audio): uno por uno, verificando ----
+    // AJUSTADA v21.12: SIN barra de tareas (lecturas "Read the e-mail"/"Read the story" de Mateo) no hay nada que
+    // verificar: basta con que suene UN audio y como mucho 20 s (antes hasta 75 s por página, regla 4: no perder tiempo).
+    // En Roy, las lecturas Explore no quedaron pendientes en My Progress: con visitarlas alcanza.
+    static async parlantes(hecho, intentos, sinTarea) {
+      const fuera = e => !!e.closest('.learning__lessonsStepsNav, .edLADropDownList, #ed-autopilot-hud, .learning__header, .learning__headerW, header');
+      const sonando = () => qa('audio, video').some(m => !m.paused && !m.ended);
+      const t0 = Date.now(), TOPE = sinTarea ? 20000 : 75000;
+      let basta = false;
+      const probar = async (nombre, els, espera) => {
+        let n = 0;
+        for (const el of els) {
+          if (Date.now() - t0 > TOPE) break;
+          try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+          click(el); n++;
+          const sono = await waitFor(sonando, 1500, 150);
+          if (sono) await waitFor(() => !sonando(), espera, 300); else await sleep(400);
+          if (hecho()) { intentos.push(nombre + ':' + n); return true; }
+          if (sinTarea && sono) { intentos.push(nombre + ':' + n + ' (sin tarea: con un audio basta)'); basta = true; return false; }
+        }
+        if (n) intentos.push(nombre + ':' + n + '✗');
+        return false;
+      };
+      if (qav('.speaker, .segment').length) log('🎧 [Explore] Parlantes / segmentos...');
+      if (await probar('parlantes', qav('.speaker').filter(e => !fuera(e) && !e.closest('#video-controls')), 8000)) return true;
+      if (basta) return hecho();
+      if (await probar('segmentos', qav('.segment').filter(e => !fuera(e)).slice(0, 30), 6000)) return true;
+      return hecho();
     }
   }
 
@@ -2155,7 +2730,8 @@
     LegacyMCQSolver,
     LegacyDDLSolver,
     MemoryGameSolver,
-    AddInTextSolver   // NUEVO v21.7
+    AddInTextSolver,   // NUEVO v21.7
+    ExploreSolver     // NUEVO v21.11
   );
 
   // ▼▼▼ src/tests/test-manager.js ▼▼▼
@@ -2591,7 +3167,7 @@
   //  MOTOR PRINCIPAL (MAIN ENGINE)
   // ===================================================================
   // Tipos que NO se repiten solos si ED no marca la tarea (caros, o repetirlos no ayuda)
-  const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory']);
+  const NO_RETRY_KINDS = new Set(['writing', 'open_speech', 'interactive_speaking', 'sr_choice', 'media', 'memory', 'explore']);   // AJUSTADA v21.11: + explore
 
   class MainEngine {
 
@@ -2614,6 +3190,9 @@
       if (qv('label.prMCQ__answerLabel') || qv('.prMCQ__qaInnerSet')) return 'mcq';
       if (PracticeSolver.isLegacyMCQ()) return 'mcq_legacy';   // NUEVO v20.7 (antes caía en 'media')
       if (PracticeSolver.textInputs().length) return 'text';
+      // AJUSTADA v21.12: Explore ANTES que media (dumps de Hugo 02/11: los "Step 1: Explore" con video se tomaban como
+      // mcq_default porque el reproductor tardaba en cargar; y si cargaba, media lo pausaba a los 3 s)
+      if (PracticeSolver.isExplore()) return 'explore';   // NUEVO v21.11: video, tarjetas de vocabulario, segmentos
       if (qv('.layout__mediaPlayPause')) return 'media';
       return 'mcq_default';   // nada reconocido: se comporta como v19.6 (solveMCQ → checkboxes sueltos)
     }
@@ -2636,11 +3215,14 @@
         case 'mcq_legacy': return PracticeSolver.solveLegacyMCQ();      // NUEVO v20.7
         case 'text': return PracticeSolver.solveText();
         case 'media': return PracticeSolver.solveMedia();
+        case 'explore': return PracticeSolver.solveExplore();          // NUEVO v21.11
         default: return PracticeSolver.solveMCQ();                   // 'mcq' y 'mcq_default'
       }
     }
 
     static async step() {
+      // NUEVO v21.11: ¿empezó una corrida nueva? → se olvidan los fallos y reintentos de la anterior (regla 4)
+      Corrida.get();
       // NUEVO v21.7: aviso de ED "You haven't submitted your test" en la página o en un marco de la misma web
       for (const d of [document, ...qa('iframe').map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)]) {
         const ok = d.querySelector && d.querySelector('#popupButtonsWrapper #btnOk');
@@ -2660,6 +3242,14 @@
 
       if (TestManager.isTestStart()) {
         const key = NavigationManager.testKey();
+        // NUEVO v21.9 — corrida de Jose (01/11): tras rendirse con un test (97 % tras los reintentos), "voy a lo
+        // pendiente" lo volvía a abrir y lo hacía ENTERO 4 veces más (~10 min y 4 intentos más en ED, que podrían
+        // bajar la nota si ED cuenta el último). Si ya me rendí con él en esta corrida → no lo empiezo otra vez.
+        if (TestSweep.rendido()) {
+          log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
+          await NavigationManager.goNext();
+          return { did: 'test_rendido_no_repito', key };
+        }
         // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
         // salvo que sepamos que quedó < 100 %.
         if (!CFG.retakeDoneTests && TestManager.yaTerminado() && !ProgressMap.testBajo(TestSweep.unitNum(), +lessonNum(NavigationManager.lessonLabel()) || 0)) {   // AJUSTADA v21.8
@@ -2759,7 +3349,24 @@
       // NUEVO — replay: si ya hay respuestas cosechadas, contesta la pregunta actual del test.
       // Si no hay (primer intento) devuelve null y todo sigue como en v19.6.
       if (TestManager.inTest()) {
+        Reporter.marcarAntes();   // NUEVO v21.11: si el replay falla, el reporte trae la pregunta antes y después
         const rp = await TestManager.replayQuestion();
+        // NUEVO v21.12 — corrida de Mateo (U14 L5 "Modals: Review" y L3): tras Start el test NO mostró ninguna pregunta
+        // (idx null, pantalla vacía, 5 veces seguidas) y se perdió (igual que Nelson en v21.6). A la 3.ª vez: reporte con
+        // dump completo y recargar la página UNA vez por corrida (un test sin enviar no cuenta en la nota).
+        if (rp && rp.idx == null) {
+          const clave = NavigationManager.testKey(), veces = Corrida.fallo('sinPreguntas|' + clave);
+          if (veces === 3) {
+            Reporter.capture('test_sin_preguntas', { veces, marcos: qa('iframe').length });
+            if (!Corrida.fallos('recarga|' + clave)) {
+              Corrida.fallo('recarga|' + clave);
+              log('🔄 El test no muestra preguntas → recargo la página una vez');
+              try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+              (window.__edRecargar || (() => location.reload()))(); await sleep(8000);
+              return { did: 'test_sin_preguntas_recargo', veces };
+            }
+          }
+        }
         if (rp) return rp;
         // NUEVO v20.7 — TEST EXPRÉS: 1.er intento (aún sin respuestas cosechadas) → no se resuelve nada,
         // se va directo al Submit. Lo que importa es el review y el reintento. Apagar: cfg({testExpress:false})
@@ -2771,11 +3378,22 @@
         // NUEVO (de v17): pantallas sin navegador de tareas también se resuelven (salvo tests).
         let res = { did: 'no_task_navigated' };
         if (CFG.solveWithoutTaskNav && !TestManager.inTest()) {
-          const kind = MainEngine.detectKind();
+          let kind = MainEngine.detectKind();
           const noTasksAtAll = !NavigationManager.tasks().length;
-          if (kind !== 'mcq_default' && (kind !== 'media' || noTasksAtAll)) {
+          // NUEVO v21.11 (regla 4): lo caro sin tarea que verificar (p. ej. Explore) se intenta UNA vez por corrida
+          const lugar0 = Corrida.lugar(null);
+          // NUEVO v21.12 (Hugo: "dales más tiempo para que carguen"): Explore/Prepare sin barra de tareas (Mateo: "Listen to
+          // the recording", "Listen to the examples") con un reproductor que aún carga → esperar hasta 25 s, UNA vez por lugar
+          if (kind === 'mcq_default' && ExploreSolver.esPasoExplore() && q('.learning__RAMediaResourceW, .learning__resourcesArea audio, .learning__resourcesArea video, .learning__vocabularyCards') && !Corrida.fallos('carga|' + lugar0)) {
+            Corrida.fallo('carga|' + lugar0);
+            const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 25000, 300); if (k2) kind = k2;
+          }
+          if (NO_RETRY_KINDS.has(kind) && Corrida.fallos(lugar0) >= 1) res = { did: 'saltado_ya_intentado', kind };
+          else if (kind !== 'mcq_default' && (kind !== 'media' || noTasksAtAll)) {
+            Reporter.marcarAntes();
             res = Object.assign({}, await MainEngine.runKind(kind), { kind });
             if (res.waitDone) await sleep(Math.min(res.waitDone, 4000));
+            if (NO_RETRY_KINDS.has(kind)) Corrida.fallo(lugar0);
           }
         }
         await NavigationManager.goNext();
@@ -2787,7 +3405,20 @@
       let kind = MainEngine.detectKind();
       // NUEVO v21.0: si no se reconoce nada, puede que la pantalla aún esté cargando (reporte: Writing de
       // "Wrong Color" se tomó como 'mcq_default' y en la radiografía de 1 s después ya era 'writing').
-      if (kind === 'mcq_default') { const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, 4000, 300); if (k2) kind = k2; }
+      // AJUSTADA v21.12 (Hugo: "dales más tiempo para que carguen"): si hay un video, tarjetas o imágenes cargando, hasta 25 s
+      if (kind === 'mcq_default') {
+        const cargando = !!q('.learning__RAMediaResourceW, .learning__resourcesArea video, .learning__vocabularyCards, .prMCQ__answerImage, .memoG__card, .speakingInteract');
+        const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, cargando ? 25000 : 4000, 300); if (k2) kind = k2;
+      }
+      // NUEVO v21.11 — REGLA 4 de Hugo: si esta tarea ya falló 2 veces en esta corrida (1 si es de las caras/imposibles:
+      // speaking, memoria, Explore...), no se vuelve a intentar: ya está en el reporte.
+      const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
+      if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
+        log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
+        await NavigationManager.goNext();
+        return { did: 'saltado_ya_fallo', kind, veces: previos };
+      }
+      Reporter.marcarAntes();   // NUEVO v21.11: estado ANTES de actuar (sale en el reporte si falla)
       const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
       // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
@@ -2805,6 +3436,7 @@
         }
         res.taskMarked = !!done;
         if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
+        if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
       }
 
       await sleep(400);   // AJUSTADA v20.7: era 800

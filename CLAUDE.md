@@ -14,7 +14,7 @@ de "Promedio de pruebas"** en cada cuenta.
 
 - **Dueño:** Hugo (GitHub `hugozuniga770`, repo público `hugozuniga770/Bot-Ingles`). No es programador:
   escribe en español informal, rápido y con errores de tipeo. Usa Windows, VS Code y PowerShell. Su carpeta
-  local es `C:\Users\sebas\OneDrive\Documentos\Bots\Bot-Ingles` (ya conectada a git).
+  local del repo ya está conectada a git (no escribas su ruta ni datos personales: el repo es público).
 - **Cómo prueba Hugo:** (1) consola/Tampermonkey en su PC, (2) **GitHub Actions** ("nube"), que corre el bot en
   un Chrome sin pantalla con una o varias cuentas y le deja un zip con todo lo que pasó.
 - **Tú no puedes ver ED.** Todo lo que sabes de ED viene de dumps, capturas, reportes y registros que Hugo te pasa.
@@ -30,7 +30,9 @@ src/                      código fuente (NO hay import/export; build.js los peg
   core/engine.js          MainEngine.step(): UN paso del bot. detectKind() → runKind() → solver
   core/progress-map.js    ProgressMap: lee "My Progress" (Last Test Score / Terminado por lección)
   core/sweep.js           TestSweep: modos "completar" (todo el curso) y "barrido" (tests < 100), Home
-  utils/                  dom (q, qa, qv, vis, txt, norm, pick/exacto), drag, press, reporter, fake-mic...
+  core/unit-tests.js      UnitTests: buscar/entrar a los Unit Tests (My Progress → Home → desplegable) (v21.11)
+  utils/                  dom (q, qa, qv, vis, txt, norm, pick/exacto), drag, press, reporter (dump completo), fake-mic...
+  utils/corrida.js        Corrida: lo que ya falló en ESTA corrida (regla 4: 2 fallos y no se reintenta) (v21.11)
   exercises/              un archivo por tipo de ejercicio (class XSolver { static ... })
   exercises/index.js      mixStatics(...) une todos los solvers en PracticeSolver
   tests/test-manager.js   tests: puntaje, review, cosecha de respuestas, reintento (replay)
@@ -39,7 +41,8 @@ dist/ed-autopilot.js      GENERADO con `node build.js` (nunca editar a mano). Es
 cloud/runner.js           robot de la nube (Playwright): login, inyecta el bot, vigila, guarda zip y resumen
 cloud/cuentas.js          lee las cuentas del secret ED_CUENTAS y elige cuáles correr
 .github/workflows/        verificar.yml (build + pruebas en cada push) · nube.yml (correr el bot)
-tools/regresion.js        ~49 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
+tools/regresion.js        ~78 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
+tools/regresion-chrome.js  las mismas pantallas en Chrome real (Playwright), para cuando npm no tiene internet
 tools/comparar-con.sh     corre las pantallas con OTRO bot (la versión vieja) y muestra diferencias
 tools/probar-nube.sh      prueba cloud/runner.js con Chrome real contra tools/sitio-prueba (copia falsa de ED)
 tools/analizar-registro.py  resume el registro.txt de una corrida en la nube (detecta atascos)
@@ -76,14 +79,33 @@ docs/                     handoff, método, ejercicios, arquitectura, nube, pend
 11. **Seguridad:** nunca escribas contraseñas en código, chat ni registros. Cuentas solo en el secret `ED_CUENTAS`.
     Si Hugo pega contraseñas o las pone en *Variables* (texto visible), avísale y recomiéndale cambiarlas.
     No repitas contraseñas que aparezcan en capturas.
+12. **REGLA PERMANENTE DE HUGO (01/11/2026) — se cumple siempre, sin que él la repita:**
+    1. Cada versión atiende **TODOS** los fallos de los reportes y zips que Hugo pasó (los de antes también). Para
+       cada uno, una de tres: **a) ARREGLADO**, con prueba (pantalla con el HTML real: la versión vieja falla igual
+       que en ED y la nueva no); **b) NO SE PUEDE TODAVÍA** porque falta información → el bot ya quedó preparado para
+       capturar SOLO esa información en la próxima corrida; **c) IMPOSIBLE** (p. ej. exige voz real) → explicar por
+       qué, y el bot no pierde más tiempo ahí. **Al final de cada respuesta: tabla fallo → estado (a/b/c) → qué
+       hiciste.** La misma tabla va al día en `docs/handoff.md`.
+    2. **Hugo no hace dumps a mano.** Cada reporte del bot es un DUMP COMPLETO y autosuficiente (`Reporter.dumpCompleto`):
+       todo lo de `probes/test-dump.js` (controles con atributos, cajaHTML, DnD y sus eventos, pestañas, barra de
+       navegación), el panel izquierdo (`.learning__resourcesArea`: lectura, video, audio) y, cuando el bot actuó, el
+       ANTES y el DESPUÉS (`Reporter.marcarAntes()`; en la memoria, con dos cartas abiertas). Con tope de tamaño,
+       pero sin que falte lo necesario.
+    3. Si falta una función (ejercicio, pantalla, tipo de test), se agrega con lo que ya se sabe: probando candidatos,
+       verificando cada intento y dejando el dump si falla. No se espera a Hugo para intentarlo.
+    4. **Nada de perder tiempo:** si algo falla 2 veces en una corrida, el bot lo anota y no lo reintenta en esa
+       corrida (`utils/corrida.js`; 1 vez si es caro o imposible: speaking, memoria, Explore).
+    5. Con cada zip, decir PRIMERO qué archivos cambiaron, si cambió `dist/ed-autopilot.js` y confirmar que las
+       pruebas pasan. Comandos: solo `git add -A`, `git commit -m "vX.Y"`, `git push` (sin correo ni `git config`).
 
 ## 4. Cómo se entrega un cambio a Hugo
 
 1. `node build.js && npm test` (y `bash tools/comparar-con.sh <viejo.js>` para el arreglo).
    **Si `npm install` falla por la red** (algunos entornos de IA bloquean npm): `node build.js` funciona igual
-   (no necesita internet), pero NO digas que las pruebas pasaron. Díselo a Hugo y pídele que, tras el push, mire
-   el ✓ verde junto al commit en GitHub (el flujo `verificar` corre `npm test` solo). Playwright y Chrome a veces
-   ya vienen instalados globalmente:
+   (no necesita internet). Las pantallas se corren igual con Chrome real: `node tools/regresion-chrome.js`
+   (comprobado: da el mismo snapshot que jsdom). Dile a Hugo que, tras el push, mire el ✓ verde junto al commit en
+   GitHub (el flujo `verificar` corre `npm test` con jsdom: es la prueba oficial). Playwright y Chrome suelen
+   venir instalados globalmente (`NODE_PATH` como abajo). Prueba de la nube:
    `NODE_PATH="$(npm root -g):$(dirname "$(dirname "$(which node)")")/lib/node_modules" bash tools/probar-nube.sh > /tmp/nube.txt 2>&1`.
 2. Subir versión + CHANGELOG + docs tocadas.
 3. Zip (sin `.git`, `node_modules`, ni los resultados de pruebas `salida/` y `estado/`):
@@ -93,13 +115,15 @@ docs/                     handoff, método, ejercicios, arquitectura, nube, pend
    ```
    → entregárselo con la herramienta de archivos que tengas
    (en claude.ai: copiarlo a `/mnt/user-data/outputs/` y `present_files`; en otros entornos: `SendUserFile` o similar).
-4. Decirle exactamente: "descomprime encima de tu carpeta" y luego, en la terminal de VS Code:
+4. Primero: qué archivos cambiaron, si cambió `dist/ed-autopilot.js` y que las pruebas pasan (regla 12.5). Luego:
+   "descomprime encima de tu carpeta" y, en la terminal de VS Code (su carpeta YA está conectada a git; no le
+   escribas su correo ni `git config`):
    ```powershell
    git add -A
    git commit -m "vX.Y"
-   git push origin main
+   git push
    ```
-   (Si dice `not a git repository`, la carpeta perdió `.git`: ver `docs/handoff.md` → "Reconectar git".)
+   (Solo si la terminal dice `not a git repository`: `docs/handoff.md` → "Reconectar git".)
 5. Con Tampermonkey (`tools/cargador.user.js`) o la nube, el bot nuevo se toma solo de GitHub tras el push.
 
 ## 5. Cómo hablarle a Hugo
