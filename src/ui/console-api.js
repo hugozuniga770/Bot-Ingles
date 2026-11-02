@@ -27,7 +27,10 @@ window.__ed = {
       if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
       // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
       // AJUSTADA v21.7: nunca a mitad de un test (se perdía la cuenta de intentos)
-      if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+      // AJUSTADA v21.15 (6 corridas del 02/11): recargar la página dentro de las lecciones deja a ED SIN CARGAR (tests sin
+      // preguntas y pasos sin tarea; ~150 atascos y lecciones enteras perdidas). Se recuperaba SIEMPRE al ir al Home y
+      // volver a entrar → con el barrido/completar activo se hace eso; sin barrido ya no se recarga.
+      if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest() && TestSweep.active()) { log('♻️ Refresco: voy al Home y vuelvo a entrar (libera memoria sin romper ED)'); await TestSweep.irHome(); return; }
       // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
       try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
       await sleep(CFG.tickMs + pausaPaso());   // AJUSTADA v21.14: + pausa de persona (ver pausaPaso)

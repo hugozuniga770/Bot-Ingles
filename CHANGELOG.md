@@ -1,5 +1,30 @@
 # Changelog
 
+## v21.15 — las 6 corridas del 02/11 (Maria, Nore, Chapaquin, Roy, Mateo, Thiago; v21.14)
+Subieron todos (p. ej. Thiago 3 → 74 %, Mateo 60 → 90 %, Roy 51 → 90 % y 82 → 100 %), pero faltaron muchas actividades.
+- **Causa principal: recargar la página dentro de las lecciones** (cada 40 min, "♻️ Recargo la pestaña"). Después ED
+  dejaba esa pestaña SIN CARGAR: tests sin preguntas ni botones (marco `toeicInTestFR` vacío) y pasos con tareas pero
+  ninguna activa. El bot seguía avanzando paso por paso por lecciones que tampoco cargaban: ~150 de los ~180 atascos
+  y lecciones enteras marcadas ❌. SIEMPRE se recuperaba al ir al Home y volver a entrar. Ahora: nunca se recarga
+  dentro de las lecciones; el refresco es Home → volver a entrar (`console-api`), el test sin preguntas va al Home
+  (`engine`), y un atasco en una página sin cargar va primero al Home, una vez por lugar (`sweep`).
+- **Test ya hecho**: en "Start Test" Next no lleva a ningún lado → se repetía 6 veces hasta el atasco (22 veces).
+  Ahora avanza al paso o la lección siguiente enseguida.
+- **Unit Tests**: en My Progress la fila "Unit Test" viene OCULTA (`ng-hide`): estos cursos no tienen Unit Test. El bot
+  buscaba 14 por cuenta (~20 min) y el tablero los mostraba como "sin hacer". Ahora las filas ocultas no cuentan.
+- **Time on Task y Final Test** (encabezado de My Progress: "21 : 30 Hrs. Mins. Time on Task", "80 % Final Test"): se
+  leen y salen en el tablero. Es el tiempo que mide ED (las 4 h de la UPB).
+- **Google Chrome en la nube** (`channel: 'chrome'`, si no está: Chromium): los videos de speaking salían en 00:00 y
+  el reconocimiento de voz no arrancaba ("Please wait while your Speech Recognition session is being established");
+  el Chromium de Playwright no trae los códecs de los .mp4. **Por confirmar en ED.**
+- **Reporte completo**: el navegador guarda solo los últimos 40 fallos (a todas las cuentas se les perdieron los
+  primeros); la nube junta TODOS en `salida/reporte-completo.json`.
+- El resumen ya no dice "Curso: no se pudo leer" (usa el que leyó el banco).
+- Pantallas nuevas con el HTML real de estas corridas: `atascoPaginaSinCargar`, `testVacioAlHome`,
+  `testYaHechoAvanza`, `myProgressUnitTestOculto` (la v21.14 falla las 4 igual que en ED). Cambiadas a propósito:
+  `completarAlterna` (llega al Home en 18 pasos, antes 42) y `completarSaltoOtraUnidad` (intenta avanzar antes).
+- **Solo simulación.**
+
 ## v21.14 — ritmo de persona y más tiempo para lo frágil; el cargador siempre trae la última versión (Hugo, 02/11)
 Hugo: "mínimo una persona trabaja 4 horas en la plataforma; dales más tiempo a las cosas frágiles para cargar" y
 "que el js del README traiga siempre la última versión".

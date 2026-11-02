@@ -262,6 +262,16 @@ class TestSweep {
         // la unidad (lecciones 2–6 sin tocar). Igual con Roy y Jose en el test ya hecho de la lección 1 (U3, U5, U7,
         // U8): volvía al Explore pendiente y abandonaba. Ahora PRIMERO se avanza (siguiente paso; si es el último, la
         // siguiente lección) y solo al final de la unidad se vuelve a lo pendiente (una vez por lugar).
+        // NUEVO v21.15 — 6 corridas del 02/11: tras recargar, ED deja la página SIN CARGAR (test sin preguntas ni botones,
+        // pasos con tareas pero ninguna activa y Next que no avanza). Avanzar por el desplegable no sirve (los pasos
+        // siguientes tampoco cargan: así se marcaban lecciones enteras como atascadas). Lo que lo arreglaba SIEMPRE era
+        // ir al Home y volver a entrar → eso primero, una vez por lugar; si vuelve a pasar ahí, se avanza como antes.
+        const roto = !TestManager.isTestStart() && ((!NavigationManager.curTask() && NavigationManager.tasks().length > 0) || (TestManager.inTest() && MainEngine.detectKind() === 'mcq_default'));
+        if (roto && !Corrida.fallos('rehome|' + dondeAhora)) {
+          Corrida.fallo('rehome|' + dondeAhora);
+          log('🏠 ED dejó esta página sin cargar → voy al Home y vuelvo a entrar');
+          return Object.assign(await this.irHome(), { motivo: 'pagina_sin_cargar' });
+        }
         const a = await this.avanzar();
         if (a) { log('🧭 Atasco → avanzo a', a); return { did: 'completar_avance', a }; }
         if (!mismo) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }

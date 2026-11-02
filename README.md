@@ -5,7 +5,7 @@
 
 Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prácticas de cada lección y, en los tests, envía un primer intento, cosecha las respuestas correctas del *Review* y repite el test con ellas.
 
-**Versión actual: v21.14** — trabaja a ritmo de persona (pausas entre pasos, esperas más largas para lo que tarda en cargar); tablero en vivo con checks por cuenta (Issues → "📊 Tablero del bot") y banco de respuestas por curso; completa cursos sola en la nube (probado con v21.8 en 3 cuentas: hasta 97 %, promedio 100 %); ahora también videos y tarjetas de los "Explore", juego de memoria, speaking interactivo y ramificado, el writing de corregir, Unit Tests, y rehace solo los tests < 100 (ver `CHANGELOG.md`).
+**Versión actual: v21.15** — ya no recarga la página dentro de las lecciones (dejaba a ED sin cargar); trabaja a ritmo de persona (pausas entre pasos, esperas más largas para lo que tarda en cargar); tablero en vivo con checks por cuenta (Issues → "📊 Tablero del bot") y banco de respuestas por curso; completa cursos sola en la nube (probado con v21.8 en 3 cuentas: hasta 97 %, promedio 100 %); ahora también videos y tarjetas de los "Explore", juego de memoria, speaking interactivo y ramificado, el writing de corregir, Unit Tests, y rehace solo los tests < 100 (ver `CHANGELOG.md`).
 
 ---
 
@@ -23,7 +23,7 @@ Luego `__ed.auto()` para arrancar (o el botón **Iniciar** de la cajita flotante
 
 - **Siempre carga la ÚLTIMA versión** (AJUSTADA v21.14): primero le pregunta a GitHub cuál es el último commit y
   carga el bot de ESE commit, así no te llega una copia vieja guardada. (La línea vieja podía tardar ~5 min en
-  traer la versión nueva después de un `git push`.) Confirma la versión en la cajita (`ED v21.14 OOP`).
+  traer la versión nueva después de un `git push`.) Confirma la versión en la cajita (`ED v21.15 OOP`).
 - El repo tiene que ser **público** para que esto funcione. Si es privado, GitHub responde 404 (ver opción C).
 - La primera vez Chrome pide escribir `allow pasting` en la consola.
 

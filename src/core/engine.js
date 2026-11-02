@@ -90,10 +90,18 @@ class MainEngine {
       // NUEVO v21.9 — corrida de Jose (01/11): tras rendirse con un test (97 % tras los reintentos), "voy a lo
       // pendiente" lo volvía a abrir y lo hacía ENTERO 4 veces más (~10 min y 4 intentos más en ED, que podrían
       // bajar la nota si ED cuenta el último). Si ya me rendí con él en esta corrida → no lo empiezo otra vez.
+      // NUEVO v21.15 — en la pantalla "Start Test" de un test ya hecho, Next no lleva a ningún lado: el bot repetía
+      // "test_ya_terminado" 6 veces (~1 min) hasta el atasco (22 veces en las 6 corridas). Ahora avanza enseguida.
+      const salir = async () => {
+        const sg = NavigationManager.screenSig();
+        await NavigationManager.goNext();
+        if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; } }
+        return null;
+      };
       if (TestSweep.rendido()) {
         log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
-        await NavigationManager.goNext();
-        return { did: 'test_rendido_no_repito', key };
+        const a = await salir();
+        return Object.assign({ did: 'test_rendido_no_repito', key }, a ? { avance: a } : {});
       }
       // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
       // salvo que sepamos que quedó < 100 %.
@@ -101,8 +109,8 @@ class MainEngine {
         const sc = StorageManager.getScores()[key];
         if (!(sc != null && sc < 100)) {
           log('⏭️ Test ya terminado (' + (sc != null ? sc + ' %' : 'puntaje no conocido') + ') → no lo rehago:', key);
-          await NavigationManager.goNext();
-          return { did: 'test_ya_terminado', key, pct: sc ?? null };
+          const a = await salir();
+          return Object.assign({ did: 'test_ya_terminado', key, pct: sc ?? null }, a ? { avance: a } : {});
         }
       }
       log('🚀 [Test Start] Iniciando test:', key);
@@ -207,6 +215,8 @@ class MainEngine {
             Corrida.fallo('recarga|' + clave);
             log('🔄 El test no muestra preguntas → recargo la página una vez');
             try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+            // AJUSTADA v21.15: recargar NO lo arregla (ED queda sin cargar); con el barrido → Home y volver a entrar
+            if (TestSweep.active()) { log('🏠 El test no muestra preguntas → voy al Home y vuelvo a entrar'); await TestSweep.irHome(); return { did: 'test_sin_preguntas_al_home', veces }; }
             (window.__edRecargar || (() => location.reload()))(); await sleep(8000);
             return { did: 'test_sin_preguntas_recargo', veces };
           }

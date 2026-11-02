@@ -45,7 +45,11 @@ function dibujar(o) {
   L.push(`## 👤 ${o.titulo}${o.curso ? ' — ' + o.curso : ''}`);
   L.push([login, w.completion != null ? `Realización **${w.completion} %**` : '', w.avg != null ? `Promedio de tests **${w.avg} %**` : '',
     o.fin ? '🏁 terminó' : (ahora ? `🔄 **ahora: Unidad ${ahora.u} → Lección ${ahora.l} → ${ahora.paso}${ahora.contador ? ' (' + ahora.contador + ')' : ''}**` : ''),
-    o.minutos != null ? `⏱ ${Math.floor(o.minutos / 60)} h ${o.minutos % 60} min en la plataforma` : '', `actualizado ${horaBO()} (Bolivia)`].filter(Boolean).join(' · '));
+    o.minutos != null ? `⏱ ${Math.floor(o.minutos / 60)} h ${o.minutos % 60} min en esta corrida` : '',
+    // NUEVO v21.15: el "Time on Task" y el "Final Test" que muestra ED en My Progress (las 4 h que pide la UPB)
+    o.mapa && o.mapa.widgets && o.mapa.widgets.tiempo ? `🕓 Time on Task en ED: **${o.mapa.widgets.tiempo.h} h ${o.mapa.widgets.tiempo.m} min**` : '',
+    o.mapa && o.mapa.widgets && o.mapa.widgets.finalTest != null ? `Final Test ${o.mapa.widgets.finalTest} %` : '',
+    `actualizado ${horaBO()} (Bolivia)`].filter(Boolean).join(' · '));
   if (o.login !== 'ok') {
     // la fila de cuadritos igual se ve: el 1.º es el login
     L.push('', '| 1 · Login |', '|:-:|', `| ${o.login === 'falla' ? '❌' : '⏳'} |`);

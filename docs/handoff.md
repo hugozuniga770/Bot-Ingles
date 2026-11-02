@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.14, 02/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.15, 02/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -10,7 +10,10 @@ atascos tras el test de la lección 1, test sin preguntas). **Todo solo en simul
 Login → unidades, unidades desplegables con lección/paso/test) y el banco de respuestas por curso.
 **v21.14**: ritmo de persona (pausa ~5 s entre pasos → ~4 h para un curso grande, Hugo: "mínimo 4 h en la
 plataforma"), `CFG.paciencia` 1,5 en todas las esperas, y el cargador del README/Tampermonkey trae siempre el último commit.
-**Lo próximo:** Hugo sube la v21.14, corre 2–3 cuentas en `completar`, mira el tablero y pasa los zips → revisar cada fila.
+**v21.15** (6 corridas del 02/11 con v21.14): la causa de casi todo lo que faltó era RECARGAR la página dentro de las
+lecciones (ED queda sin cargar; se arregla yendo al Home). Ya no se recarga. Además: tests ya hechos avanzan al instante,
+los Unit Tests ocultos no cuentan (no existen en estos cursos), Google Chrome en la nube, reporte completo sin tope.
+**Lo próximo:** Hugo sube la v21.15, corre las cuentas y pasa los zips (mirar `reporte-completo.json` y el tablero).
 **Pregunta abierta a Hugo:** Roy tiene DOS cursos en el carrusel del Home (UPB Beginners 1 con 51 % y Beginners 2,
 el que hizo el bot): ¿hay que completar también Beginners 1?
 
@@ -27,6 +30,7 @@ el que hizo el bot): ¿hay que completar también Beginners 1?
 | v21.12 | Explore con video (play) y con tarjetas (abrir y cerrar con la X); memoria (cara visible, 2 cartas); speaking interactivo (frase + Start) y ramificado (Start → grabar); writing de corregir (una letra); Watch again con imágenes (esperar y verificar); atascos → primero avanzar; test sin preguntas → recargar 1 vez; más tiempo de carga; curso en el resumen | Dumps y explicaciones de Hugo (02/11) + zips de Roy y Mateo (v21.8) |
 | v21.13 | Tablero en vivo con checks (issue del repo, un cuadro por cuenta con nombre; unidades desplegables) y banco de respuestas por curso compartido entre cuentas; reporte con número fijo | Ideas de Hugo (02/11): ver avance unidad por unidad y no cosechar dos veces lo mismo |
 | v21.14 | Ritmo de persona (pausa entre pasos, input `ritmo`), paciencia 1,5 en todas las esperas, Next 4,5 s, branching 150 s, tope por unidad 90 min, login con más margen; cargador siempre al último commit | Hugo: "mínimo 4 h en la plataforma", "más tiempo a lo frágil", "que el js del README traiga la última versión" |
+| v21.15 | Nunca recargar dentro de las lecciones (Home y volver a entrar), test ya hecho → avanzar, Unit Tests ocultos no cuentan, Time on Task en el tablero, Google Chrome en la nube, reporte completo | 6 zips del 02/11 (v21.14): ~150 atascos tras recargar, 22 en tests ya hechos, 14 Unit Tests inexistentes por cuenta |
 
 ## Hipótesis — resueltas con la corrida de Jose (v21.8)
 1. **✅ ED NO promedia cada intento: vale el último (o el mejor).** Jose: 1.os intentos en 34, 20, 30, 17, 10, 60, 80,
@@ -77,6 +81,13 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 29 | Commit "v21.10" de Hugo con el bot v21.8 (la otra IA lo notó) | no era fallo | Ese commit solo traía la v21.8c (docs). Por eso Roy y Mateo corrieron v21.8. El commit v21.12 (02:28) quedó idéntico a la versión entregada (✓ verificar #15) |
 | 30 | Cuenta 1 de la ejecución nube #8 terminó con error (exit 1) | b | Casi seguro el login. Desde v21.13 el tablero muestra "❌ Login (mensaje de ED)"; falta su zip o la próxima corrida |
 | 31 | Reporte que se queda solo con los últimos 40 fallos y cambia los números (Mateo) | a | Número fijo por fallo (`#num`) y el tablero lo usa (`tableroFalla`) |
+| 32 | Tras recargar la pestaña, ED deja la página sin cargar (tests sin preguntas, pasos sin tarea): ~150 atascos en 6 cuentas | a | Ya no se recarga; Home y volver a entrar (`atascoPaginaSinCargar`, `testVacioAlHome`). La pérdida de la unidad 8 de Mateo (fila 23) era esto mismo |
+| 33 | Test ya hecho: Next no avanza en "Start Test" (22 atascos) | a | Avanza enseguida (`testYaHechoAvanza`) |
+| 34 | Unit Tests "sin hacer" en todas las unidades y ~20 min buscándolos | a | La fila viene oculta (ng-hide): no existen; ya no cuentan (`myProgressUnitTestOculto`). La fila 11 queda resuelta así |
+| 35 | Speaking interactivo/ramificado en la nube: "Speech Recognition session is being established", video 00:00 | b | Google Chrome en vez de Chromium (códecs y WebRTC); confirmar en la próxima corrida |
+| 36 | Nore (High Intermediate 2): tests "Let's review" con ordenar oraciones quedan en 55–84 % (`seq_replay ok:false`) | b | Los dumps están en el reporte; falta revisar el ordenar en tests |
+| 37 | Tareas sin marcar sueltas: Explore (Maria 3, Thiago 2), Watch again, DnD de "Read again" (Nore 3), writing | b | Con `reporte-completo.json` ya no se pierde ningún dump |
+| 38 | Mateo y Roy trabajaron UPB Beginners 1 (el Home mostraba ese curso) | — | Confirma que a Mateo no se le borró nada: su Beginners 2 sigue en 92 %. Falta que Hugo diga qué curso(s) hacer por persona |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests
 - Speaking que exige DECIR una opción ("elegir la respuesta hablando"): ED reconoce voz y el micrófono simulado no dice

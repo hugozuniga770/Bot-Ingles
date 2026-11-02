@@ -66,7 +66,16 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   guardado['ed:nube:cuenta'] = huella;
   log(`Inicio · modo ${MODO} · tope ${MINUTOS} min · ritmo ${RITMO} s entre pasos · memoria previa: ${Object.keys(guardado).length} claves`);
 
-  const browser = await chromium.launch({ headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+  // AJUSTADA v21.15 — en las 6 corridas del 02/11 los videos de speaking salían en 00:00 (el Chromium de Playwright no
+  // trae los códecs de los .mp4 de ED) y el reconocimiento de voz no arrancaba. Las máquinas de GitHub traen Google
+  // Chrome de verdad: se usa ese; si no está (o NAVEGADOR=chromium), el Chromium de siempre.
+  const ARGS = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'];
+  let browser = null;
+  if ((process.env.NAVEGADOR || 'chrome') === 'chrome') {
+    try { browser = await chromium.launch({ channel: 'chrome', headless: true, args: ARGS }); log('🌐 Navegador: Google Chrome (con los códecs de los videos de ED)'); }
+    catch (e) { log('🌐 Google Chrome no está en esta máquina → uso Chromium (' + String(e.message || e).split('\n')[0].slice(0, 90) + ')'); }
+  }
+  if (!browser) browser = await chromium.launch({ headless: true, args: ARGS });
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, locale: 'en-US' });
   await ctx.grantPermissions(['microphone'], { origin: 'https://ed.engdis.com' });
 
@@ -195,6 +204,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         return { completion: num('.home__studentWidgetCompletion'), avg: num('.home__studentWidgetTestScores'), curso }; }).catch(() => ({}));
       if (w.completion == null && sw && sw.widgets) w = sw.widgets;   // si no se pudo releer el Home, lo último que leyó el bot
       if (!w.curso && sw && sw.widgets && sw.widgets.curso) w.curso = sw.widgets.curso;
+      if (!w.curso && curso) w.curso = curso;   // NUEVO v21.15: el curso que leyó el banco (antes salía "no se pudo leer")
       rep = fs.existsSync(path.join(OUT, 'reporte.txt')) ? fs.readFileSync(path.join(OUT, 'reporte.txt'), 'utf8') : '';
     } catch (e) { log('No pude armar el resumen:', e.message); }
     const nfallos = (rep.match(/REPORTE DE FALLOS \((\d+)\)/) || [])[1] || '0';
@@ -283,6 +293,17 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
       if (curso) { banco = Banco.mezclar(Object.assign(Banco.desdeLocal(datos), { curso }), banco || Banco.vacio(curso)); banco.curso = curso; Banco.escribir(BANCO_DIR, banco); }
       const rep = await page.evaluate(() => (window.__ed && window.__ed.reportText ? window.__ed.reportText() : null)).catch(() => null);
       if (rep) fs.writeFileSync(path.join(OUT, 'reporte.txt'), rep);
+      // NUEVO v21.15: el navegador guarda solo los últimos 40 fallos (a todas las cuentas se les perdieron los primeros).
+      // Aquí se juntan TODOS los de la corrida, por su número fijo, en salida/reporte-completo.json.
+      try {
+        const todos = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('ed:report:v1') || '[]'); } catch (e) { return []; } });
+        const RC = path.join(OUT, 'reporte-completo.json');
+        const prev = fs.existsSync(RC) ? JSON.parse(fs.readFileSync(RC, 'utf8')) : [];
+        const ya = new Set(prev.map(e => e.num || e.clave + e.hora));
+        for (const e of todos) { const k = e.num || e.clave + e.hora; if (!ya.has(k)) { ya.add(k); prev.push(e); } }
+        prev.sort((a, b) => (a.num || 0) - (b.num || 0));
+        fs.writeFileSync(RC, JSON.stringify(prev, null, 1));
+      } catch (e) {}
       const sw = await page.evaluate(() => localStorage.getItem('ed:sweep:v1')).catch(() => null);
       if (sw) fs.writeFileSync(path.join(OUT, 'barrido.json'), sw);
       log(`💾 Memoria guardada (${Object.keys(datos).length} claves)`);

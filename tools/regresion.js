@@ -442,7 +442,8 @@ const FIX = {
   // (el conteo "mismo lugar 3 veces SEGUIDAS" se reiniciaba con cada cambio). Ahora cuenta las veces por lugar (v21.11: 2).
   // AJUSTADA v21.12: 42 pasos. Ahora PRIMERO avanza (Drama → Family → Friends), vuelve UNA vez a lo pendiente y a la
   // 2.ª vuelta se va al Home: como mucho dos vueltas por la unidad, nunca sin fin.
-  completarAlterna: { html: COMPL_U12('Lesson 3: Drama', 3, ['done', 'done', 'inProgress', 'inProgress', 'done']), steps: 42,
+  // AJUSTADA v21.15: 18 pasos (un test ya hecho avanza al instante: llega al Home en 18, antes en 42)
+  completarAlterna: { html: COMPL_U12('Lesson 3: Drama', 3, ['done', 'done', 'inProgress', 'inProgress', 'done']), steps: 18,
     ls: { 'ed:sweep:v1': COMPL_SWEEP },
     setup: w => { const d = w.document;
       d.querySelectorAll('.learning__dropDownListW--lessons .learning__dropDownList_item').forEach(it => it.addEventListener('click', () => {
@@ -574,6 +575,34 @@ const FIX = {
     setup: w => w.document.addEventListener('mouseup', () => MARCAR_HECHA(w)), verificar: TABLERO },
   tableroFalla: { html: PRACT_U('Unit 10: Hobbies', 'Lesson 3: Plans for the Weekend', 'Step 2: Practice', '<a class="learning__tasksNav_task learning__tasksNav_task--current">1</a><a class="learning__tasksNav_task">2</a>') + `<input type="text" id="t1">`,
     ls: { 'ed:report:num:v1': '41' }, verificar: TABLERO },
+  // ===================== NUEVO v21.15 — las 6 corridas del 02/11 (Maria, Nore, Chapaquin, Roy, Mateo, Thiago) =====================
+  // PÁGINA QUE ED DEJÓ SIN CARGAR (tras recargar la pestaña): tareas sin ninguna activa y Next que no avanza
+  // (reporte real: Lesson 5 · Step 2: Read again, tareas "1 Ta"…"5 Ta", contador vacío). Antes: avanzaba al paso
+  // siguiente, que tampoco cargaba (lecciones enteras "atascadas"). Ahora: Home y volver a entrar.
+  atascoPaginaSinCargar: { html: U8_HTML(2, 2).replace('<div class="learning__unitW--noTaskInstructions">', `<div class="learning__tasksNav">${[1, 2, 3, 4, 5].map(n => `<a class="learning__tasksNav_task">${n}<span class="learning__tasksNav_taskTooltip">Task</span></a>`).join('')}</div><div class="learning__unitW--noTaskInstructions">`), steps: 7,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 8, lessonsDone: [], unitsDone: [], resultados: [], inicio: 'c1' }) },
+    setup: w => { const d = w.document; d.querySelectorAll('.learning__dropDownListW--steps .learning__dropDownList_item').forEach(it => it.addEventListener('click', () => {
+      d.querySelector('.learning__dropDownListTitleW--steps .learning__dropDownListTitle').textContent = 'Step ' + it.querySelector('.learning__dropDownList_itemNameText').textContent.replace(/^(\d+)\.\s*/, '$1: '); })); } },
+  // TEST VACÍO tras "Start Test" (reporte real de Maria #17, Let's review: sin preguntas, sin Next ni Back, el marco
+  // toeicInTestFR vacío). Antes: 6 pasos sin nada y a la lección siguiente (cuyo test tampoco cargaba). Ahora: Home.
+  testVacioAlHome: { html: U8_HTML(2, 3).replace('<a class="tasksBtnext learning__nextItemLink">Next</a>', '').replace('<div class="learning__unitW--noTaskInstructions"><div class="readingExploreWrapper"><p>Dear Customer Service, ...</p></div></div>', `<div class="learning__tasksNav">${[1, 2, 3, 4, 5].map(n => `<a class="learning__tasksNav_task">${n}</a>`).join('')}</div><div class="learning__practiceArea rightDiv" id="rightDiv"></div><iframe id="toeicInTestFR"></iframe>`), steps: 7,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 8, lessonsDone: [], unitsDone: [], resultados: [], inicio: 'c1' }) } },
+  // TEST YA HECHO: en "Start Test" Next no lleva a ningún lado (22 atascos así). Ahora avanza al momento.
+  testYaHechoAvanza: { html: U8_HTML(2, 3).replace('<div class="learning__unitW--noTaskInstructions"><div class="readingExploreWrapper"><p>Dear Customer Service, ...</p></div></div>', '<div class="testStartW"><a class="btnStartTest">Start Test</a></div>'),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'in_unit', unitTarget: 8, lessonsDone: [], unitsDone: [], resultados: [], inicio: 'c1' }) },
+    setup: w => { const d = w.document;
+      const cur = d.querySelector('.learning__dropDownListW--steps .learning__dropDownList_item--current .progressBar__progress'); cur.className = 'progressBar__progress progressBar__progress--done';
+      d.querySelectorAll('.learning__dropDownListW--lessons .learning__dropDownList_item').forEach(it => it.addEventListener('click', () => {
+        const [n, nombre] = it.querySelector('.learning__dropDownList_itemNameText').textContent.split('. ');
+        d.querySelector('.learning__dropDownListTitleW--lessons .learning__dropDownListTitle').textContent = 'Lesson ' + n + ': ' + nombre; })); } },
+  // MY PROGRESS REAL (02/11): la fila "Unit Test" viene OCULTA (ng-hide) → esa unidad no tiene Unit Test; el encabezado
+  // trae "Time on Task" y "Final Test". Antes: 14 Unit Tests "sin hacer" que no existen (~20 min buscándolos).
+  myProgressUnitTestOculto: { url: 'https://ed.engdis.com/upbstacruz#/MyProgress/Course/523993660/Unit/', html: MP_HTML.replace('<div class="myProgress__main">', '<div class="myProgress__main"><div class="myProgress__header">21 : 30 Hrs. Mins. Time on Task 80 % Final Test</div>'),
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'tests', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: 'https://ed.engdis.com/upbstacruz#/home' }) },
+    setup: w => { MP_SETUP(w); const d = w.document;
+      d.querySelectorAll('.myProgress__unitW .myProgress__unitHeaderIW').forEach(h => h.addEventListener('click', () => { const uw = h.closest('.myProgress__unitW'); if (uw.querySelector('.myProgress__unitTest')) return;
+        uw.insertAdjacentHTML('beforeend', '<div class="myProgress__unitLesson myProgress__unitTest ng-hide" ng-show="unit.Metadata.UnitTest"><div class="myProgress__unitLesson_nameNumberStepsW"><div class="myProgress__unitLesson_statusLabelIW myProgress__unitLesson_nameNumberW"><div class="myProgress__unitLesson_name ng-binding">Unit Test</div></div></div><div class="myProgress__unitLesson_statusW"><div class="myProgress__unitLesson_statusLabelIW myProgress__unitLesson_testScore"><span class="myProgress__unitLesson_testScoreTxt" ng-show="unit.Metadata.UnitTest.grade !== null"><span class="myProgress__unitLesson_testScoreTxt--score ng-binding"></span>/100</span></div><div class="myProgress__unitLesson_statusLabelIW"><div class="myProgress__unitLesson_statusLabelW home__courseListUnitTestButtons"><a class="home__courseListUnitTest_openTest ng-binding ng-hide">Start</a><a class="home__courseListUnitTest_openTestAgain" title="Take again"></a></div></div></div></div>'); })); },
+    verificar: w => { const m = JSON.parse(w.localStorage.getItem('ed:progress:v1') || '{}'); return { lecciones: (m.unidades || []).map(u => (u.lecciones || []).map(l => l.nombre).join(',')), tiempo: m.widgets && m.widgets.tiempo, finalTest: m.widgets && m.widgets.finalTest }; } },
   // ATASCO EN UN PASO SIN TAREAS (Mateo, U8 L2 · Step 1: Explore, "Read the e-mail"; Next no avanza): antes volvía al mismo
   // paso y a la 3.ª abandonaba la UNIDAD (lecciones 2–6 sin hacer). Ahora avanza al paso 2.
   completarAvanzaPaso: { html: U8_HTML(2, 1), steps: 7,

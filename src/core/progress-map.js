@@ -45,6 +45,9 @@ class ProgressMap {
           await press(q('.myProgress__unitHeaderIW', uw) || q('.myProgress__unitHeader', uw) || uw, () => qa('.myProgress__unitLesson', uw).length > 0, 3000);
         }
         for (const L of qa('.myProgress__unitLesson', uw)) {
+          // NUEVO v21.15: la fila "Unit Test" viene con ng-hide (ng-show="unit.Metadata.UnitTest" falso) → esa unidad NO
+          // tiene Unit Test. Antes se leía igual y el bot gastaba ~20 min por cuenta buscando 14 tests que no existen.
+          if (L.classList.contains('ng-hide')) continue;
           const ts = txt(q('.myProgress__unitLesson_testScore', L)), m = ts.match(/(\d{1,3})\s*%/);
           const pasos = qa('.myProgress__unitLesson_step', L), hechos = pasos.filter(p => q('.myProgress__unitLesson_stepProgressIW--done', p)).length;
           const estado = txt(q('.myProgress__unitLesson_statusLabel', L));
@@ -56,6 +59,9 @@ class ProgressMap {
       unidades.push(u);
     }
     const w = { completion: num(q('.home__studentWidgetCompletion .home__studentWidgetData, #home__studentWidgetCompletionData')), avg: num(q('.home__studentWidgetTestScores .home__studentWidgetData, #home__studentWidgetTestScoresData')) };
+    // NUEVO v21.15: "21 : 30 Hrs. Mins. Time on Task" y "80 % Final Test" del encabezado de My Progress (texto real del 02/11)
+    { const T = (document.body && document.body.innerText) || '', mt = T.match(/(\d{1,4})\s*:\s*(\d{1,2})\s*Hrs\.?\s*Mins\.?\s*Time on Task/i), mf = T.match(/(\d{1,3})\s*%\s*Final Test/i);
+      if (mt) w.tiempo = { h: +mt[1], m: +mt[2] }; if (mf) w.finalTest = +mf[1]; }
     const mapa = { fecha: new Date().toISOString(), widgets: w, unidades };
     this.set(mapa);
     const bajos = this.testsBajos(mapa), pend = this.leccionesPendientes(mapa);

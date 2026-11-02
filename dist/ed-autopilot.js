@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.14  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.15  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.14';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.15';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -1054,6 +1054,9 @@
             await press(q('.myProgress__unitHeaderIW', uw) || q('.myProgress__unitHeader', uw) || uw, () => qa('.myProgress__unitLesson', uw).length > 0, 3000);
           }
           for (const L of qa('.myProgress__unitLesson', uw)) {
+            // NUEVO v21.15: la fila "Unit Test" viene con ng-hide (ng-show="unit.Metadata.UnitTest" falso) → esa unidad NO
+            // tiene Unit Test. Antes se leía igual y el bot gastaba ~20 min por cuenta buscando 14 tests que no existen.
+            if (L.classList.contains('ng-hide')) continue;
             const ts = txt(q('.myProgress__unitLesson_testScore', L)), m = ts.match(/(\d{1,3})\s*%/);
             const pasos = qa('.myProgress__unitLesson_step', L), hechos = pasos.filter(p => q('.myProgress__unitLesson_stepProgressIW--done', p)).length;
             const estado = txt(q('.myProgress__unitLesson_statusLabel', L));
@@ -1065,6 +1068,9 @@
         unidades.push(u);
       }
       const w = { completion: num(q('.home__studentWidgetCompletion .home__studentWidgetData, #home__studentWidgetCompletionData')), avg: num(q('.home__studentWidgetTestScores .home__studentWidgetData, #home__studentWidgetTestScoresData')) };
+      // NUEVO v21.15: "21 : 30 Hrs. Mins. Time on Task" y "80 % Final Test" del encabezado de My Progress (texto real del 02/11)
+      { const T = (document.body && document.body.innerText) || '', mt = T.match(/(\d{1,4})\s*:\s*(\d{1,2})\s*Hrs\.?\s*Mins\.?\s*Time on Task/i), mf = T.match(/(\d{1,3})\s*%\s*Final Test/i);
+        if (mt) w.tiempo = { h: +mt[1], m: +mt[2] }; if (mf) w.finalTest = +mf[1]; }
       const mapa = { fecha: new Date().toISOString(), widgets: w, unidades };
       this.set(mapa);
       const bajos = this.testsBajos(mapa), pend = this.leccionesPendientes(mapa);
@@ -1348,6 +1354,16 @@
           // la unidad (lecciones 2–6 sin tocar). Igual con Roy y Jose en el test ya hecho de la lección 1 (U3, U5, U7,
           // U8): volvía al Explore pendiente y abandonaba. Ahora PRIMERO se avanza (siguiente paso; si es el último, la
           // siguiente lección) y solo al final de la unidad se vuelve a lo pendiente (una vez por lugar).
+          // NUEVO v21.15 — 6 corridas del 02/11: tras recargar, ED deja la página SIN CARGAR (test sin preguntas ni botones,
+          // pasos con tareas pero ninguna activa y Next que no avanza). Avanzar por el desplegable no sirve (los pasos
+          // siguientes tampoco cargan: así se marcaban lecciones enteras como atascadas). Lo que lo arreglaba SIEMPRE era
+          // ir al Home y volver a entrar → eso primero, una vez por lugar; si vuelve a pasar ahí, se avanza como antes.
+          const roto = !TestManager.isTestStart() && ((!NavigationManager.curTask() && NavigationManager.tasks().length > 0) || (TestManager.inTest() && MainEngine.detectKind() === 'mcq_default'));
+          if (roto && !Corrida.fallos('rehome|' + dondeAhora)) {
+            Corrida.fallo('rehome|' + dondeAhora);
+            log('🏠 ED dejó esta página sin cargar → voy al Home y vuelvo a entrar');
+            return Object.assign(await this.irHome(), { motivo: 'pagina_sin_cargar' });
+          }
           const a = await this.avanzar();
           if (a) { log('🧭 Atasco → avanzo a', a); return { did: 'completar_avance', a }; }
           if (!mismo) { const r = await DropdownNav.gotoNextIncomplete(); if (r) { log('🧭 Atasco → voy a lo pendiente:', r); return { did: 'completar_salto', a: r }; } }
@@ -3331,10 +3347,18 @@
         // NUEVO v21.9 — corrida de Jose (01/11): tras rendirse con un test (97 % tras los reintentos), "voy a lo
         // pendiente" lo volvía a abrir y lo hacía ENTERO 4 veces más (~10 min y 4 intentos más en ED, que podrían
         // bajar la nota si ED cuenta el último). Si ya me rendí con él en esta corrida → no lo empiezo otra vez.
+        // NUEVO v21.15 — en la pantalla "Start Test" de un test ya hecho, Next no lleva a ningún lado: el bot repetía
+        // "test_ya_terminado" 6 veces (~1 min) hasta el atasco (22 veces en las 6 corridas). Ahora avanza enseguida.
+        const salir = async () => {
+          const sg = NavigationManager.screenSig();
+          await NavigationManager.goNext();
+          if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; } }
+          return null;
+        };
         if (TestSweep.rendido()) {
           log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
-          await NavigationManager.goNext();
-          return { did: 'test_rendido_no_repito', key };
+          const a = await salir();
+          return Object.assign({ did: 'test_rendido_no_repito', key }, a ? { avance: a } : {});
         }
         // NUEVO v21.7: un test ya terminado NO se rehace (cada intento parece contar en el promedio de ED),
         // salvo que sepamos que quedó < 100 %.
@@ -3342,8 +3366,8 @@
           const sc = StorageManager.getScores()[key];
           if (!(sc != null && sc < 100)) {
             log('⏭️ Test ya terminado (' + (sc != null ? sc + ' %' : 'puntaje no conocido') + ') → no lo rehago:', key);
-            await NavigationManager.goNext();
-            return { did: 'test_ya_terminado', key, pct: sc ?? null };
+            const a = await salir();
+            return Object.assign({ did: 'test_ya_terminado', key, pct: sc ?? null }, a ? { avance: a } : {});
           }
         }
         log('🚀 [Test Start] Iniciando test:', key);
@@ -3448,6 +3472,8 @@
               Corrida.fallo('recarga|' + clave);
               log('🔄 El test no muestra preguntas → recargo la página una vez');
               try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
+              // AJUSTADA v21.15: recargar NO lo arregla (ED queda sin cargar); con el barrido → Home y volver a entrar
+              if (TestSweep.active()) { log('🏠 El test no muestra preguntas → voy al Home y vuelvo a entrar'); await TestSweep.irHome(); return { did: 'test_sin_preguntas_al_home', veces }; }
               (window.__edRecargar || (() => location.reload()))(); await sleep(8000);
               return { did: 'test_sin_preguntas_recargo', veces };
             }
@@ -3565,7 +3591,10 @@
         if (++n > CFG.maxIterations && !TestSweep.active()) { this._running = false; break; }   // AJUSTADA v20.8: sin tope en el barrido
         // NUEVO v21.1: con el cargador, recargar cada CFG.reloadEveryMin minutos (libera memoria; el bot retoma solo)
         // AJUSTADA v21.7: nunca a mitad de un test (se perdía la cuenta de intentos)
-        if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
+        // AJUSTADA v21.15 (6 corridas del 02/11): recargar la página dentro de las lecciones deja a ED SIN CARGAR (tests sin
+        // preguntas y pasos sin tarea; ~150 atascos y lecciones enteras perdidas). Se recuperaba SIEMPRE al ir al Home y
+        // volver a entrar → con el barrido/completar activo se hace eso; sin barrido ya no se recarga.
+        if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest() && TestSweep.active()) { log('♻️ Refresco: voy al Home y vuelvo a entrar (libera memoria sin romper ED)'); await TestSweep.irHome(); return; }
         // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
         try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
         await sleep(CFG.tickMs + pausaPaso());   // AJUSTADA v21.14: + pausa de persona (ver pausaPaso)

@@ -272,13 +272,13 @@
   "completarSaltoOtraUnidad": {
     "kind": "test_start",
     "r": "{\"did\":\"sweep_home\"}",
-    "trace": "click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click A:Home",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click learning__dropDownList_item:3. DramaComplet | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Call- | click A:Home",
     "ls": null
   },
   "completarAlterna": {
     "kind": "test_start",
     "r": "{\"did\":\"sweep_home\"}",
-    "trace": "click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click learning__dropDownList_item:3. DramaIn Prog | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click A:Home",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click learning__dropDownList_item:3. DramaIn Prog | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click A:Home",
     "ls": null
   },
   "replayLegacyDDLNouns": {
@@ -485,6 +485,42 @@
         "motivo": "tarea_no_marcada",
         "reporte": 42
       }
+    }
+  },
+  "atascoPaginaSinCargar": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"sweep_home\",\"motivo\":\"pagina_sin_cargar\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click A:Home",
+    "ls": null
+  },
+  "testVacioAlHome": {
+    "kind": "test_question",
+    "r": "{\"did\":\"sweep_home\",\"motivo\":\"pagina_sin_cargar\"}",
+    "trace": "click A:Home",
+    "ls": null
+  },
+  "testYaHechoAvanza": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_ya_terminado\",\"key\":\"Lesson 2: Grumble's Department Store||Step 3: Test\",\"pct\":null,\"avance\":\"lección 3\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 2: Grumb | click learning__dropDownList_item:3. Don't Do Tha",
+    "ls": null
+  },
+  "myProgressUnitTestOculto": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"mapa_leido\",\"tests_bajos\":1}",
+    "trace": "click myProgress__unitHeaderIW:Unit 1Couples10 | click myProgress__unitHeaderIW:Unit 2Sport And",
+    "ls": null,
+    "v": {
+      "lecciones": [
+        "Nick and Emily,A New Acquaintance,Divorced",
+        "Food,Gym",
+        ""
+      ],
+      "tiempo": {
+        "h": 21,
+        "m": 30
+      },
+      "finalTest": 80
     }
   },
   "completarAvanzaPaso": {
