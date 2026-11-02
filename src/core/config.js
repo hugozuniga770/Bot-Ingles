@@ -31,14 +31,19 @@ const CFG = Object.assign({
   verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
   fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
   reloadEveryMin: 40,
-  maxMinPorUnidad: 45,       // AJUSTADA v21.7 (antes 150): una unidad normal toma ~8 min; 45 es tope de sobra        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
-  cfgV: 4                    // versión de la config (para migrar valores viejos guardados)
+  maxMinPorUnidad: 90,       // AJUSTADA v21.14 (antes 45): con el ritmo de persona una unidad tarda más
+  // NUEVO v21.14 (Hugo, 02/11: "mínimo una persona trabaja 4 horas en la plataforma; dales más tiempo a las cosas frágiles"):
+  paciencia: 1.5,            // TODA espera "hasta que cargue/aparezca" dura 1,5 veces más (si aparece antes, sigue enseguida)
+  pausaPaso: 5,              // segundos (en promedio, al azar entre la mitad y 1,5 veces) entre un paso y el siguiente
+  cfgV: 5                    // versión de la config (para migrar valores viejos guardados)
 }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
 // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
 if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
 if (!(CFG.cfgV >= 3)) { CFG.testExpress = false; CFG.retakeDoneTests = false; CFG.maxMinPorUnidad = 45; CFG.cfgV = 3; }   // NUEVO v21.7
 // NUEVO v21.11 — regla 4 de Hugo: lo que falla 2 veces en una corrida no se reintenta (un test: 2 reintentos)
 if (!(CFG.cfgV >= 4)) { if (CFG.maxTestAttempts > 2) CFG.maxTestAttempts = 2; CFG.cfgV = 4; }
+// NUEVO v21.14: con el ritmo de persona, el tope por unidad sube a 90 min (si tenías 45 guardado)
+if (!(CFG.cfgV >= 5)) { if (!(CFG.maxMinPorUnidad >= 90)) CFG.maxMinPorUnidad = 90; CFG.cfgV = 5; }
 
 const K_ANS = 'ed:answers:v1';
 const K_ANS2 = 'ed:testAns:v2';

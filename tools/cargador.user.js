@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         ED-Autopilot (cargador)
 // @namespace    hugozuniga770
-// @version      1.1
+// @version      1.2
+// @updateURL    https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/tools/cargador.user.js
+// @downloadURL  https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/tools/cargador.user.js
 // @description  Carga el bot de github.com/hugozuniga770/Bot-Ingles en cada página de English Discoveries.
 //               El barrido de tests y el bot siguen solos aunque ED cambie de página o se recargue la pestaña.
 // @match        https://ed.engdis.com/*
@@ -30,11 +32,28 @@
   } catch (e) {}
 
   // --- Cargar el bot cuando la página esté lista ---
-  const cargar = () => setTimeout(() => {
-    fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-autopilot.js?t=' + Date.now())
-      .then(r => { if (!r.ok) throw new Error('GitHub respondió ' + r.status + ' (¿repo privado?)'); return r.text(); })
-      .then(code => { (0, eval)(code); })
-      .catch(e => console.error('[ED cargador]', e.message));
+  // v1.2: SIEMPRE la última versión. raw.githubusercontent.com guarda copias de la rama ~5 min; se pregunta a GitHub
+  // cuál es el último commit y se carga el bot de ESE commit (una dirección que nunca queda vieja). La respuesta se
+  // recuerda 2 min por pestaña (GitHub deja 60 preguntas por hora). Si GitHub no responde, se usa la rama como antes.
+  // Con @updateURL, Tampermonkey actualiza solo este cargador.
+  const REPO = 'hugozuniga770/Bot-Ingles';
+  const ultimoCommit = async () => {
+    try { const s = JSON.parse(sessionStorage.getItem('ed:sha') || 'null'); if (s && Date.now() - s.t < 120000) return s.sha; } catch (e) {}
+    try {
+      const c = await (await fetch('https://api.github.com/repos/' + REPO + '/commits/main', { cache: 'no-store' })).json();
+      if (c && c.sha) { try { sessionStorage.setItem('ed:sha', JSON.stringify({ sha: c.sha, t: Date.now() })); } catch (e) {} return c.sha; }
+    } catch (e) {}
+    return null;
+  };
+  const cargar = () => setTimeout(async () => {
+    try {
+      const sha = await ultimoCommit();
+      const url = sha ? 'https://raw.githubusercontent.com/' + REPO + '/' + sha + '/dist/ed-autopilot.js'
+                      : 'https://raw.githubusercontent.com/' + REPO + '/main/dist/ed-autopilot.js?t=' + Date.now();
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error('GitHub respondió ' + r.status + ' (¿repo privado?)');
+      (0, eval)(await r.text());
+    } catch (e) { console.error('[ED cargador]', e.message); }
   }, 1500);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', cargar); else cargar();
 })();

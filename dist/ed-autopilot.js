@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.13  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.14  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.13';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.14';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -80,14 +80,19 @@
     verifyTasks: true,         // NUEVO v20.8: comprobar que ED marcó la tarea; si no, 1 reintento completo y al reporte
     fakeMic: true,             // NUEVO v21.1: si NO hay micrófono, simular uno (ver utils/fake-mic.js)
     reloadEveryMin: 40,
-    maxMinPorUnidad: 45,       // AJUSTADA v21.7 (antes 150): una unidad normal toma ~8 min; 45 es tope de sobra        // NUEVO v21.1: con el cargador de Tampermonkey, recargar la pestaña cada N min (0 = nunca)
-    cfgV: 4                    // versión de la config (para migrar valores viejos guardados)
+    maxMinPorUnidad: 90,       // AJUSTADA v21.14 (antes 45): con el ritmo de persona una unidad tarda más
+    // NUEVO v21.14 (Hugo, 02/11: "mínimo una persona trabaja 4 horas en la plataforma; dales más tiempo a las cosas frágiles"):
+    paciencia: 1.5,            // TODA espera "hasta que cargue/aparezca" dura 1,5 veces más (si aparece antes, sigue enseguida)
+    pausaPaso: 5,              // segundos (en promedio, al azar entre la mitad y 1,5 veces) entre un paso y el siguiente
+    cfgV: 5                    // versión de la config (para migrar valores viejos guardados)
   }, (() => { try { return JSON.parse(localStorage.getItem(K_CFG) || '{}'); } catch (e) { return {}; } })());
   // NUEVO v20.7: __ed.cfg() guardaba TODA la config, incluido tickMs: 1200. Se migra una vez al nuevo valor.
   if (!(CFG.cfgV >= 2)) { if (CFG.tickMs === 1200) CFG.tickMs = 700; CFG.cfgV = 2; }
   if (!(CFG.cfgV >= 3)) { CFG.testExpress = false; CFG.retakeDoneTests = false; CFG.maxMinPorUnidad = 45; CFG.cfgV = 3; }   // NUEVO v21.7
   // NUEVO v21.11 — regla 4 de Hugo: lo que falla 2 veces en una corrida no se reintenta (un test: 2 reintentos)
   if (!(CFG.cfgV >= 4)) { if (CFG.maxTestAttempts > 2) CFG.maxTestAttempts = 2; CFG.cfgV = 4; }
+  // NUEVO v21.14: con el ritmo de persona, el tope por unidad sube a 90 min (si tenías 45 guardado)
+  if (!(CFG.cfgV >= 5)) { if (!(CFG.maxMinPorUnidad >= 90)) CFG.maxMinPorUnidad = 90; CFG.cfgV = 5; }
 
   const K_ANS = 'ed:answers:v1';
   const K_ANS2 = 'ed:testAns:v2';
@@ -148,9 +153,11 @@
     return txt(best || all[0]);
   };
 
+  // AJUSTADA v21.14 (Hugo: "dales más tiempo a las cosas frágiles para cargar"): el tope de TODA espera se multiplica
+  // por CFG.paciencia (1,5). Si lo esperado aparece antes, sigue enseguida: no frena lo que ya funciona.
   async function waitFor(fn, timeout = 6000, every = 250) {
-    const t0 = Date.now();
-    while (Date.now() - t0 < timeout) {
+    const t0 = Date.now(), lim = timeout * ((typeof CFG !== 'undefined' && CFG.paciencia > 0) ? CFG.paciencia : 1);
+    while (Date.now() - t0 < lim) {
       try { const v = fn(); if (v) return v; } catch (e) {}
       await sleep(every);
     }
@@ -867,7 +874,8 @@
       click(nx);
       // AJUSTADA v20.7: antes espera FIJA de 1,8 s (2,5 s en Submit). Ahora espera solo hasta que la
       // pantalla cambie o aparezca un popup (mismo tope), + un respiro corto para que termine de dibujarse.
-      const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 2500 : 1800, 150);
+      // AJUSTADA v21.14: tope 3 s / 4 s (× paciencia): si ED tarda en cambiar de pantalla, no se pulsa Next dos veces
+      const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 4000 : 3000, 150);
       if (cambio) await sleep(isSubmit ? 700 : 350);
       await this.handleModals();
       return true;
@@ -2182,7 +2190,7 @@
       let nStart = 0, nGrabar = 0, ultimo = 0;
       const st = await waitFor(startHabil, 20000, 400);
       if (st) { await press(st, () => !startHabil() || hecho(), 3000); nStart++; ultimo = Date.now(); pasos.push('start'); }
-      while (Date.now() - t0 < 100000 && !hecho()) {
+      while (Date.now() - t0 < 150000 && !hecho()) {   // AJUSTADA v21.14: 150 s (antes 100) para que ED procese la grabación
         const r = grabar();
         if (r && nGrabar < 4 && Date.now() - ultimo > 6000) {
           await press(r, () => hecho() || /record|activ|pressed/i.test(r.className + ' ' + (r.parentElement?.className || '')), 3000);
@@ -3537,6 +3545,13 @@
   // =====================================================================
 
   let hud = null;
+  // NUEVO v21.14 — ritmo de persona (Hugo: "mínimo una persona trabaja 4 horas en la plataforma"): entre un paso y el
+  // siguiente, una pausa al azar de la mitad a 1,5 veces CFG.pausaPaso (5 s). La nube la cambia con 'ed:ritmo:v1'.
+  const pausaPaso = () => {
+    let s = CFG.pausaPaso;
+    try { const r = localStorage.getItem('ed:ritmo:v1'); if (r !== null && r !== '' && !isNaN(+r)) s = +r; } catch (e) {}
+    return Math.max(0, s || 0) * 1000 * (0.5 + Math.random());
+  };
   window.__ed = {
     _v: V, _running: false, _hudTimer: null, _lastMsg: '',
     async auto() {
@@ -3553,7 +3568,7 @@
         if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
         // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
         try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
-        await sleep(CFG.tickMs);
+        await sleep(CFG.tickMs + pausaPaso());   // AJUSTADA v21.14: + pausa de persona (ver pausaPaso)
       }
       log('⏸ Bot detenido.');
       if (Reporter.count()) { log('📝 Hay ' + Reporter.count() + ' fallos anotados. Botón 📋 de la cajita o __ed.report()'); Reporter.copy(); }   // NUEVO v20.8

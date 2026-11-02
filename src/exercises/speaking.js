@@ -135,7 +135,7 @@ class SpeakingSolver {
     let nStart = 0, nGrabar = 0, ultimo = 0;
     const st = await waitFor(startHabil, 20000, 400);
     if (st) { await press(st, () => !startHabil() || hecho(), 3000); nStart++; ultimo = Date.now(); pasos.push('start'); }
-    while (Date.now() - t0 < 100000 && !hecho()) {
+    while (Date.now() - t0 < 150000 && !hecho()) {   // AJUSTADA v21.14: 150 s (antes 100) para que ED procese la grabación
       const r = grabar();
       if (r && nGrabar < 4 && Date.now() - ultimo > 6000) {
         await press(r, () => hecho() || /record|activ|pressed/i.test(r.className + ' ' + (r.parentElement?.className || '')), 3000);

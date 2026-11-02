@@ -32,6 +32,9 @@ GitHub → **Actions → nube → Run workflow**:
   Lo que no logra queda en el reporte y sigue con lo siguiente.
 - `barrer`: solo busca y rehace tests < 100, lección por lección y unidad por unidad.
 - `auto`: entra a la lección donde ibas (botón del Home) y sigue.
+- **ritmo** (NUEVO v21.14): segundos, en promedio, entre un paso y otro (pausa al azar de la mitad a 1,5 veces).
+  `5` (por defecto) es ritmo de persona: un curso grande lleva ~4 h. Más alto = más lento; `0` = lo más rápido.
+  El tablero muestra cuánto tiempo lleva en la plataforma.
 
 ## 3. Ver qué pasó
 Lo más simple: en la ejecución, abajo en **Artifacts**, descarga **cuenta-1** (un zip) y pásaselo a Claude tal cual.

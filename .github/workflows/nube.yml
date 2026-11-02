@@ -29,6 +29,9 @@ on:
       minutos:
         description: 'Minutos de trabajo (máx. 330)'
         default: '330'
+      ritmo:
+        description: 'Segundos (promedio) entre un paso y otro: ritmo de persona. 5 ≈ 4 h para un curso grande; 0 = lo más rápido'
+        default: '5'
   # Para que se relance solo cada 6 h (todas las cuentas), quita el # de las 2 líneas siguientes:
   # schedule:
   #   - cron: '0 */6 * * *'
@@ -101,6 +104,7 @@ jobs:
           ED_PASS: ${{ secrets[format('ED_PASS_{0}', matrix.cuenta)] }}
           MODO: ${{ github.event.inputs.modo || 'completar' }}
           MINUTOS: ${{ github.event.inputs.minutos || '330' }}
+          RITMO: ${{ github.event.inputs.ritmo || '5' }}
       - name: Guardar la memoria del bot
         if: always()
         uses: actions/cache/save@v4

@@ -1,5 +1,24 @@
 # Changelog
 
+## v21.14 — ritmo de persona y más tiempo para lo frágil; el cargador siempre trae la última versión (Hugo, 02/11)
+Hugo: "mínimo una persona trabaja 4 horas en la plataforma; dales más tiempo a las cosas frágiles para cargar" y
+"que el js del README traiga siempre la última versión".
+- **Paciencia** (`CFG.paciencia = 1.5`, en `waitFor`): TODA espera "hasta que cargue/aparezca" tiene 1,5 veces más
+  margen. Si lo esperado aparece antes, sigue enseguida (no frena lo que ya funciona). Incluye los clics verificados
+  (`press`), desplegables, Home, My Progress, tests y review, video, tarjetas, memoria, imágenes, speaking.
+- **Next**: espera hasta 4,5 s (Submit 6 s) a que cambie la pantalla (antes 1,8 / 2,5 s): evita pulsar Next dos veces.
+- **Branching speaking** hasta 150 s (antes 100) para que ED procese la grabación.
+- **Ritmo de persona** (`CFG.pausaPaso = 5`, `__ed.auto()`): pausa al azar de 2,5 a 7,5 s entre pasos. Con la
+  corrida de Mateo (1751 pasos en 93 min) eso da ~4 h. En la nube se cambia en Actions → nube → **ritmo**
+  (`ed:ritmo:v1`); 0 = lo más rápido. El tablero muestra "⏱ X h Y min en la plataforma".
+- **Tope por unidad** 90 min (antes 45; migración `cfgV 5`), porque con el ritmo nuevo una unidad tarda más.
+- **Nube**: login con más margen (página 90 s, formulario 40 s, entrar 90 s, Home 8 s).
+- **Cargador siempre al día** (README opción A y `tools/cargador.user.js` v1.2): pregunta a GitHub el último commit y
+  carga el bot de ESE commit (raw por rama podía traer una copia de hasta ~5 min). Si GitHub no responde, usa la rama
+  como antes. El cargador de Tampermonkey trae `@updateURL`: desde la v1.2 se actualiza solo.
+- Pruebas: las 80 pantallas no cambian; los dos cargadores probados en Chrome (con y sin respuesta de GitHub);
+  `probar-nube.sh` con ritmo 5 s. **Solo simulación.**
+
 ## v21.13 — tablero en vivo con checks y banco de respuestas por curso (ideas de Hugo, 02/11)
 - **Tablero en vivo** (`cloud/tablero.js`, `src/utils/tablero.js`): un issue del repo ("📊 Tablero del bot") con un
   cuadro por cuenta, con su NOMBRE, que se actualiza cada ~3 min: fila de cuadritos `1 · Login → U1 → U2 → …` con

@@ -7,6 +7,13 @@
 // =====================================================================
 
 let hud = null;
+// NUEVO v21.14 — ritmo de persona (Hugo: "mínimo una persona trabaja 4 horas en la plataforma"): entre un paso y el
+// siguiente, una pausa al azar de la mitad a 1,5 veces CFG.pausaPaso (5 s). La nube la cambia con 'ed:ritmo:v1'.
+const pausaPaso = () => {
+  let s = CFG.pausaPaso;
+  try { const r = localStorage.getItem('ed:ritmo:v1'); if (r !== null && r !== '' && !isNaN(+r)) s = +r; } catch (e) {}
+  return Math.max(0, s || 0) * 1000 * (0.5 + Math.random());
+};
 window.__ed = {
   _v: V, _running: false, _hudTimer: null, _lastMsg: '',
   async auto() {
@@ -23,7 +30,7 @@ window.__ed = {
       if (window.__edCargador && CFG.reloadEveryMin > 0 && Date.now() - t0 > CFG.reloadEveryMin * 60000 && !TestManager.inTest()) { log('♻️ Recargo la pestaña para liberar memoria (sigo solo al volver)'); location.reload(); return; }
       // AJUSTADA v21.1: el paso se imprime como TEXTO (no objetos) → la consola gasta mucha menos memoria
       try { const r = await MainEngine.step(); log('#' + n, JSON.stringify(r).slice(0, 220)); } catch (e) { errLog('🛑 BOT DETENIDO:', e.message); this._lastMsg = e.message; Reporter.capture('error', e.message); this._running = false; break; }
-      await sleep(CFG.tickMs);
+      await sleep(CFG.tickMs + pausaPaso());   // AJUSTADA v21.14: + pausa de persona (ver pausaPaso)
     }
     log('⏸ Bot detenido.');
     if (Reporter.count()) { log('📝 Hay ' + Reporter.count() + ' fallos anotados. Botón 📋 de la cajita o __ed.report()'); Reporter.copy(); }   // NUEVO v20.8

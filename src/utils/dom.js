@@ -35,9 +35,11 @@ const mcqQuestionText = set => {
   return txt(best || all[0]);
 };
 
+// AJUSTADA v21.14 (Hugo: "dales más tiempo a las cosas frágiles para cargar"): el tope de TODA espera se multiplica
+// por CFG.paciencia (1,5). Si lo esperado aparece antes, sigue enseguida: no frena lo que ya funciona.
 async function waitFor(fn, timeout = 6000, every = 250) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeout) {
+  const t0 = Date.now(), lim = timeout * ((typeof CFG !== 'undefined' && CFG.paciencia > 0) ? CFG.paciencia : 1);
+  while (Date.now() - t0 < lim) {
     try { const v = fn(); if (v) return v; } catch (e) {}
     await sleep(every);
   }

@@ -5,7 +5,7 @@
 
 Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prácticas de cada lección y, en los tests, envía un primer intento, cosecha las respuestas correctas del *Review* y repite el test con ellas.
 
-**Versión actual: v21.13** — tablero en vivo con checks por cuenta (Issues → "📊 Tablero del bot") y banco de respuestas por curso; completa cursos sola en la nube (probado con v21.8 en 3 cuentas: hasta 97 %, promedio 100 %); ahora también videos y tarjetas de los "Explore", juego de memoria, speaking interactivo y ramificado, el writing de corregir, Unit Tests, y rehace solo los tests < 100 (ver `CHANGELOG.md`).
+**Versión actual: v21.14** — trabaja a ritmo de persona (pausas entre pasos, esperas más largas para lo que tarda en cargar); tablero en vivo con checks por cuenta (Issues → "📊 Tablero del bot") y banco de respuestas por curso; completa cursos sola en la nube (probado con v21.8 en 3 cuentas: hasta 97 %, promedio 100 %); ahora también videos y tarjetas de los "Explore", juego de memoria, speaking interactivo y ramificado, el writing de corregir, Unit Tests, y rehace solo los tests < 100 (ver `CHANGELOG.md`).
 
 ---
 
@@ -16,13 +16,15 @@ Bot de consola para **English Discoveries** (UPB Santa Cruz). Resuelve las prác
 En la pestaña de English Discoveries, abre la consola (**F12 → Console**) y pega:
 
 ```js
-fetch('https://raw.githubusercontent.com/hugozuniga770/Bot-Ingles/main/dist/ed-autopilot.js?t='+Date.now()).then(r=>{if(!r.ok)throw new Error('GitHub respondió '+r.status+' (¿repo privado o archivo no subido?)');return r.text()}).then(eval).catch(e=>console.error('[ED loader]',e.message))
+(async()=>{const R='hugozuniga770/Bot-Ingles';let u='https://raw.githubusercontent.com/'+R+'/main/dist/ed-autopilot.js?t='+Date.now();try{const c=await(await fetch('https://api.github.com/repos/'+R+'/commits/main',{cache:'no-store'})).json();if(c&&c.sha)u='https://raw.githubusercontent.com/'+R+'/'+c.sha+'/dist/ed-autopilot.js'}catch(e){}const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error('GitHub respondió '+r.status+' (¿repo privado o archivo no subido?)');(0,eval)(await r.text())})().catch(e=>console.error('[ED loader]',e.message))
 ```
 
 Luego `__ed.auto()` para arrancar (o el botón **Iniciar** de la cajita flotante).
 
+- **Siempre carga la ÚLTIMA versión** (AJUSTADA v21.14): primero le pregunta a GitHub cuál es el último commit y
+  carga el bot de ESE commit, así no te llega una copia vieja guardada. (La línea vieja podía tardar ~5 min en
+  traer la versión nueva después de un `git push`.) Confirma la versión en la cajita (`ED v21.14 OOP`).
 - El repo tiene que ser **público** para que esto funcione. Si es privado, GitHub responde 404 (ver opción C).
-- Tras un `git push`, GitHub puede tardar hasta ~5 min en servir la versión nueva. Confirma la versión en la cajita (`ED v21.13 OOP`).
 - La primera vez Chrome pide escribir `allow pasting` en la consola.
 
 ### Opción E — En la nube, sin tu PC
@@ -33,6 +35,8 @@ Ver [`docs/nube.md`](docs/nube.md): Secrets `ED_USER_1` / `ED_PASS_1` → Action
 
 1. Instala la extensión **Tampermonkey** en Chrome.
 2. Tampermonkey → *Crear un nuevo script* → borra todo y pega el contenido de [`tools/cargador.user.js`](tools/cargador.user.js) → Guardar.
+   **Si ya lo tenías, reemplázalo UNA vez por el nuevo (v1.2):** siempre carga la última versión del bot y, desde
+   ahí, Tampermonkey actualiza solo el cargador.
 3. Desde ahí el bot se carga solo en cada página de ED (aparece la cajita). Arranca con **Iniciar** o Alt+E.
    El barrido (`__ed.barrer()`) sigue solo aunque ED cambie de página.
 

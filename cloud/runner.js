@@ -25,6 +25,8 @@ const NOMBRE = deLista ? deLista.nombre : `cuenta ${CUENTA}`;
 if (process.env.GITHUB_ACTIONS) for (const v of [USER, PASS]) if (v) console.log('::add-mask::' + v);
 const MODO = (process.env.MODO || 'completar').toLowerCase();      // completar | barrer | auto
 const MINUTOS = +(process.env.MINUTOS || 330);                        // GitHub corta a los 360
+// NUEVO v21.14: segundos (promedio) entre pasos del bot = ritmo de persona (Hugo: ~4 h de trabajo por cuenta)
+const RITMO = process.env.RITMO != null && process.env.RITMO !== '' && !isNaN(+process.env.RITMO) ? String(+process.env.RITMO) : '5';
 const LOGIN = process.env.ED_LOGIN || 'https://ed.engdis.com/upbstacruz#/login';
 const RAIZ = path.join(__dirname, '..');
 const EST = path.join(RAIZ, 'estado', `cuenta-${CUENTA}.json`);
@@ -62,20 +64,21 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     log('⚠️ La memoria guardada era de OTRA persona (cambió la línea de esta cuenta en ED_CUENTAS): conservo solo las respuestas.');
   }
   guardado['ed:nube:cuenta'] = huella;
-  log(`Inicio · modo ${MODO} · tope ${MINUTOS} min · memoria previa: ${Object.keys(guardado).length} claves`);
+  log(`Inicio · modo ${MODO} · tope ${MINUTOS} min · ritmo ${RITMO} s entre pasos · memoria previa: ${Object.keys(guardado).length} claves`);
 
   const browser = await chromium.launch({ headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, locale: 'en-US' });
   await ctx.grantPermissions(['microphone'], { origin: 'https://ed.engdis.com' });
 
   // En CADA página: restaurar memoria del bot, marcar "cargador" (recarga y retoma solo) e inyectar el bot
-  await ctx.addInitScript(({ datos, bot, modo, extra }) => {
+  await ctx.addInitScript(({ datos, bot, modo, extra, ritmo }) => {
     // AJUSTADA v21.6: solo en las páginas de ED (antes también en about:blank → fallo falso en el reporte)
     if (!(/(^|\.)engdis\.com$/.test(location.hostname) || (extra && location.hostname === extra))) return;
     try {
       {
         for (const [k, v] of Object.entries(datos || {})) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
         localStorage.setItem('ed:running:v1', '1');
+        localStorage.setItem('ed:ritmo:v1', ritmo);   // NUEVO v21.14
         // Una vez por ejecución (no en cada página): arrancar el modo pedido desde el Home
         if ((modo === 'barrer' || modo === 'completar') && !sessionStorage.getItem('ed:nube:arrancado')) {
           sessionStorage.setItem('ed:nube:arrancado', '1');
@@ -87,7 +90,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     window.__edCargador = true; window.__edNube = true;
     const go = () => setTimeout(() => { try { (0, eval)(bot); } catch (e) { console.error('[ED nube] no pude cargar el bot', e); } }, 1500);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
-  }, { datos: guardado, bot: BOT, modo: MODO, extra: process.env.ED_HOST_EXTRA || '' });
+  }, { datos: guardado, bot: BOT, modo: MODO, extra: process.env.ED_HOST_EXTRA || '', ritmo: RITMO });
 
   let page = await ctx.newPage();
   const PUB = new Publicador({ token: process.env.GH_TOKEN, repo: process.env.GITHUB_REPOSITORY, issue: process.env.TABLERO_ISSUE, cuenta: CUENTA });
@@ -105,9 +108,9 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   // OJO: hay un input[name=foilautofill] escondido (trampa para autocompletar) que NO se toca.
   const login = async () => {
     log('Abriendo login…');
-    await page.goto(LOGIN, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(LOGIN, { waitUntil: 'domcontentloaded', timeout: 90000 });   // AJUSTADA v21.14: 90 s (antes 60)
     const u = page.locator('input[name="userName"]');
-    try { await u.waitFor({ state: 'visible', timeout: 20000 }); } catch (e) { log('No apareció el formulario (¿ya había sesión?)'); return true; }
+    try { await u.waitFor({ state: 'visible', timeout: 40000 }); } catch (e) { log('No apareció el formulario (¿ya había sesión?)'); return true; }   // AJUSTADA v21.14: 40 s
     await u.fill(USER);
     await page.locator('input[name="password"]').fill(PASS);
     await page.waitForFunction(() => { const b = document.querySelector('#submit1'); return b && !b.disabled; }, null, { timeout: 10000 }).catch(() => {});
@@ -115,7 +118,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     // NUEVO v21.7 (corrida de Nelson: no pudo volver a entrar): si la sesión anterior sigue abierta, ED muestra
     // "You are already logged in to English Discoveries" [Cancel] [Login on This Device] → pulsar el 2.º.
     const t1 = Date.now(); let dentro = false;
-    while (Date.now() - t1 < 45000) {
+    while (Date.now() - t1 < 90000) {   // AJUSTADA v21.14: 90 s para entrar (antes 45)
       if (!/#\/login/i.test(page.url())) { dentro = true; break; }
       const otro = page.getByText(/^(Login on This Device|Iniciar sesi[oó]n en este dispositivo|Ingresar en este dispositivo)$/i).first();
       if (await otro.isVisible().catch(() => false)) { log('🔁 ED dice que la cuenta ya estaba abierta → "Login on This Device"'); await otro.click({ timeout: 5000 }).catch(() => {}); await sleep(3000); continue; }
@@ -137,7 +140,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     await browser.close(); process.exit(1);
   }
   loginEstado = 'ok';
-  await sleep(4000); await foto('despues-del-login');
+  await sleep(8000); await foto('despues-del-login');   // AJUSTADA v21.14: 8 s para que cargue el Home
   await usarBanco();   // NUEVO v21.13: si el Home ya muestra el curso, el banco entra antes del primer test
 
   // Modo auto: desde el Home, entrar a "continuar" (carrusel). En completar/barrer lo hace el propio bot.
@@ -182,7 +185,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     try {
       const home = (await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); } catch (e) { return null; } })) || {};
       sw = home;
-      await page.goto(home.homeUrl || LOGIN.replace(/#.*/, '#/home'), { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+      await page.goto(home.homeUrl || LOGIN.replace(/#.*/, '#/home'), { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
       await sleep(6000); await foto('home-final');
       w = await page.evaluate(() => { const num = sel => { const e = document.querySelector(sel); const m = e && (e.textContent || '').match(/(\d{1,3})\s*%/); return m ? +m[1] : null; };
         // NUEVO v21.12: nombre del curso que muestra el Home (Roy: Hugo vio "Beginners 1" y el bot había hecho "Beginners 2")
@@ -264,7 +267,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     const s = ultimoTab.s || {};
     // el tablero guardado de la corrida ANTERIOR no cuenta (se reinicia con cada corrida)
     const t = ultimoTab.t && ultimoTab.t.corrida === (s.inicio || s.corrida) ? ultimoTab.t : null;
-    const datos = { curso: curso || (s.widgets && s.widgets.curso) || null, login: loginEstado, loginMsg, widgets: wFinal || s.widgets || {}, mapa: ultimoTab.m, tablero: t, fin };
+    const datos = { curso: curso || (s.widgets && s.widgets.curso) || null, login: loginEstado, loginMsg, widgets: wFinal || s.widgets || {}, mapa: ultimoTab.m, tablero: t, fin, minutos: Math.round((Date.now() - t0) / 60000) };
     const md = dibujar(Object.assign({ titulo: `${NOMBRE} (cuenta ${CUENTA})` }, datos));
     try { fs.writeFileSync(path.join(OUT, 'tablero.md'), md); } catch (e) {}
     const ok = await PUB.publicar(md);   // AJUSTADA v21.13: con el nombre (Hugo: "colócales sus nombres para saber quiénes son")

@@ -88,7 +88,8 @@ class NavigationManager {
     click(nx);
     // AJUSTADA v20.7: antes espera FIJA de 1,8 s (2,5 s en Submit). Ahora espera solo hasta que la
     // pantalla cambie o aparezca un popup (mismo tope), + un respiro corto para que termine de dibujarse.
-    const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 2500 : 1800, 150);
+    // AJUSTADA v21.14: tope 3 s / 4 s (× paciencia): si ED tarda en cambiar de pantalla, no se pulsa Next dos veces
+    const cambio = await waitFor(() => this.screenSig() !== sig || this.modalOpen(), isSubmit ? 4000 : 3000, 150);
     if (cambio) await sleep(isSubmit ? 700 : 350);
     await this.handleModals();
     return true;

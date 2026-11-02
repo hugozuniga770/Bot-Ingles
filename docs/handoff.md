@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.13, 02/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.14, 02/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -8,7 +8,9 @@ ramificado, writing de corregir, Watch again con imágenes) y lo de los zips de 
 atascos tras el test de la lección 1, test sin preguntas). **Todo solo en simulación (78 pantallas).**
 **v21.13** suma el tablero en vivo (Issues → "📊 Tablero del bot": cuadro por cuenta con nombre, cuadritos
 Login → unidades, unidades desplegables con lección/paso/test) y el banco de respuestas por curso.
-**Lo próximo:** Hugo sube la v21.13, corre 2–3 cuentas en `completar`, mira el tablero y pasa los zips → revisar cada fila.
+**v21.14**: ritmo de persona (pausa ~5 s entre pasos → ~4 h para un curso grande, Hugo: "mínimo 4 h en la
+plataforma"), `CFG.paciencia` 1,5 en todas las esperas, y el cargador del README/Tampermonkey trae siempre el último commit.
+**Lo próximo:** Hugo sube la v21.14, corre 2–3 cuentas en `completar`, mira el tablero y pasa los zips → revisar cada fila.
 **Pregunta abierta a Hugo:** Roy tiene DOS cursos en el carrusel del Home (UPB Beginners 1 con 51 % y Beginners 2,
 el que hizo el bot): ¿hay que completar también Beginners 1?
 
@@ -24,6 +26,7 @@ el que hizo el bot): ¿hay que completar también Beginners 1?
 | v21.11 | Regla permanente de Hugo: reporte = dump completo (antes/después, panel izquierdo); 2 fallos por corrida y no se reintenta (tests 2 reintentos, atascos 2); Unit Tests; Explore; memoria corta; reintentos por corrida; memoria de la nube por persona | Revisión de Hugo con otra IA: faltaba atender TODOS los fallos |
 | v21.12 | Explore con video (play) y con tarjetas (abrir y cerrar con la X); memoria (cara visible, 2 cartas); speaking interactivo (frase + Start) y ramificado (Start → grabar); writing de corregir (una letra); Watch again con imágenes (esperar y verificar); atascos → primero avanzar; test sin preguntas → recargar 1 vez; más tiempo de carga; curso en el resumen | Dumps y explicaciones de Hugo (02/11) + zips de Roy y Mateo (v21.8) |
 | v21.13 | Tablero en vivo con checks (issue del repo, un cuadro por cuenta con nombre; unidades desplegables) y banco de respuestas por curso compartido entre cuentas; reporte con número fijo | Ideas de Hugo (02/11): ver avance unidad por unidad y no cosechar dos veces lo mismo |
+| v21.14 | Ritmo de persona (pausa entre pasos, input `ritmo`), paciencia 1,5 en todas las esperas, Next 4,5 s, branching 150 s, tope por unidad 90 min, login con más margen; cargador siempre al último commit | Hugo: "mínimo 4 h en la plataforma", "más tiempo a lo frágil", "que el js del README traiga la última versión" |
 
 ## Hipótesis — resueltas con la corrida de Jose (v21.8)
 1. **✅ ED NO promedia cada intento: vale el último (o el mejor).** Jose: 1.os intentos en 34, 20, 30, 17, 10, 60, 80,
@@ -143,6 +146,8 @@ difieren solo en mayúsculas ("Weren't"/"weren't": siempre coincidencia EXACTA p
   comandos solo `git add -A` / `git commit` / `git push` (sin correo).
 - Unit Tests: no rehacer los de 100; rehacer los < 100 según My Progress (en `completar` también los no hechos).
 - Prácticas: basta UNA acción si ED ya marca la tarea (`practiceOneAction`).
+- Ritmo: una persona trabaja mínimo ~4 h en la plataforma → el bot va a ritmo de persona (`pausaPaso` 5 s;
+  en la nube, input `ritmo`). No se sabe todavía CÓMO cuenta ED ese tiempo (¿sesión abierta o tiempo en lecciones?).
 - Nube: modo por defecto `completar`; cuentas en el secret `ED_CUENTAS` (una por línea: `usuario contraseña Nombre`),
   campo `cuentas` = `1` · `2,3` · `todas`. Mientras corre, nadie debe entrar a esa cuenta.
 
