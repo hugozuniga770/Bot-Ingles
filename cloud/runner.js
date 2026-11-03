@@ -156,7 +156,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   const PUB = new Publicador({ token: process.env.GH_TOKEN, repo: process.env.GITHUB_REPOSITORY, issue: process.env.TABLERO_ISSUE, cuenta: CUENTA });
   let loginEstado = 'esperando', loginMsg = '', curso = null, banco = null, ultimoTab = {};
   // NUEVO v21.16 — vigías (ideas 7, 8, 9, 14, 17): señal de vida del bot, pantallas en blanco, fallos por hora, mini-película
-  let ultimoLogBot = Date.now(), blancas = 0, wInicio = null, frenoMotivo = null;
+  let ultimoLogBot = Date.now(), blancas = 0, wInicio = null, frenoMotivo = null, ritmoRapido = false;
   const fallosHora = [];   // [hora, n.º de reportes]
   const anillo = [];       // las últimas 3 capturas (cada 10 s) → con cada reporte, lo que pasó en los 30 s anteriores
   const irHome = async () => { try { const h = await page.evaluate(() => { try { return (JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null') || {}).homeUrl || null; } catch (e) { return null; } }).catch(() => null);
@@ -228,7 +228,11 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
       await sleep(10000); n++;   // AJUSTADA v21.6: revisar cada 10 s (antes 30) → re-login más rápido
       if (pararYa) { log('⏹ Me pidieron parar (panel del teléfono) → guardo y termino'); break; }
       if ((!curso && n % 3 === 0) || n % 6 === 0) await usarBanco();   // NUEVO v21.13: apenas se sabe el curso, el banco (AJUSTADA v21.16: y cada minuto, por si cambia de curso)
-      if (n === 3 || n % (6 * TABLERO_CADA) === 0) await tablero(false);   // NUEVO v21.13: tablero en vivo cada ~3 min (AJUSTADA v21.16: TABLERO_CADA)
+      if (n === 3 || n % (6 * TABLERO_CADA) === 0) await tablero(false);
+      // NUEVO v21.17: la UPB pide 4 h en la plataforma. Si ED ya muestra ≥ 4 h de Time on Task, el ritmo de persona ya no
+      // hace falta → pausa mínima entre pasos (termina antes). Se mira cada ~5 min.
+      if (n % 30 === 0 && !ritmoRapido && +RITMO > 1) { try { const tt = ultimoTab.m && ultimoTab.m.widgets && ultimoTab.m.widgets.tiempo;
+        if (tt && (+tt.h || 0) >= (+process.env.HORAS_MINIMAS || 4)) { ritmoRapido = true; await page.evaluate(() => localStorage.setItem('ed:ritmo:v1', '1')); log(`⚡ Ya hay ${tt.h} h ${tt.m} min en ED (mínimo 4 h) → ritmo rápido`); } } catch (e) {} }   // NUEVO v21.13: tablero en vivo cada ~3 min (AJUSTADA v21.16: TABLERO_CADA)
       // ¿el bot terminó (modo completar/barrer desactivado)? → cerrar antes
       const fin = await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return !!(s && s.fin && !s.active); } catch (e) { return false; } }).catch(() => false);
       if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); break; }
@@ -392,7 +396,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     datos.inicio = wInicio; datos.salud = Diag.salud(t, null); datos.freno = frenoMotivo;
     // AJUSTADA v21.16: + marcas invisibles para el panel del teléfono y el job "preparar" (¿corre, terminó, en qué corrida?)
     const estado = fin ? (pararYa ? 'parado' : 'fin') : 'corriendo', ah = t && t.ahora;
-    const blob = { cuenta: String(CUENTA), nombre: NOMBRE, curso: datos.curso, comp: datos.widgets.completion ?? null, avg: datos.widgets.avg ?? null, ini: wInicio, estado, run: process.env.GITHUB_RUN_ID || '',
+    const blob = { cuenta: String(CUENTA), huella, nombre: NOMBRE, curso: datos.curso, comp: datos.widgets.completion ?? null, avg: datos.widgets.avg ?? null, ini: wInicio, estado, run: process.env.GITHUB_RUN_ID || '',
       login: loginEstado, ahora: ah ? `U${ah.u} · L${ah.l} · ${ah.paso || ''}${ah.contador ? ' ' + ah.contador : ''}` : null, min: datos.minutos, salud: datos.salud, freno: frenoMotivo, hora: new Date().toISOString(), v: (BOT.match(/const V = '([^']+)'/) || [])[1] || null,
       tot: datos.mapa && datos.mapa.widgets && datos.mapa.widgets.tiempo ? `${datos.mapa.widgets.tiempo.h} h ${datos.mapa.widgets.tiempo.m} min` : null };
     const md = dibujar(Object.assign({ titulo: `${NOMBRE} (cuenta ${CUENTA})` }, datos)) +

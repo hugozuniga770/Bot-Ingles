@@ -58,7 +58,7 @@
 <section id="v-app" class="vista" hidden>
   <header class="barra">
     <div><h1>Bot ED</h1><span id="estado-linea" class="sub">…</span></div>
-    <div class="acciones"><button class="ic" id="b-refrescar" title="Actualizar" aria-label="Actualizar">⟳</button><button class="ic" id="b-cerrar" title="Bloquear" aria-label="Bloquear">🔒</button></div>
+    <div class="acciones"><button class="ic" id="b-vista" title="Vista compacta" aria-label="Vista compacta">▦</button><button class="ic" id="b-refrescar" title="Actualizar" aria-label="Actualizar">⟳</button><button class="ic" id="b-cerrar" title="Bloquear" aria-label="Bloquear">🔒</button></div>
   </header>
 
   <main>
@@ -71,7 +71,7 @@
       <div class="seleccion" id="seleccion" hidden><span id="sel-n"></span><button class="btn chico verde" id="b-correr-sel">▶ Correr</button><button class="btn chico rojo" id="b-parar-sel">⏹ Parar</button><button class="btn chico" id="b-sel-x">✕</button></div>
       <div id="lista-cuentas" class="lista"></div>
     </div>
-    <div id="t-corridas" class="pestana" hidden><div id="lista-corridas" class="lista"></div></div>
+    <div id="t-corridas" class="pestana" hidden><button class="btn grande rojo" id="b-parar-todo" style="margin-bottom:14px">⏹ Parar TODO (todas las corridas)</button><div id="lista-corridas" class="lista"></div></div>
     <div id="t-ajustes" class="pestana" hidden>
       <form id="f-ajustes" class="tarjeta">
         <h2>Al correr</h2>
@@ -88,6 +88,7 @@
       </form>
       <div class="tarjeta">
         <h2>Seguridad</h2>
+        <button class="btn" id="b-avisos">🔔 Avisarme cuando una cuenta termine o se trabe</button>
         <button class="btn" id="b-cambiar-clave">Cambiar mi clave</button>
         <button class="btn rojo" id="b-olvidar">Borrar el panel de este teléfono</button>
         <p class="nota">El código del panel es público (como el del bot), pero sin TU token y TU clave no puede tocar tu repo, tus cuentas ni tus corridas.</p>

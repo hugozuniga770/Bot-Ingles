@@ -26,6 +26,36 @@ const H = () => ({ Authorization: 'Bearer ' + process.env.GH_TOKEN, Accept: 'app
 const hijos = new Map();   // cuenta → { proc, codigo }
 // NUEVO v21.16 — si la cuenta YA corre en otra corrida, esta la reemplaza: se le pide a la otra que la pare (orden en el
 // issue del tablero) y se espera a que quede libre (máx. 6 min); así nunca hay dos sesiones de la misma cuenta.
+// AJUSTADA v21.17 — Hugo cambia el orden de ED_CUENTAS para meter más usuarios: la MISMA persona puede ser la línea 1 en
+// una corrida y la 3 en otra (Helena fue echada de ED 2 veces el 03/11). Por eso también se busca por HUELLA (resumen
+// del usuario de ED, sin el usuario) en los tableros que siguen "corriendo".
+function huellaDe(k) {
+  const { leerCuentas } = require('./cuentas');
+  const sola = process.env['ED_CUENTA_S' + k] ? leerCuentas(process.env['ED_CUENTA_S' + k])[0] : null;
+  const c = sola || leerCuentas(process.env.ED_CUENTAS).find(x => String(x.n) === String(ids[k - 1]));
+  const u = c ? c.user : process.env['ED_USER_S' + k];
+  return u ? require('crypto').createHash('sha256').update(String(u).toLowerCase()).digest('hex').slice(0, 12) : null;
+}
+async function porHuella(h) {   // [{cuenta, run}] de OTRAS corridas con esa persona corriendo (tablero actualizado hace < 12 min)
+  const repo = process.env.GITHUB_REPOSITORY, issue = process.env.TABLERO_ISSUE;
+  if (!h || !process.env.GH_TOKEN || !repo || !issue) return [];
+  try {
+    const r = await fetch(`${API}/repos/${repo}/issues/${issue}/comments?per_page=100`, { headers: H() }); if (!r.ok) return [];
+    const out = [];
+    for (const c of await r.json()) { const m = /<!-- datos:([A-Za-z0-9+/=]+) -->/.exec(c.body || ''); if (!m) continue;
+      let d = null; try { d = JSON.parse(Buffer.from(m[1], 'base64').toString('utf8')); } catch (e) {}
+      if (d && d.huella === h && d.estado === 'corriendo' && String(d.run) !== String(RUN) && Date.now() - Date.parse(d.hora) < 12 * 60000) out.push({ cuenta: d.cuenta, run: d.run }); }
+    return out;
+  } catch (e) { return []; }
+}
+async function liberarPorHuella(id, k) {
+  const h = huellaDe(k), otras = await porHuella(h);
+  if (!otras.length) return;
+  log(`🔁 La persona de la cuenta ${id} ya corre en otra corrida (allá es la cuenta ${otras.map(o => o.cuenta).join(', ')}) → le pido que pare`);
+  for (const o of otras) { try { await fetch(`${API}/repos/${process.env.GITHUB_REPOSITORY}/issues/${process.env.TABLERO_ISSUE}/comments`, { method: 'POST', headers: H(), body: JSON.stringify({ body: `<!-- orden:parar ${o.cuenta} run:${o.run} de:${RUN} -->\n⏹ La corrida ${RUN} toma esta cuenta (la anterior la deja).` }) }); } catch (e) {} }
+  const t = Date.now();
+  while (Date.now() - t < 6 * 60000) { await sleep(30000); if (!(await porHuella(h)).length) { log(`✅ Cuenta ${id} libre`); return; } }
+}
 async function liberar(id) {
   const { corriendoEnOtras } = require('./cuentas');
   const repo = process.env.GITHUB_REPOSITORY, issue = process.env.TABLERO_ISSUE;
@@ -57,8 +87,9 @@ async function ordenes() {
   let cs = [];
   try { const r = await fetch(`${API}/repos/${repo}/issues/${issue}/comments?since=${t0.toISOString()}&per_page=100`, { headers: H() }); if (r.ok) cs = await r.json(); } catch (e) { return; }
   for (const c of cs) {
-    const m = /^<!-- orden:parar ([A-Za-z0-9_,]+)(?: de:(\w+))? -->/.exec(c.body || '');
-    if (!m || new Date(c.created_at) < t0 || m[2] === RUN) continue;   // las órdenes de ESTA corrida no son para mí
+    const m = /^<!-- orden:parar ([A-Za-z0-9_,]+)(?: run:(\w+))?(?: de:(\w+))? -->/.exec(c.body || '');
+    if (!m || new Date(c.created_at) < t0 || m[3] === RUN) continue;   // las órdenes de ESTA corrida no son para mí
+    if (m[2] && m[2] !== RUN) continue;   // NUEVO v21.17: orden para OTRA corrida (los números cambian entre corridas)
     for (const id of m[1].split(',').map(x => x.toUpperCase())) {
       const h = hijos.get(id);
       if (h && h.codigo == null && !h.parada) { h.parada = true; log(`⏹ El panel pidió parar la cuenta ${id}`); try { h.proc.kill('SIGTERM'); } catch (e) {} }
@@ -71,7 +102,7 @@ async function ordenes() {
 
 (async () => {
   log(`Grupo de ${ids.length} cuenta(s) en esta máquina: ${ids.join(', ')}`);
-  for (let k = 0; k < ids.length; k++) { if (k) await sleep(20000); await liberar(ids[k]); arrancar(ids[k], k + 1); }
+  for (let k = 0; k < ids.length; k++) { if (k) await sleep(20000); await liberar(ids[k]); await liberarPorHuella(ids[k], k + 1); arrancar(ids[k], k + 1); }
   let n = 0;
   while ([...hijos.values()].some(h => h.codigo == null)) {
     await sleep(10000); n++;

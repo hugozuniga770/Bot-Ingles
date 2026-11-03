@@ -81,6 +81,12 @@ const sinDatos = dibujar({ titulo: 'Cuenta 3', login: 'ok' });
 assert.ok(sinDatos.includes('Todavía no hay datos'));
 console.log('✓ banco de respuestas y tablero: OK');
 
+// NUEVO v21.17: CONFIANZA — si en el banco ese test dio 100 % y en la cuenta no, mandan las respuestas del banco
+{ const k = 'Lesson 1: Ad||Step 3: Test';
+  const mx = B.mezclar({ testAns: { [k]: { 1: { mcq: 'MALA' } } }, buenos: [] }, { testAns: { [k]: { 1: { mcq: 'BUENA' } } }, buenos: [k] });
+  assert.strictEqual(mx.testAns[k][1].mcq, 'BUENA'); assert.deepStrictEqual(mx.buenos, [k]);
+  assert.deepStrictEqual(B.desdeLocal({ 'ed:testScores:v1': JSON.stringify({ [k]: 100, otro: 80 }) }).buenos, [k]); }
+
 // ---------- DIAGNÓSTICO (NUEVO v21.16, ideas 18–28) ----------
 {
   const D = require('../cloud/diagnostico');

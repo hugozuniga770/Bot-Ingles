@@ -113,3 +113,62 @@ textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-siz
 code { background: var(--fondo); padding: 1px 5px; border-radius: 6px; font-size: 12.5px; }
 .girando { animation: giro 1s linear infinite; }
 @keyframes giro { to { transform: rotate(360deg); } }
+/* NUEVO v21.17: vista compacta — muchas cuentas en una pantalla */
+.lista.compacto { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.lista.compacto .cuenta { padding: 10px; }
+.lista.compacto .barras, .lista.compacto .ahora, .lista.compacto .botones, .lista.compacto .marca { display: none; }
+.lista.compacto .cab { flex-wrap: wrap; gap: 6px; }
+.lista.compacto .avatar { width: 30px; height: 30px; border-radius: 9px; font-size: 13px; }
+.lista.compacto .cab .pill { margin-left: 0; width: 100%; justify-content: center; font-size: 11.5px; }
+.lista.compacto .quien span { font-size: 11px; }
+
+/* ===================== v21.17 · VISUAL ===================== */
+:root { --g1: #4f46e5; --g2: #9333ea; --g3: #06b6d4; --oro: #f59e0b; }
+body { background: radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--g1) 16%, transparent), transparent 60%),
+  radial-gradient(900px 500px at 110% 0%, color-mix(in srgb, var(--g2) 14%, transparent), transparent 60%), var(--fondo); background-attachment: fixed; }
+.barra h1 { background: linear-gradient(90deg, var(--g1), var(--g2), var(--g3)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+.hero-panel { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 16px;
+  border-radius: 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--g1) 92%, #000), color-mix(in srgb, var(--g2) 88%, #000)); color: #fff;
+  box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--g1) 60%, transparent); position: relative; overflow: hidden; }
+.hero-panel::after { content: ''; position: absolute; inset: -40% -20% auto auto; width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,.08); }
+.resumen { grid-template-columns: 1fr; }
+.anillos-hero { display: flex; gap: 6px; }
+.hero-panel .anillo span { color: rgba(255,255,255,.85); } .hero-panel .anillo b { color: #fff; }
+.hero-panel .fondo-a { stroke: rgba(255,255,255,.18); } .hero-panel .valor-a { stroke: #fff; } .hero-panel .prom .valor-a { stroke: #a7f3d0; }
+.hero-cifras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; position: relative; z-index: 1; }
+.hero-cifras b { display: block; white-space: nowrap; font-size: 24px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.hero-cifras b small { font-size: 13px; opacity: .7; display: inline; } .hero-cifras span { font-size: 12px; opacity: .85; }
+.hero-cifras .v { color: #86efac; } .hero-cifras .oro { color: #fde68a; }
+.anillo { position: relative; width: var(--tam); min-width: 78px; text-align: center; flex: none; display: flex; flex-direction: column; align-items: center; }
+.anillo svg { width: var(--tam); height: var(--tam); transform: rotate(-90deg); display: block; }
+.anillo circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.fondo-a { stroke: var(--borde); }
+.valor-a { stroke: url(#none); stroke: var(--g1); transition: stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1); }
+.anillo.prom .valor-a { stroke: var(--verde); }
+.anillo b { position: absolute; top: 0; left: 0; right: 0; height: var(--tam); display: flex; align-items: center; justify-content: center; font-size: calc(var(--tam) * .26); font-weight: 800; }
+.anillo b small { font-size: .55em; font-weight: 700; margin-left: 1px; opacity: .7; }
+.anillo span { display: block; white-space: nowrap; font-size: 11.5px; color: var(--suave); margin-top: 4px; }
+.anillo span em { font-style: normal; color: var(--verde); font-weight: 700; margin-left: 3px; }
+.anillos { display: flex; gap: 12px; align-items: center; margin: 12px 0 6px; }
+.datos-c { flex: 1; display: grid; gap: 6px; font-size: 12.5px; }
+.datos-c div { display: flex; justify-content: space-between; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--fondo); }
+.datos-c span { color: var(--suave); } .datos-c b { font-weight: 700; white-space: nowrap; }
+.avatar { background: linear-gradient(135deg, hsl(var(--h, 220) 80% 58%), hsl(calc(var(--h, 220) + 40) 80% 50%)); box-shadow: 0 4px 12px -4px hsl(var(--h, 220) 80% 50% / .6); }
+.cuenta { transition: transform .15s ease, box-shadow .2s ease; animation: entra .35s ease both; }
+.cuenta:active { transform: scale(.99); }
+.cuenta.est-corre { border-color: color-mix(in srgb, var(--verde) 45%, var(--borde)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--verde) 25%, transparent), 0 10px 26px -14px var(--verde); }
+.cuenta.est-mal { border-color: color-mix(in srgb, var(--rojo) 50%, var(--borde)); }
+.cuenta.perfecta { background: linear-gradient(var(--tarjeta), var(--tarjeta)) padding-box, linear-gradient(135deg, var(--oro), #fde68a, var(--oro)) border-box; border: 2px solid transparent; }
+.cuenta.perfecta .quien b::after { content: ' 🏆'; }
+@keyframes entra { from { opacity: 0; transform: translateY(8px); } }
+.lista .cuenta:nth-child(2) { animation-delay: .04s } .lista .cuenta:nth-child(3) { animation-delay: .08s } .lista .cuenta:nth-child(4) { animation-delay: .12s }
+.btn.verde { background: linear-gradient(135deg, #16a34a, #22c55e); box-shadow: 0 8px 20px -10px #16a34a; }
+.btn.grande { font-weight: 700; letter-spacing: .01em; }
+.tabs button.activo span { transform: translateY(-2px) scale(1.08); transition: transform .2s; }
+.pill.corre { box-shadow: 0 0 0 4px color-mix(in srgb, var(--verde) 12%, transparent); }
+.confeti { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.confeti i { position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 2px; animation: cae linear forwards; }
+@keyframes cae { to { transform: translateY(105vh) rotate(720deg); opacity: .9; } }
+.lista.compacto .anillos { display: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.anillos { gap: 8px; } .anillo span em { display: block; margin: 0; }

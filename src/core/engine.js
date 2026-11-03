@@ -267,7 +267,9 @@ class MainEngine {
     }
     if (t.done) {
       if (TestSweep.explorando()) Catalogo.ver(MainEngine.detectKind(), t.n);   // NUEVO v21.16: modo explorar → catalogar también lo hecho
-      Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' };
+      Tablero.anotar('ok', { tarea: t.n });
+      { const r = await TestSweep.saltarHecho(); if (r) return { did: 'ruta_directa', a: r }; }   // NUEVO v21.17
+      await NavigationManager.goNext(); return { did: 'task_already_done_next' };
     }
 
     // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)

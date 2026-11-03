@@ -1,5 +1,23 @@
 # Changelog
 
+## v21.17 — zips del 03/11 con v21.16 (Caro, Helena, Melgarejo) + las mejoras propuestas
+Resultado de la v21.16: **Caro 76 → 100 % y 84 → 100 % en 1 h 47 min**; Helena y Melgarejo sin un solo fallo del bot
+(salud 100/100) hasta que se cancelaron para meter más cuentas. Lo único que quedaba:
+- **Replay de DnD en tests marcado "mal" con las fichas BIEN puestas** (Caro, 4 reportes): la verificación volvía a
+  adivinar el banco cuando ya estaba vacío y comparaba todo corrido un hueco. Ahora usa los mismos huecos; si ED vuelve a
+  dibujar, reconoce el banco por su `dg_name`. `replayVerificaMismoBanco` (v21.16 da EXACTAMENTE el reporte #22).
+- **Preguntas en otro orden** (Caro, "Lesson 1: Ad" 1/5 y 5/5): si ninguna ficha cosechada está en el banco, usa la
+  pregunta cosechada que SÍ calza con esas fichas. `replayPreguntaMovida` (v21.16 = reporte #20).
+- **La misma persona en dos corridas** (Helena echada 2 veces al reordenar ED_CUENTAS): la corrida nueva busca a la persona
+  por su HUELLA (no por el número de línea) y le pide a la otra que la suelte; las órdenes llevan el número de corrida.
+Mejoras: **ruta directa** (paso ya hecho → salta a lo pendiente por el desplegable, `rutaDirecta`) · **verificación final
+con My Progress** (`verificacionFinal`) · **ritmo rápido** cuando ED ya muestra ≥ 4 h de Time on Task · **banco con
+confianza** (las respuestas que dieron 100 % mandan) · panel: **avisos** al terminar/trabarse, **vista compacta** para
+40 cuentas, **⏹ Parar TODO**. Panel más lindo: resumen con anillos grandes (promedio de todas las cuentas),
+anillos por cuenta con lo que subió en esta corrida, color propio por persona, borde que brilla si corre, marco dorado 🏆
+y confeti al llegar a 100/100, modo claro y oscuro.
+Quedan para después: alarma entre cuentas "ED cambió", versión de respaldo automática, prueba fiel de cada tipo.
+
 ## v21.16 — 6 zips del 02/11 (v21.15), dumps de Hugo del 03/11 y sus pedidos (explorador, panel del teléfono, 40 cuentas)
 - **Causa encontrada de casi todo lo que le faltaba a Nore: la GUÍA de ED** (globito de driver.js "Got it!" / "Don't
   show again", en 20 de sus reportes). Mientras está abierta, driver.js deja la página sin clics: ninguna ficha caía

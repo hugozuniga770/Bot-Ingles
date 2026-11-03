@@ -743,6 +743,39 @@
       ]
     }
   },
+  "replayVerificaMismoBanco": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"3/5\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":4,\"ok\":4,\"total\":4}}",
+    "trace": "pointerdown dnditem draggable:344-555-9089 | pointerup dndZone: | pointerdown dnditem draggable:7743 N. Broadwa | pointerup dndZone: | pointerdown dnditem draggable:JoltGym.com | pointerup dndZone: | pointerdown dnditem draggable:info@joltgym.co | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 2: Jolt Gym||Step 5: Let's review\":{\"3\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"344-555-9089\"],\"text\":\"344-555-9089\"},{\"label\":\"\",\"texts\":[\"7743 N. Broadway\"],\"text\":\"7743 N. Broadway\"},{\"label\":\"\",\"texts\":[\"JoltGym.com\"],\"text\":\"JoltGym.com\"},{\"label\":\"\",\"texts\":[\"info@joltgym.com\"],\"text\":\"info@joltgym.com\"},{\"label\":\"\",\"texts\":[],\"text\":\"\"}]}}}",
+    "v": []
+  },
+  "replayPreguntaMovida": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"1/5\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":1,\"ok\":1,\"total\":1}}",
+    "trace": "pointerdown dnditem draggable:renting | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
+    "ls": "{\"Lesson 1: Ad||Step 3: Test\":{\"1\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"all kinds of homes\"],\"text\":\"all kinds of homes\"}]},\"4\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"renting\"],\"text\":\"renting\"}]}}}",
+    "v": [
+      "renting"
+    ]
+  },
+  "rutaDirecta": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"ruta_directa\",\"a\":\"step\"}",
+    "trace": "click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 2: Practic | click learning__dropDownList_item:3. TestIn Progr",
+    "ls": null
+  },
+  "verificacionFinal": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"verificar_my_progress\"}",
+    "trace": "",
+    "ls": null,
+    "v": {
+      "verificado": true,
+      "mapaHecho": false,
+      "unitsDone": []
+    }
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 2 reintentos. Revísalo y vuelve a __ed.auto().\"",

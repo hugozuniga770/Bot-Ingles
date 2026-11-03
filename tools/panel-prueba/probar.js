@@ -43,7 +43,7 @@ const srv = http.createServer((req, res) => {
 }).listen(PUERTO);
 const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) process.exitCode = 1; };
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext(Object.assign({}, devices['iPhone 13'], { locale: 'es-BO' }));
+  const b = await chromium.launch(); const ctx = await b.newContext(Object.assign({}, devices['iPhone 13'], { locale: 'es-BO', colorScheme: process.env.ESQUEMA || 'light' }));
   const pg = await ctx.newPage(); const errores = []; pg.on('pageerror', e => errores.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
   const foto = async n => { if (FOTOS) { fs.mkdirSync(FOTOS, { recursive: true }); await pg.screenshot({ path: path.join(FOTOS, n + '.png'), fullPage: false }); } };
   const clave = async () => { await pg.waitForSelector('#f-clave'); await pg.fill('#f-clave input', 'mi-clave-123'); await pg.click('#f-clave button'); await pg.waitForTimeout(1500); };
@@ -51,7 +51,7 @@ const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) proce
   await foto('1-primera-vez');
   await pg.fill('#f-setup [name=token]', 'github_pat_PRUEBA'); await pg.fill('#f-setup [name=repo]', 'hugo/bot');
   await pg.fill('#f-setup [name=lista]', 'nore1 claveA Nore\nroy2 claveB Roy'); await pg.fill('#f-setup [name=c1]', 'mi-clave-123'); await pg.fill('#f-setup [name=c2]', 'mi-clave-123');
-  await pg.click('#f-setup button[type=submit]'); await pg.waitForSelector('#v-app:not([hidden])', { timeout: 20000 }); await pg.waitForTimeout(2500);
+  await pg.click('#f-setup button[type=submit]'); await pg.waitForSelector('#v-app:not([hidden])', { timeout: 20000 }); await pg.waitForTimeout(3500);
   const guardado = await pg.evaluate(() => localStorage.getItem('edpanel:v1'));
   ok(!/github_pat_PRUEBA|claveA/.test(guardado), 'en el teléfono el token y las contraseñas quedan CIFRADOS');
   const tarjetas = await pg.$$eval('.cuenta', as => as.map(a => a.innerText.replace(/\s+/g, ' ')));

@@ -108,25 +108,60 @@
     if (d && (d.estado === 'fin' || d.estado === 'parado')) return { k: 'fin', txt: (d.estado === 'parado' ? 'parada ' : 'terminó ') + hace(d.hora) };
     return { k: 'quieta', txt: 'quieta' };
   }
+  // NUEVO v21.17 (visual): anillos de progreso, color propio por persona, resumen con anillo grande y confeti al 100/100
+  const tono = t => { let h = 0; for (const ch of String(t)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  function anillo(v, etiqueta, ini, cls, tam = 64) {
+    const r = (tam - 8) / 2, L = 2 * Math.PI * r, x = v == null ? 0 : Math.max(0, Math.min(100, v));
+    const sube = ini != null && v != null && v > ini ? `<em>+${v - ini}</em>` : '';
+    return `<div class="anillo ${cls || ''}" style="--tam:${tam}px"><svg viewBox="0 0 ${tam} ${tam}"><circle class="fondo-a" cx="${tam / 2}" cy="${tam / 2}" r="${r}"/><circle class="valor-a" cx="${tam / 2}" cy="${tam / 2}" r="${r}" stroke-dasharray="${L}" stroke-dashoffset="${L * (1 - x / 100)}"/></svg><b>${v == null ? '—' : v}<small>%</small></b><span>${etiqueta}${sube}</span></div>`;
+  }
+  function confeti() {
+    const c = document.createElement('div'); c.className = 'confeti';
+    c.innerHTML = Array.from({ length: 60 }, (_, i) => `<i style="left:${Math.random() * 100}%;background:hsl(${(i * 47) % 360} 90% 60%);animation-delay:${Math.random() * .6}s;animation-duration:${1.6 + Math.random() * 1.4}s"></i>`).join('');
+    document.body.appendChild(c); setTimeout(() => c.remove(), 3500);
+  }
   function barra(nombre, v, ini, cls) {
     const x = v == null ? 0 : v;
     return `<div class="barra-p"><div><span>${nombre}</span><b>${v == null ? '—' : v + ' %'}${ini != null && v != null && ini !== v ? ` <small style="display:inline;color:var(--verde)">(+${v - ini})</small>` : ''}</b></div><div class="pista ${cls || ''}"><i style="width:${x}%"></i></div></div>`;
   }
+  // NUEVO v21.17 — AVISOS: si una cuenta termina, se para o se traba, el teléfono avisa (mientras el panel está abierto
+  // o en segundo plano reciente; GitHub Pages no puede mandar avisos con el panel cerrado)
+  function avisos(cs) {
+    S.prev = S.prev || {};
+    for (const c of cs) {
+      const e = estadoDe(c), t = S.tab[c.id.toUpperCase()], d = (t && t.d) || {}, antes = S.prev[c.id];
+      S.prev[c.id] = e.k;
+      if (!antes || antes === e.k || antes !== 'corre') continue;
+      const msg = e.k === 'fin' ? `🏁 ${c.nombre} ${e.txt}: ${d.comp ?? '?'} % · ${d.avg ?? '?'} %` : e.k === 'mal' ? `⚠️ ${c.nombre}: ${e.txt}` : null;
+      if (!msg) continue;
+      aviso(msg, 6000); try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (er) {}
+      try { if (window.Notification && Notification.permission === 'granted') new Notification('Bot ED', { body: msg, icon: 'icono.svg', tag: 'ed-' + c.id }); } catch (er) {}
+    }
+  }
   function pintar() {
     const cs = todasLasCuentas();
+    avisos(cs);
+    $('#lista-cuentas').classList.toggle('compacto', !!S.cfg.compacto);
     const corren = cs.filter(c => estadoDe(c).k === 'corre').length, cola = cs.filter(c => estadoDe(c).k === 'cola').length;
     const maquinas = new Set(Object.values(S.ocup).map(o => o.run + ':' + (o.grupo || []).join(','))).size;
     $('#estado-linea').textContent = `${repo()} · actualizado ${new Date(S.ultimo).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}`;
-    $('#resumen').innerHTML = `<div class="cifra"><b>${cs.length}</b><span>cuentas</span></div><div class="cifra"><b style="color:var(--verde)">${corren}</b><span>corriendo${cola ? ` · ${cola} esperan` : ''}</span></div><div class="cifra"><b>${maquinas}</b><span>máquinas de 20</span></div>`;
+    const conDatos = cs.map(c => (S.tab[c.id.toUpperCase()] || {}).d).filter(d => d && d.comp != null);
+    const prom = k => conDatos.length ? Math.round(conDatos.reduce((a, d) => a + (d[k] || 0), 0) / conDatos.length) : null;
+    const listas = conDatos.filter(d => d.comp === 100 && d.avg === 100).length;
+    $('#resumen').innerHTML = `<div class="hero-panel"><div class="anillos-hero">${anillo(prom('comp'), 'Realización', null, '', 92)}${anillo(prom('avg'), 'Promedio', null, 'prom', 92)}</div>
+      <div class="hero-cifras"><div><b>${cs.length}</b><span>cuentas</span></div><div><b class="v">${corren}</b><span>corriendo${cola ? ` · ${cola} esperan` : ''}</span></div><div><b>${maquinas}<small>/20</small></b><span>máquinas</span></div><div><b class="oro">${listas}</b><span>al 100 %</span></div></div></div>`;
+    for (const d of conDatos) { const k = d.cuenta + ':' + d.run; S.festejadas = S.festejadas || new Set(JSON.parse(localStorage.getItem('edpanel:fiesta') || '[]'));
+      if (d.comp === 100 && d.avg === 100 && !S.festejadas.has(k)) { S.festejadas.add(k); try { localStorage.setItem('edpanel:fiesta', JSON.stringify([...S.festejadas].slice(-200))); } catch (e) {} if (S.yaPinto) { confeti(); aviso('🎉 ' + (d.nombre || d.cuenta) + ' llegó a 100 % y 100 %'); } } }
+    S.yaPinto = true;
     $('#lista-cuentas').innerHTML = cs.length ? cs.map(c => {
       const e = estadoDe(c), t = S.tab[c.id.toUpperCase()], d = (t && t.d) || {};
       const ini = d.ini || {};
-      return `<article class="cuenta ${S.sel.has(c.id) ? 'elegida' : ''}" data-id="${esc(c.id)}">
-        <div class="cab"><input type="checkbox" class="marca" ${S.sel.has(c.id) ? 'checked' : ''} aria-label="elegir"><div class="avatar">${esc((c.nombre || c.id).trim().charAt(0).toUpperCase())}</div>
+      return `<article class="cuenta est-${e.k} ${S.sel.has(c.id) ? 'elegida' : ''} ${d.comp === 100 && d.avg === 100 ? 'perfecta' : ''}" data-id="${esc(c.id)}">
+        <div class="cab"><input type="checkbox" class="marca" ${S.sel.has(c.id) ? 'checked' : ''} aria-label="elegir"><div class="avatar" style="--h:${tono(c.nombre || c.id)}">${esc((c.nombre || c.id).trim().charAt(0).toUpperCase())}</div>
           <div class="quien"><b>${esc(c.nombre)}</b><span>${c.origen === 'lista' ? 'línea ' + esc(c.id) : esc(c.id)}${d.curso ? ' · ' + esc(d.curso) : ''}</span></div>
           <span class="pill ${e.k}"><span class="punto"></span>${esc(e.txt)}</span></div>
-        ${d.comp != null || d.avg != null ? `<div class="barras">${barra('Realización', d.comp, ini.completion, '')}${barra('Promedio de tests', d.avg, ini.avg, 'prom')}</div>` : ''}
-        <div class="ahora">${e.k === 'corre' && d.ahora ? `🔄 <b>${esc(d.ahora)}</b>` : d.hora ? `Último dato ${hace(d.hora)}` : 'Todavía no corrió con esta versión'}${d.salud != null ? ` · ${d.salud >= 85 ? '💚' : d.salud >= 60 ? '💛' : '❤️‍🩹'} salud ${d.salud}` : ''}${d.tot ? ` · 🕓 ${esc(d.tot)} en ED` : ''}</div>
+        ${d.comp != null || d.avg != null ? `<div class="anillos">${anillo(d.comp, 'Realización', ini.completion, '')}${anillo(d.avg, 'Promedio', ini.avg, 'prom')}<div class="datos-c">${d.salud != null ? `<div><span>Salud</span><b>${d.salud >= 85 ? '💚' : d.salud >= 60 ? '💛' : '❤️‍🩹'} ${d.salud}</b></div>` : ''}${d.tot ? `<div><span>En ED</span><b>🕓 ${esc(d.tot)}</b></div>` : ''}${d.min != null ? `<div><span>Esta corrida</span><b>⏱ ${Math.floor(d.min / 60)} h ${d.min % 60} m</b></div>` : ''}</div></div>` : ''}
+        <div class="ahora">${e.k === 'corre' && d.ahora ? `🔄 <b>${esc(d.ahora)}</b>` : d.hora ? `Último dato ${hace(d.hora)}` : 'Todavía no corrió con esta versión'}${d.comp == null && d.salud != null ? ` · salud ${d.salud}` : ''}</div>
         <div class="botones">${e.k === 'corre' || e.k === 'cola' ? '<button class="btn rojo" data-a="parar">⏹ Parar</button><button class="btn" data-a="reiniciar">🔁 Otra vez</button>' : '<button class="btn verde" data-a="correr">▶ Correr</button>'}
           <button class="btn" data-a="tablero">📊 Tablero</button>${e.o && e.o.url ? `<a class="btn" href="${esc(e.o.url)}" target="_blank" rel="noopener">⚡ Máquina</a>` : ''}</div>
       </article>`;
@@ -217,6 +252,13 @@
     $('#f-abrir').onsubmit = async ev => { ev.preventDefault(); const f = ev.target; $('#e-abrir').textContent = '';
       try { await entrar(f.clave.value); f.reset(); } catch (e) { $('#e-abrir').textContent = e.message && !/operation|decrypt/i.test(e.message) ? e.message : 'Clave incorrecta'; } };
     $('#b-cerrar').onclick = bloquear; $('#b-refrescar').onclick = () => refrescar();
+    // NUEVO v21.17: vista compacta (40 cuentas en una pantalla), avisos y parar todo
+    $('#b-vista').onclick = () => { S.cfg.compacto = !S.cfg.compacto; escribir(S.cfg); pintar(); };
+    $('#b-avisos').onclick = async () => { try { const p = await Notification.requestPermission(); aviso(p === 'granted' ? '🔔 Listo: te aviso aquí cuando una cuenta termine o se trabe' : 'El navegador no dio permiso para avisos'); } catch (e) { aviso('Este navegador no tiene avisos'); } };
+    $('#b-parar-todo').onclick = async () => { const act = S.runs.filter(r => r.status !== 'completed'); if (!act.length) return aviso('No hay nada corriendo');
+      const c = await pedirClave(`Parar TODO (${act.length} corrida${act.length === 1 ? '' : 's'})`); if (!c) return;
+      let n = 0; for (const r of act) { try { await gh('POST', `/repos/${repo()}/actions/runs/${r.id}/cancel`); n++; } catch (e) {} }
+      aviso(`⏹ ${n} corrida(s) paradas. Lo hecho en ED queda guardado.`); setTimeout(() => refrescar(true), 6000); };
     $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('activo', x === b)); $$('.pestana').forEach(p => { p.hidden = p.id !== b.dataset.t; });
       if (b.dataset.t === 't-ajustes') { const a = ajustes(), f = $('#f-ajustes'); for (const k of ['modo', 'minutos', 'ritmo', 'por_maquina']) f[k].value = a[k]; $('#f-lista').lista.value = S.lista.join('\n'); } });
     $('#b-todas').onclick = () => correr('todas', `TODAS las cuentas (${todasLasCuentas().length})`);

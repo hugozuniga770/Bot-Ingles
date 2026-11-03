@@ -71,6 +71,33 @@ class DnDSolver {
     return null;
   }
 
+  // NUEVO v21.17 — si ED volvió a dibujar los huecos, el banco es el MISMO de antes (por su dg_name, p. ej.
+  // "TTpTablePlaceHolder"), no "la zona con más fichas" (que, con el banco vacío, es un hueco ya lleno)
+  static mismoBanco(m) {
+    const nombre = m && m.bank && m.bank.getAttribute && m.bank.getAttribute('dg_name');
+    const zs = qav('.dndZone'), b = nombre ? zs.find(z => z.getAttribute('dg_name') === nombre) : null;
+    if (b) return { bank: b, dests: zs.filter(z => z !== b && !b.contains(z) && !z.contains(b)) };
+    return testDndModel() || m;
+  }
+
+  // NUEVO v21.17 — Caro, "Lesson 1: Ad" · Test 1/5 y 5/5: lo cosechado para esa posición pedía "all kinds of homes" pero
+  // el banco traía selling/buying/painting/renting (ED cambió el ORDEN de las preguntas entre un intento y otro).
+  // Si ninguna ficha pedida está en el banco, se busca entre las otras preguntas cosechadas de ESTE test una cuyas
+  // fichas SÍ estén todas en el banco.
+  static mappingQueCalza(mapping, m) {
+    const quiere = mp => mp.flatMap(e => (e.texts && e.texts.length ? e.texts : [e.text])).filter(Boolean).map(norm);
+    const hay = new Set(qa('.dnditem', m.bank).map(e => norm(txt(e))));
+    const q0 = quiere(mapping);
+    if (!q0.length || q0.some(t => hay.has(t))) return null;
+    let todas = {}; try { todas = (StorageManager.getAns2() || {})[NavigationManager.testKey()] || {}; } catch (e) {}
+    for (const [idx, e] of Object.entries(todas)) {
+      if (!e || !Array.isArray(e.dnd)) continue;
+      const q = quiere(e.dnd);
+      if (q.length && q.every(t => hay.has(t))) { log('🧩 Las preguntas cambiaron de orden: uso lo cosechado de la pregunta', idx, 'que calza con estas fichas'); return e.dnd; }
+    }
+    return null;
+  }
+
   // si quedó un arrastre a medias (espejo .gu-mirror de dragula pegado al mouse), soltarlo
   static soltarPegado() {
     if (!q('.gu-mirror') && !q('.gu-transit')) return false;
@@ -88,6 +115,7 @@ class DnDSolver {
   static async placeDndMapping(mapping) {
     let m = testDndModel();   // AJUSTADA v20.3 (antes dndModel): mismo banco/huecos que en la cosecha
     if (!m || !m.dests.length) return { did: 'dnd_no_model' };
+    mapping = this.mappingQueCalza(mapping, m) || mapping;   // NUEVO v21.17
     const labels = m.dests.map(zoneLabel);
     const useLabels = new Set(labels).size === labels.length && new Set(mapping.map(x => x.label)).size === mapping.length;
     let moves = 0;
@@ -104,7 +132,7 @@ class DnDSolver {
       }
       for (const w of missing) {
         // si ED re-renderizó el DOM, recalcular el modelo (mismo orden de zonas)
-        if (!m.bank.isConnected || m.dests.some(d => !d.isConnected)) m = testDndModel() || m;
+        if (!m.bank.isConnected || m.dests.some(d => !d.isConnected)) m = this.mismoBanco(m);   // AJUSTADA v21.17
         const dst = m.dests[i];
         if (!dst) break;
         const it = pick(bankItems(m.bank), w);   // AJUSTADA v21.0: exacta (mayúsculas) primero
@@ -116,7 +144,10 @@ class DnDSolver {
     // NUEVO v21.16 — Nore, "The Tour Group" · Let's review: 90 % con "dnd_replay moves 6" y nada en el reporte para saber
     // qué pregunta falló. Ahora se VERIFICA qué quedó en cada hueco; si no coincide con lo cosechado → replay_incompleto
     // (con el dump completo y la lista hueco → quería / hay).
-    const mf = testDndModel() || m, labs = mf.dests.map(zoneLabel);
+    // AJUSTADA v21.17 — Caro (03/11): la verificación volvía a adivinar el banco ("la zona con más fichas") cuando ya
+    // estaba VACÍO → tomaba el 1.er hueco como banco y comparaba todo corrido un lugar (4 de 4 "mal" con las fichas
+    // bien puestas). Ahora se verifica con los MISMOS huecos donde se colocó.
+    const mf = (m.bank.isConnected && m.dests.every(d => d.isConnected)) ? m : this.mismoBanco(m), labs = mf.dests.map(zoneLabel);
     const usar = new Set(labs).size === labs.length && new Set(mapping.map(x => x.label)).size === mapping.length;
     let ok = 0, total = 0; const mal = [];
     for (let i = 0; i < mf.dests.length; i++) {

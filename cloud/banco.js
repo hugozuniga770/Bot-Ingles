@@ -27,7 +27,13 @@ const contar = b => Object.keys((b && b.testAns) || {}).filter(k => tieneRespues
 function mezclar(a, b) {
   a = Object.assign(vacio(), a || {}); b = Object.assign(vacio(), b || {});
   const r = { curso: a.curso || b.curso, actualizado: new Date().toISOString(), answers: Object.assign({}, b.answers, a.answers), testAns: {}, known: [] };
-  for (const src of [b.testAns, a.testAns]) for (const [k, qs] of Object.entries(src || {})) r.testAns[k] = Object.assign(r.testAns[k] || {}, qs || {});
+  // AJUSTADA v21.17 — CONFIANZA: un test que en b sacó 100 % (y en a no) usa las respuestas de b (dieron 100 de verdad)
+  const ba = new Set(a.buenos || []), bb = new Set(b.buenos || []);
+  for (const k of new Set([...Object.keys(b.testAns || {}), ...Object.keys(a.testAns || {})])) {
+    const orden = bb.has(k) && !ba.has(k) ? [a.testAns, b.testAns] : [b.testAns, a.testAns];
+    for (const src of orden) if (src && src[k]) r.testAns[k] = Object.assign(r.testAns[k] || {}, src[k]);
+  }
+  r.buenos = [...new Set([...ba, ...bb])];
   // "known" de b solo si b trae respuestas de ese test (un "known" sin respuestas haría un replay a ciegas)
   r.known = [...new Set([...(a.known || []), ...(b.known || []).filter(k => tieneRespuestas(b, k))])];
   // NUEVO v21.16: lo que aprendió el Explorador (qué acción marca cada tipo de pantalla); lo de a manda
@@ -47,6 +53,7 @@ function mezclar(a, b) {
   return r;
 }
 const desdeLocal = (datos, curso) => ({ answers: parse(datos[K.answers], {}), testAns: parse(datos[K.testAns], {}), known: parse(datos[K.known], []), aprendido: parse(datos[K.aprendido], {}),
+  buenos: Object.entries(parse(datos['ed:testScores:v1'], {})).filter(([, v]) => v === 100).map(([k]) => k),   // NUEVO v21.17: tests que dieron 100
   catalogo: (curso && parse(datos[K.catalogo], {})[curso]) || { lugares: {}, firmas: {} } });   // AJUSTADA v21.16: + catálogo de ESE curso
 function leer(dir, curso) {
   const f = path.join(dir, slug(curso) + '.json');

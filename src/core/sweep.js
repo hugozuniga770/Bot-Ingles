@@ -295,6 +295,13 @@ class TestSweep {
       if (s.repaso) { s.repaso = false; this.set(s); }
       // NUEVO v21.11: unidades recorridas → Unit Tests sin hacer o < 100 (los que están en 100 no)
       { const r = await UnitTests.enHome(s, true); if (r) return r; }
+      // NUEVO v21.17 — VERIFICACIÓN FINAL con My Progress: lo que cuenta es lo que ED marcó, no lo que el bot cree. Se
+      // vuelve a leer el mapa UNA vez; si ED muestra unidades < 100 %, se recorren de nuevo (lo que ya falló 2 veces se salta)
+      if (!s.verificado && s.mapaHecho && CFG.verificarFinal !== false) {
+        Object.assign(s, { verificado: true, mapaHecho: false, unitsDone: [] }); this.set(s);
+        log('🔎 Verificación final: releo My Progress para ver qué marcó ED de verdad');
+        return { did: 'verificar_my_progress' };
+      }
       if (!s.testsHechos && (conMapa ? ProgressMap.testsBajos(m).length > 0 || (s.widgets.avg != null && s.widgets.avg < 100) : s.widgets.avg != null && s.widgets.avg < 100)) {
         // mapaHecho = false → se vuelve a leer My Progress (los puntajes pudieron cambiar) antes del barrido
         Object.assign(s, { mode: 'tests', phase: 'home', unitsDone: [], lessonsDone: [], objHechos: [], testsHechos: true, mapaHecho: false }); this.set(s);
@@ -405,6 +412,20 @@ class TestSweep {
     log('🏁 Unidad', u, 'al final (' + motivo + ')' + (fallasAca ? ' — lo que falló ya está en el reporte' : '') + ' → Home');
     await this.irHome();
     return 'home';
+  }
+
+  // NUEVO v21.17 — RUTA DIRECTA: si este paso ya está entero hecho (todas sus tareas ✓ y el paso "Completed"), en vez de
+  // pulsar Next tarea por tarea se salta por el desplegable a lo PRIMERO pendiente (de esta lección o la siguiente).
+  // Solo en completar; una vez por lugar en la corrida. Si no hay nada pendiente → null (Next de siempre).
+  static async saltarHecho() {
+    const s = this.get(); if (!s || !s.active || s.mode !== 'completar' || s.explorar || CFG.rutaDirecta === false) return null;
+    const ts = NavigationManager.tasks(); if (ts.length < 2 || !ts.every(t => t.done) || !TestManager.yaTerminado()) return null;
+    const lugar = 'ruta|' + this.unitNum() + '|' + NavigationManager.lessonLabel() + '|' + NavigationManager.stepLabel();
+    if (Corrida.fallos(lugar)) return null; Corrida.fallo(lugar);
+    const antes = NavigationManager.screenSig();
+    const r = await DropdownNav.gotoNextIncomplete();
+    if (r && NavigationManager.screenSig() !== antes) { log('⏩ Ruta directa: paso ya hecho → voy a lo pendiente (' + r + ')'); return r; }
+    return null;
   }
 
   // NUEVO v21.12 — avanzar por los desplegables: siguiente paso de esta lección o, si es el último, la siguiente lección.

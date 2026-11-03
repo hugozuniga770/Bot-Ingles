@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.16, 03/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.17, 03/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -104,6 +104,10 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 45 | Pedido de Hugo: Explorador que pruebe todo y aprenda; catálogo por nivel | a | `core/explorador.js`, `core/catalogo.js`, modo explorar; viaja en el banco |
 | 46 | Pedido de Hugo: 40 cuentas a la vez, agregar sin esperar, control desde el teléfono | a* | `cloud/lote.js` (3 por máquina), sin cola global, reemplazo de cuenta, `panel/`. *Probado con GitHub/ED falsas; falta la 1.ª corrida real |
 | 47 | Ideas 82–84 de Hugo (IA de Claude para responder) | c | No hay llave de la API de Claude (Hugo: "no la tengo, ni modo") |
+| 48 | v21.16 en ED: Caro 76→100 / 84→100 en 1 h 47; Helena y Melgarejo salud 100 | — | Confirma guía, audio, fin de unidad, DnD verificado en ED real |
+| 49 | Replay DnD "mal" con fichas bien puestas (Caro #22–25) | a | Verificación con los mismos huecos / banco por dg_name (`replayVerificaMismoBanco`) |
+| 50 | Test con preguntas en otro orden: ficha cosechada no está en el banco (Caro #20, #21) | a | `mappingQueCalza` (`replayPreguntaMovida`) |
+| 51 | Helena echada de ED 2 veces (misma persona, otro número de línea en otra corrida) | a* | Liberar por huella + órdenes con run. *Falta verlo en una corrida real |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests
 - Speaking que exige DECIR una opción ("elegir la respuesta hablando"): ED reconoce voz y el micrófono simulado no dice
