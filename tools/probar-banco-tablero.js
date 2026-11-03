@@ -20,6 +20,15 @@ assert.ok(!m.known.includes('Lesson 9: Vacio||Step 3: Test'), 'un "known" sin re
 assert.strictEqual(B.contar(m), 3);
 assert.deepStrictEqual(A.testAns['Lesson 1: Food||Step 3: Test'], { 1: { mcq: 'x' }, 2: { fitb: ['y'] } }, 'no toca los originales');
 assert.strictEqual(B.slug('UPB Beginners 2'), 'upb-beginners-2');
+// NUEVO v21.16: lo que aprendió el Explorador viaja en el banco (lo de la cuenta manda)
+{ const ma = B.mezclar({ aprendido: { f1: { tipo: 'clic', sel: 'a' } } }, { aprendido: { f1: { tipo: 'clic', sel: 'b' }, f2: { tipo: 'teclear', sel: 'c' } } });
+  assert.strictEqual(ma.aprendido.f1.sel, 'a'); assert.strictEqual(ma.aprendido.f2.sel, 'c');
+  assert.deepStrictEqual(B.desdeLocal({ 'ed:aprendido:v1': JSON.stringify({ x: { tipo: 'clic' } }) }).aprendido, { x: { tipo: 'clic' } }); }
+// NUEVO v21.16: catálogo del nivel — por lugar manda la cuenta, salvo que en el banco se haya marcado; el dump de ejemplo se conserva
+{ const mc = B.mezclar({ catalogo: { lugares: { x: { estado: 'falla' }, y: { estado: 'ok', como: 1 } }, firmas: { f: { kind: 'dnd' } } } },
+    { catalogo: { lugares: { x: { estado: 'ok', como: 2 }, z: { estado: 'falla' } }, firmas: { f: { kind: 'dnd', ejemplo: { a: 1 } } } } }).catalogo;
+  assert.strictEqual(mc.lugares.x.como, 2); assert.strictEqual(mc.lugares.y.como, 1); assert.ok(mc.lugares.z); assert.deepStrictEqual(mc.firmas.f.ejemplo, { a: 1 });
+  assert.deepStrictEqual(B.desdeLocal({ 'ed:catalogo:v1': JSON.stringify({ C1: { lugares: { q: 1 } }, C2: {} }) }, 'C1').catalogo, { lugares: { q: 1 } }, 'solo el curso pedido'); }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'banco-'));
 const art = path.join(tmp, 'art'), ban = path.join(tmp, 'banco');
 for (const d of ['banco-1', 'banco-2']) fs.mkdirSync(path.join(art, d), { recursive: true });
@@ -71,3 +80,20 @@ assert.ok(enTest.includes('## 👤 Roy (cuenta 3)') && enTest.includes('→ Step
 const sinDatos = dibujar({ titulo: 'Cuenta 3', login: 'ok' });
 assert.ok(sinDatos.includes('Todavía no hay datos'));
 console.log('✓ banco de respuestas y tablero: OK');
+
+// ---------- DIAGNÓSTICO (NUEVO v21.16, ideas 18–28) ----------
+{
+  const D = require('../cloud/diagnostico');
+  const reps = [{ num: 1, motivo: 'tarea_no_marcada', kind: 'dnd', leccion: 'Lesson 6: Career', step: 'Step 2: Listen again' }, { num: 2, motivo: 'tarea_no_marcada', kind: 'dnd', leccion: 'Lesson 6: Career', step: 'Step 2: Listen again' },
+    { num: 3, motivo: 'atascado_en_el_mismo_lugar', kind: 'test_start', leccion: 'Lesson 5: Sports 2', step: 'Step 3: Test' }];
+  const cat = { lugares: { 'U10|Lesson 6: Career|Step 2: Listen again|T1': { estado: 'falla', fallas: ['corridaVieja', 'c2'] } }, firmas: { a: { kind: 'dnd', primera: '2026-11-03T10:00:00Z' }, b: { kind: 'mcq', primera: '2026-10-01T00:00:00Z' } } };
+  const g = D.agrupar(reps, cat, 'c2');
+  assert.strictEqual(g[0].tipo, 'tarea_no_marcada · dnd'); assert.strictEqual(g[0].veces, 2); assert.strictEqual(g[0].conocido, true, 'ya fallaba en otra corrida');
+  assert.strictEqual(g[1].conocido, false, 'nuevo');
+  const tab = { pasos: { a: { u: 1, tareas: { 1: 'ok', 2: 'ok', 3: 'falla' }, desde: '2026-11-03T10:00:00Z', hora: '2026-11-03T10:30:00Z' }, b: { u: 2, test: 100, tareas: {}, desde: '2026-11-03T10:40:00Z', hora: '2026-11-03T10:45:00Z' } } };
+  assert.strictEqual(D.salud(tab, reps), 73, 'salud: 3 de 4 bien, menos 2 por el atasco');
+  assert.deepStrictEqual(D.tiempos(tab), [{ unidad: 1, minutos: 30 }, { unidad: 2, minutos: 5 }]);
+  assert.deepStrictEqual(D.nuevas(cat, '2026-11-03T09:00:00Z').map(x => x.firma), ['a']);
+  assert.ok(/UN DUMP POR GRUPO/.test(D.paraIA({ nombre: 'X', curso: 'C', version: '21.16', grupos: g, reportes: reps, salud: 73, widgets: {} })));
+  console.log('✓ diagnóstico (agrupar, nuevo/conocido, salud, tiempos, pantallas nuevas, texto para la IA): OK');
+}

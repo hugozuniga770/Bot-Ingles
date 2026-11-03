@@ -1,0 +1,33 @@
+# =====================================================================
+#  panel.yml — publica el PANEL DEL TELÉFONO (carpeta panel/) en GitHub Pages (NUEVO v21.16)
+#  UNA sola vez: Settings → Pages → "Build and deployment" → Source: GitHub Actions. Después se publica solo en cada
+#  push que toque panel/. La dirección queda: https://<tu-usuario>.github.io/<repo>/
+#  (La página es pública pero no guarda nada: sin TU token y TU clave no puede tocar tu repo.)
+# =====================================================================
+name: panel
+on:
+  push:
+    branches: [main]
+    paths: ['panel/**', '.github/workflows/panel.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: panel
+      - id: deploy
+        uses: actions/deploy-pages@v4

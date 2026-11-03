@@ -43,7 +43,10 @@ function dibujar(o) {
   const ahora = o.fin ? null : (T.ahora || (T.ultimo && T.pasos[T.ultimo]) || null);
   const pasoCorto = a => (/test/i.test(a.paso || '') ? 'Test' : 'Step ' + a.p) + (a.contador ? ' ' + a.contador : '');
   L.push(`## 👤 ${o.titulo}${o.curso ? ' — ' + o.curso : ''}`);
-  L.push([login, w.completion != null ? `Realización **${w.completion} %**` : '', w.avg != null ? `Promedio de tests **${w.avg} %**` : '',
+  const ini = o.inicio || null;   // NUEVO v21.16 (idea 28): con cuánto empezó esta corrida
+  L.push([login, w.completion != null ? `Realización **${w.completion} %**${ini && ini.completion != null && ini.completion !== w.completion ? ` (empezó en ${ini.completion} %)` : ''}` : '',
+    w.avg != null ? `Promedio de tests **${w.avg} %**${ini && ini.avg != null && ini.avg !== w.avg ? ` (empezó en ${ini.avg} %)` : ''}` : '',
+    o.salud != null ? `${o.salud >= 85 ? '💚' : o.salud >= 60 ? '💛' : '❤️‍🩹'} salud ${o.salud}/100` : '', o.freno ? `🛑 frenada: ${o.freno}` : '',
     o.fin ? '🏁 terminó' : (ahora ? `🔄 **ahora: Unidad ${ahora.u} → Lección ${ahora.l} → ${ahora.paso}${ahora.contador ? ' (' + ahora.contador + ')' : ''}**` : ''),
     o.minutos != null ? `⏱ ${Math.floor(o.minutos / 60)} h ${o.minutos % 60} min en esta corrida` : '',
     // NUEVO v21.15: el "Time on Task" y el "Final Test" que muestra ED en My Progress (las 4 h que pide la UPB)
@@ -79,7 +82,7 @@ function dibujar(o) {
         const es = estadoPaso(e); ic = ICON[es];
         if (es === 'falla') det = `_${e.motivo ? (MOTIVO[e.motivo] || e.motivo) : 'ED no la marcó'}${e.reporte ? ` · reporte #${e.reporte}` : ''}_`;
         if (es === 'saltado') det = '_ya falló, no se repitió_';
-      } else ic = mapL && (mapL.terminado || p <= (mapL.hechos || 0)) ? '✅' : '⬜';
+      } else ic = mapL && (mapL.terminado || p <= (mapL.hechos || 0)) ? '✅' : (p === nP && test != null && test >= 100 ? '✅' : '⬜');   // AJUSTADA v21.16: el último paso es el test; si está en 100 % → ✅
       // el paso donde está AHORA: 🔄 (con el contador del test, p. ej. "4/10")
       const aquiP = !!(ahora && ahora.u === u.n && ahora.l === n && ahora.p === p);
       const marca = aquiP ? (ic === '⬜' ? '' : ' ') + '🔄' + (ahora.contador ? ' ' + ahora.contador : '') : '';

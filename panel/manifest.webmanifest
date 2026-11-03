@@ -1,0 +1,16 @@
+{
+  "name": "Bot ED · Panel",
+  "short_name": "Bot ED",
+  "description": "Correr, parar y ver las cuentas del bot de English Discoveries desde el teléfono",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1118",
+  "theme_color": "#0f1720",
+  "lang": "es",
+  "icons": [{ "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }],
+  "shortcuts": [
+    { "name": "Correr todas", "short_name": "▶ Todas", "url": "./?accion=todas" },
+    { "name": "Ver cómo van", "short_name": "Estado", "url": "./" }
+  ]
+}

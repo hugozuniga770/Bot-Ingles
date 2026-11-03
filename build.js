@@ -29,6 +29,8 @@ const ORDEN = [
   'utils/dnd-model.js',
   'utils/practice.js',
   'utils/press.js',
+  'utils/guia.js',        // NUEVO v21.16: cierra la guía de ED ("Got it!") que tapa la página
+  'utils/manos.js',       // NUEVO v21.16: teclado/mouse reales (nube) y teclado simulado completo
   'utils/reporter.js',
   'utils/corrida.js',
   'utils/tablero.js',
@@ -39,6 +41,8 @@ const ORDEN = [
   'core/progress-map.js',
   'core/sweep.js',
   'core/unit-tests.js',
+  'core/explorador.js',   // NUEVO v21.16: prueba de todo cuando una tarea no se marca y aprende
+  'core/catalogo.js',     // NUEVO v21.16: lo que el bot sabe de cada nivel (por curso; viaja en el banco)
   'exercises/writing.js',
   'exercises/select-text.js',
   'exercises/sequence.js',

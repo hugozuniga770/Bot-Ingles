@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.15, 02/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.16, 03/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -13,9 +13,13 @@ plataforma"), `CFG.paciencia` 1,5 en todas las esperas, y el cargador del README
 **v21.15** (6 corridas del 02/11 con v21.14): la causa de casi todo lo que faltó era RECARGAR la página dentro de las
 lecciones (ED queda sin cargar; se arregla yendo al Home). Ya no se recarga. Además: tests ya hechos avanzan al instante,
 los Unit Tests ocultos no cuentan (no existen en estos cursos), Google Chrome en la nube, reporte completo sin tope.
-**Lo próximo:** Hugo sube la v21.15, corre las cuentas y pasa los zips (mirar `reporte-completo.json` y el tablero).
-**Pregunta abierta a Hugo:** Roy tiene DOS cursos en el carrusel del Home (UPB Beginners 1 con 51 % y Beginners 2,
-el que hizo el bot): ¿hay que completar también Beginners 1?
+**v21.16** (6 zips del 02/11 con v21.15 + dumps de Hugo del 03/11): la GUÍA de ED ("Got it!") tapaba la página
+(Nore: DnD, True/False, ordenar en tests) — probado con dragula y driver.js reales; Explore con audio; writing tecleado;
+Watch again (íconos escondidos); fin de unidad; Explorador que aprende; catálogo por nivel; varios cursos del carrusel
+(Hugo: "hazlo todo"); fotos; fiabilidad y diagnóstico (ideas 1–28 de Hugo); nube SIN cola (3 cuentas por máquina, hasta
+60 a la vez) y **panel del teléfono** (`panel/`). `ED_CUENTAS` se mantiene (Hugo).
+**Lo próximo:** Hugo activa Pages (Settings → Pages → GitHub Actions), configura el panel, corre las cuentas y pasa los zips
+(`reporte-completo.json`, `diagnostico.json`, `resumen-para-ia.txt`, `catalogo.json`, `fotos/`).
 
 ## Lo último que se hizo
 | Versión | Qué | Por qué (evidencia) |
@@ -31,6 +35,7 @@ el que hizo el bot): ¿hay que completar también Beginners 1?
 | v21.13 | Tablero en vivo con checks (issue del repo, un cuadro por cuenta con nombre; unidades desplegables) y banco de respuestas por curso compartido entre cuentas; reporte con número fijo | Ideas de Hugo (02/11): ver avance unidad por unidad y no cosechar dos veces lo mismo |
 | v21.14 | Ritmo de persona (pausa entre pasos, input `ritmo`), paciencia 1,5 en todas las esperas, Next 4,5 s, branching 150 s, tope por unidad 90 min, login con más margen; cargador siempre al último commit | Hugo: "mínimo 4 h en la plataforma", "más tiempo a lo frágil", "que el js del README traiga la última versión" |
 | v21.15 | Nunca recargar dentro de las lecciones (Home y volver a entrar), test ya hecho → avanzar, Unit Tests ocultos no cuentan, Time on Task en el tablero, Google Chrome en la nube, reporte completo | 6 zips del 02/11 (v21.14): ~150 atascos tras recargar, 22 en tests ya hechos, 14 Unit Tests inexistentes por cuenta |
+| v21.16 | Guía de ED cerrada en cada paso, Explore con audio, writing tecleado (manos reales en la nube), Watch again, DnD verificado, fin de unidad, Explorador + catálogo por nivel + modo explorar, varios cursos, fotos, fiabilidad/diagnóstico, nube sin cola (lote), panel del teléfono | 6 zips del 02/11 (v21.15), 4 dumps + 3 capturas de Hugo (03/11), sus 100 ideas (1–28 hechas o preparadas) |
 
 ## Hipótesis — resueltas con la corrida de Jose (v21.8)
 1. **✅ ED NO promedia cada intento: vale el último (o el mejor).** Jose: 1.os intentos en 34, 20, 30, 17, 10, 60, 80,
@@ -87,7 +92,18 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 35 | Speaking interactivo/ramificado en la nube: "Speech Recognition session is being established", video 00:00 | b | Google Chrome en vez de Chromium (códecs y WebRTC); confirmar en la próxima corrida |
 | 36 | Nore (High Intermediate 2): tests "Let's review" con ordenar oraciones quedan en 55–84 % (`seq_replay ok:false`) | b | Los dumps están en el reporte; falta revisar el ordenar en tests |
 | 37 | Tareas sin marcar sueltas: Explore (Maria 3, Thiago 2), Watch again, DnD de "Read again" (Nore 3), writing | b | Con `reporte-completo.json` ya no se pierde ningún dump |
-| 38 | Mateo y Roy trabajaron UPB Beginners 1 (el Home mostraba ese curso) | — | Confirma que a Mateo no se le borró nada: su Beginners 2 sigue en 92 %. Falta que Hugo diga qué curso(s) hacer por persona |
+| 38 | Mateo y Roy trabajaron UPB Beginners 1 (el Home mostraba ese curso) | a | Hugo (03/11): "hazlo todo" → al terminar un curso pasa al siguiente del carrusel (`otroCursoCarrusel`). Las flechas no tienen dump: se prueban candidatas y se verifica el nombre; si no, reporte con el HTML del carrusel |
+| 35b | (actualiza 35) Speaking con Google Chrome | a | Confirmado en las corridas con v21.15: 12 interactivos + 9 ramificados marcados |
+| 36b | (actualiza 36) Tests "Let's review" de Nore con ordenar (84/75/55 %) | a | Era la guía de ED tapando la página (los 3 reportes la tienen); se cierra en cada paso (`dndReverseGuia`, prueba fiel) |
+| 39 | Nore: DnD "Drag Here" a la izquierda (reverseColumn) y tabla True/False de "Career Advisor", "Read again" de "Eco-vacation", "Preparing for branching speaking" (moves 10, nada cae) | a | Guía de ED (driver.js) tapando la página. Prueba fiel con dragula + driver.js REALES: v21.15 = reporte #123; v21.16 marca (`tools/prueba-fiel`, `dndReverseGuia`, `clasificacionGuia`) |
+| 40 | Explore de gramática con audio (Step 1) en las 6 cuentas (28 reportes) | a | Rama de audio: cargar → play verificado → sonar hasta marcar (`exploreGramaticaAudio`) |
+| 41 | Personalized writing (corregir el e-mail): editados 5 y sin marcar (5 cuentas) | a* | Se teclea (teclado real en la nube). *La simulación supone que ED escucha keydown (lo único que faltaba); confirmar en ED (`writingAriellaTeclado`) |
+| 42 | Watch again 2/3 con imágenes: marked 0 (Maria, Luis, Thiago) | a | Íconos ✓/✗ escondidos confundían al bot (`mcqImagenesIconosOcultos`) |
+| 43 | Atasco en el último test/puntaje 100 % de la unidad (25 reportes) y review en la última pregunta (Roy, Mateo) | a | `finDeUnidadTestHecho`, `finDeUnidadPuntaje100`, `reviewUltimaSinSalida` |
+| 44 | Nore "The Tour Group" Let's review 90 % (DnD del test) | b | El replay de DnD ahora se verifica hueco por hueco y deja `replay_incompleto` con quería/hay |
+| 45 | Pedido de Hugo: Explorador que pruebe todo y aprenda; catálogo por nivel | a | `core/explorador.js`, `core/catalogo.js`, modo explorar; viaja en el banco |
+| 46 | Pedido de Hugo: 40 cuentas a la vez, agregar sin esperar, control desde el teléfono | a* | `cloud/lote.js` (3 por máquina), sin cola global, reemplazo de cuenta, `panel/`. *Probado con GitHub/ED falsas; falta la 1.ª corrida real |
+| 47 | Ideas 82–84 de Hugo (IA de Claude para responder) | c | No hay llave de la API de Claude (Hugo: "no la tengo, ni modo") |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests
 - Speaking que exige DECIR una opción ("elegir la respuesta hablando"): ED reconoce voz y el micrófono simulado no dice
@@ -163,6 +179,10 @@ difieren solo en mayúsculas ("Weren't"/"weren't": siempre coincidencia EXACTA p
   campo `cuentas` = `1` · `2,3` · `todas`. Mientras corre, nadie debe entrar a esa cuenta.
 
 ## Próximos pasos sugeridos (en orden)
+0. (v21.16) Primera corrida real: mirar en el zip `diagnostico.json` (salud, grupos 🆕), `catalogo.json` (tipos de
+   pantalla del nivel), `aprendido.json` (qué marcó el Explorador), `fotos/`, y en el registro `🪧 Guía cerrada`,
+   `🎧 [Explore] Audio`, `🔭 [Explorador]`, `[lote]`. Si el writing sigue sin marcar, el reporte trae `como: real|simulado`.
+   Ideas de Hugo 29–78 todavía sin revisar (él pidió ir de 20 en 20; 79–100 no).
 0. Ver el tablero en vivo (Issues → "📊 Tablero del bot") durante la primera corrida con v21.13 y el log
    `📚 Banco de ...` (¿leyó el curso? ¿cuántos tests trajo?).
 1. Zip de la corrida con v21.12 (`completar`) → `rescatar-zip.py` si viene cortado → `analizar-registro.py`.

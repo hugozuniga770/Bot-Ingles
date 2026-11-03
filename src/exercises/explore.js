@@ -22,8 +22,11 @@ class ExploreSolver {
   static isExplore() {
     if (this.hayTarjetas() && !q('.dnditem, .dndZone .draggable, .prMCQ__qaInnerSet, .DDLOptions__selected')) return true;
     if (!this.esPasoExplore()) return false;
-    return this.hayVideo() || qav('.speaker').length > 0 || qav('.segment').length >= 2;
+    return this.hayVideo() || this.hayAudio() || qav('.speaker').length > 0 || qav('.segment').length >= 2;   // AJUSTADA v21.16: + audio
   }
+  // NUEVO v21.16 — reproductor de AUDIO de los Explore de gramática (dump de Hugo "Lesson 4: Past Form of Modals:
+  // Should/Could Have · Step 1: Explore": .learning__RAMediaResourceW--html5Audio con #CTrackerPlayBtn y "00:00/00:09")
+  static hayAudio() { return !!q('.learning__RAMediaResourceW--html5Audio, .learning__resourcesArea .layout__audioControlsW'); }
 
   static async solveExplore() {
     const tn = NavigationManager.curTask()?.n;
@@ -33,8 +36,53 @@ class ExploreSolver {
     if (hecho()) return fin(true);
     if (this.hayTarjetas()) { if (await this.tarjetas(tn, hecho, intentos)) return fin(true); }
     if (this.hayVideo()) { if (await this.video(hecho, intentos)) return fin(true); }
+    if (this.hayAudio() && !this.hayVideo()) { if (await this.audio(hecho, intentos, !tn)) return fin(true); if (!tn && intentos.includes('sin_tarea')) return fin(false); }   // NUEVO v21.16
     if (await this.parlantes(hecho, intentos, !tn)) return fin(true);
     return fin(hecho());
+  }
+
+  // ---- AUDIO (NUEVO v21.16) ----
+  // 13 Explore de gramática sin marcar solo en Nore (y 2–4 en cada cuenta: U14 L1–L5): el bot tocaba las 2 frases
+  // (segmentos:4✗) y ED no marcaba. Hugo: "solo era esperar a que cargue y tocar play ... dale tiempito y play 3
+  // segundos ... casi todos tardan en cargar". → esperar a que cargue (hasta 40 s), play VERIFICADO (clic, mouse real
+  // en la nube, o el <audio> directo) y dejarlo sonar hasta que ED marque la tarea o termine el audio.
+  static async audio(hecho, intentos, sinTarea) {
+    log('🎧 [Explore] Audio: espero a que cargue y le doy play...');
+    const zona = () => q('.learning__RAMediaResourceW--html5Audio') || q('.learning__resourcesArea') || document;
+    const t = id => txt(q('#' + id, zona()) || q('#' + id));
+    const seg = s => { const m = String(s || '').match(/(\d+):(\d+)/); return m ? +m[1] * 60 + +m[2] : 0; };
+    const total = () => seg(t('total-time'));
+    // el <audio> del recurso: el que dura como dice el reproductor (hay otro corto de efectos)
+    const aud = () => { const as = qa('audio'); const tt = total(); return (tt && as.find(a => Math.abs((a.duration || 0) - tt) <= 2)) || as.filter(a => a.duration > 0).sort((a, b) => b.duration - a.duration)[0] || as[0] || null; };
+    const botones = () => [qv('#CTrackerPlayBtn', zona()), qv('.layout__mediaPlayPause--play', zona()), qv('.learning__RAMRButton', zona()), qv('.layout__mediaPlayPause', zona())].filter((b, i, a) => b && a.indexOf(b) === i);
+    // cargado = el botón de play SE VE y ya se sabe cuánto dura (o el <audio> tiene datos, o el cargador dice 100 %)
+    const cargado = () => botones().length > 0 && (total() > 0 || qa('audio').some(a => a.readyState >= 2 && a.duration > 0) || /100\s*%/.test(t('mediaLoadProgressPercent')) || !qv('#mediaLoadPanel'));
+    const ok = await waitFor(cargado, 40000, 500);
+    intentos.push(ok ? 'audio_cargado' : 'audio_sin_cargar');
+    const reloj0 = t('playing-time');
+    const sonando = () => { const a = aud(); if (a && !a.paused && !a.ended && a.currentTime > 0) return true;
+      const b = q('#CTrackerPlayBtn', zona()) || q('.layout__mediaPlayPause', zona()); if (b && /--pause\b|\bpause\b/i.test(b.className) && !/--play\b/.test(b.className)) return true;
+      return !!(reloj0 != null && t('playing-time') && t('playing-time') !== reloj0); };
+    let empezo = false;
+    for (const b of botones()) {
+      if (await press(b, () => sonando() || hecho(), 4000)) { empezo = true; intentos.push('play:' + ((typeof b.className === 'string' && b.className.split(' ')[0]) || b.id || 'boton')); break; }
+    }
+    if (!empezo && Manos.hay() && botones()[0]) {
+      await Manos.clic(botones()[0]);
+      empezo = !!(await waitFor(() => sonando() || hecho(), 4000, 300)); intentos.push('play:mouse_real' + (empezo ? '' : '✗'));
+    }
+    if (!empezo && aud()) {   // último recurso: el <audio> directo
+      try { const pr = aud().play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+      empezo = !!(await waitFor(() => sonando() || hecho(), 4000, 300)); intentos.push('audio.play' + (empezo ? '' : '✗'));
+    }
+    // sin barra de tareas no hay nada que verificar: con que suene unos segundos basta (Hugo: "play 3 segundos")
+    if (sinTarea) { await sleep(5000); intentos.push('sin_tarea'); return false; }
+    // dejarlo sonar: hasta que ED marque o termine (tope: lo que dura + 15 s, entre 20 s y 4 min); NO se pausa
+    const tope = Math.min(240000, Math.max(20000, (total() + 15) * 1000));
+    await waitFor(() => hecho() || (aud() && aud().ended) || (total() > 0 && seg(t('playing-time')) >= total()), tope, 500);
+    if (!hecho()) await waitFor(hecho, 3000, 300);
+    if (!hecho()) intentos.push('audio_sin_marcar');
+    return hecho();
   }
 
   // ---- VIDEO: esperar a que cargue (hasta 30 s), darle play y esperar a que ED marque (hasta 100 s) ----

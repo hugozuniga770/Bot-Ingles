@@ -1,5 +1,5 @@
 # =====================================================================
-#  nube.yml — corre el bot en la nube (sin tu PC). Actions → "nube" → Run workflow.
+#  nube.yml — corre el bot en la nube (sin tu PC). Actions → "nube" → Run workflow  (o el PANEL del teléfono)
 #
 #  CUENTAS (una sola vez, y las editas cuando quieras):
 #    Settings → Secrets and variables → Actions → New repository secret
@@ -10,21 +10,30 @@
 #      hugo123 miClave1 Hugo
 #      otro456 otraClave Prueba
 #  Al lanzar, en "cuentas" escribe cuáles: 1   ·   2,3   ·   todas
+#  NUEVO v21.16 — también un secret POR CUENTA:  ED_CUENTA_<APODO>  (ej. ED_CUENTA_NORE), con UNA línea igual.
+#    Se lanza por apodo: NORE · NORE,ROY · todas. El panel del teléfono (panel/) los crea y borra por ti.
+#  NUEVO v21.16 — SIN COLA (Hugo: "hasta 40 cuentas de una sola vez ... ir añadiendo una y otra sin esperar"):
+#    • varias cuentas por máquina ("por_maquina", 3 por defecto): GitHub gratis da 20 máquinas a la vez → 40 cuentas
+#      en 14 máquinas, todas al mismo tiempo (cloud/lote.js arranca un Chrome por cuenta);
+#    • cada corrida es independiente: lanzar una cuenta más NO espera a las otras corridas;
+#    • si pides una cuenta que YA está corriendo en otra corrida, se salta (nunca dos logins de la misma cuenta).
 #  NUNCA escribas contraseñas en el formulario de Run workflow ni en el código:
 #  en un repo público eso queda visible en los registros. En el secret están cifradas.
 #  (Compatibilidad: si ED_CUENTAS no existe, se usa ED_USER_1 / ED_PASS_1.)
 # =====================================================================
 name: nube
+# NUEVO v21.16: el nombre de cada corrida dice qué cuentas y qué modo (el panel del teléfono lo usa)
+run-name: "nube · ${{ github.event.inputs.cuentas || 'todas' }} · ${{ github.event.inputs.modo || 'completar' }}"
 on:
   workflow_dispatch:
     inputs:
       cuentas:
-        description: 'Qué cuentas del secret ED_CUENTAS correr: 1 · 2,3 · todas'
+        description: 'Qué cuentas correr: 1 · 2,3 (líneas de ED_CUENTAS) · NORE (secret ED_CUENTA_NORE) · todas'
         default: 'todas'
       modo:
-        description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · auto = sigue la lección actual'
+        description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · explorar = recorre TODAS las unidades y cataloga el nivel (sin tests) · auto = sigue la lección actual'
         type: choice
-        options: [completar, barrer, auto]
+        options: [completar, barrer, explorar, auto]
         default: completar
       minutos:
         description: 'Minutos de trabajo (máx. 330)'
@@ -32,105 +41,246 @@ on:
       ritmo:
         description: 'Segundos (promedio) entre un paso y otro: ritmo de persona. 5 ≈ 4 h para un curso grande; 0 = lo más rápido'
         default: '5'
+      por_maquina:
+        description: 'Cuentas por máquina (1 a 4). 3 = 40 cuentas en 14 máquinas, todas a la vez'
+        default: '3'
   # Para que se relance solo cada 6 h (todas las cuentas), quita el # de las 2 líneas siguientes:
   # schedule:
   #   - cron: '0 */6 * * *'
 
-concurrency:
-  group: nube-${{ github.ref }}
-  cancel-in-progress: false
+# AJUSTADA v21.16: SIN "concurrency" global (antes una corrida nueva esperaba a que terminara la anterior).
 
-# NUEVO v21.13: issues: write → el tablero en vivo (un issue del repo con la tabla de checks de cada cuenta)
+# NUEVO v21.13: issues: write → el tablero en vivo. NUEVO v21.16: actions: read → ver qué cuentas ya están corriendo
 permissions:
   contents: read
   issues: write
+  actions: read
 
 jobs:
   preparar:
     runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a 26 y Playwright 1.48 no lo soporta
     outputs:
       lista: ${{ steps.elegir.outputs.lista }}
+      grupos: ${{ steps.elegir.outputs.grupos }}
+      hay: ${{ steps.elegir.outputs.hay }}
+      cada: ${{ steps.elegir.outputs.cada }}
       issue: ${{ steps.tablero.outputs.issue }}
     steps:
       - uses: actions/checkout@v4
-      - name: Elegir cuentas
-        id: elegir
-        run: node cloud/cuentas.js lista
-        env:
-          ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
-          HAY_USER_1: ${{ secrets.ED_USER_1 != '' }}
-          ELEGIDAS: ${{ github.event.inputs.cuentas || 'todas' }}
       - name: Tablero en vivo (issue del repo)
         id: tablero
         continue-on-error: true
         run: node cloud/tablero.js issue
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Elegir cuentas (y saltar las que ya corren en otra corrida)
+        id: elegir
+        run: node cloud/cuentas.js lista
+        env:
+          ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
+          # NUEVO v21.16: de aquí solo se leen los NOMBRES de los secrets ED_CUENTA_<APODO> (nunca se imprimen valores)
+          SECRETOS: ${{ toJSON(secrets) }}
+          HAY_USER_1: ${{ secrets.ED_USER_1 != '' }}
+          ELEGIDAS: ${{ github.event.inputs.cuentas || 'todas' }}
+          POR_MAQUINA: ${{ github.event.inputs.por_maquina || '3' }}
+          GH_TOKEN: ${{ github.token }}
+          TABLERO_ISSUE: ${{ steps.tablero.outputs.issue }}
 
   correr:
     needs: preparar
+    if: needs.preparar.outputs.hay == 'si'
+    name: correr ${{ matrix.grupo.nombre }}
     runs-on: ubuntu-24.04   # fijo: ubuntu-latest pasa a 26 y Playwright 1.48 no lo soporta
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
-        cuenta: ${{ fromJson(needs.preparar.outputs.lista) }}
+        grupo: ${{ fromJson(needs.preparar.outputs.grupos) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Instalar Playwright + Chrome
         run: npm install --no-audit --no-fund --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
-      - name: Recuperar la memoria del bot (ejecución anterior)
+      - name: Recuperar la memoria del bot · cuenta 1
+        if: matrix.grupo.c1 != ''
         uses: actions/cache/restore@v4
         with:
           path: estado
-          key: ed-estado-${{ matrix.cuenta }}-${{ github.run_id }}
-          restore-keys: ed-estado-${{ matrix.cuenta }}-
+          key: ed-estado-${{ matrix.grupo.c1 }}-${{ github.run_id }}
+          restore-keys: ed-estado-${{ matrix.grupo.c1 }}-
+      - name: Apartar la memoria · cuenta 1
+        if: matrix.grupo.c1 != ''
+        run: mkdir -p memoria && (mv "estado/cuenta-${{ matrix.grupo.c1 }}.json" memoria/ 2>/dev/null || true) && rm -rf estado
+      - name: Recuperar la memoria del bot · cuenta 2
+        if: matrix.grupo.c2 != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c2 }}-${{ github.run_id }}
+          restore-keys: ed-estado-${{ matrix.grupo.c2 }}-
+      - name: Apartar la memoria · cuenta 2
+        if: matrix.grupo.c2 != ''
+        run: mkdir -p memoria && (mv "estado/cuenta-${{ matrix.grupo.c2 }}.json" memoria/ 2>/dev/null || true) && rm -rf estado
+      - name: Recuperar la memoria del bot · cuenta 3
+        if: matrix.grupo.c3 != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c3 }}-${{ github.run_id }}
+          restore-keys: ed-estado-${{ matrix.grupo.c3 }}-
+      - name: Apartar la memoria · cuenta 3
+        if: matrix.grupo.c3 != ''
+        run: mkdir -p memoria && (mv "estado/cuenta-${{ matrix.grupo.c3 }}.json" memoria/ 2>/dev/null || true) && rm -rf estado
+      - name: Recuperar la memoria del bot · cuenta 4
+        if: matrix.grupo.c4 != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c4 }}-${{ github.run_id }}
+          restore-keys: ed-estado-${{ matrix.grupo.c4 }}-
+      - name: Apartar la memoria · cuenta 4
+        if: matrix.grupo.c4 != ''
+        run: mkdir -p memoria && (mv "estado/cuenta-${{ matrix.grupo.c4 }}.json" memoria/ 2>/dev/null || true) && rm -rf estado
+      - name: Juntar las memorias de este grupo
+        run: mkdir -p estado && (mv memoria/* estado/ 2>/dev/null || true) && ls estado
       - name: Recuperar el banco de respuestas (por curso, de todas las cuentas)
         uses: actions/cache/restore@v4
         with:
           path: banco
           key: ed-banco-${{ github.run_id }}
           restore-keys: ed-banco-
-      - name: Correr el bot
-        run: node cloud/runner.js
+      - name: Correr el bot (las cuentas de este grupo, a la vez)
+        run: node cloud/lote.js
         env:
+          CUENTAS_LOTE: ${{ matrix.grupo.nombre }}
           GH_TOKEN: ${{ github.token }}
           TABLERO_ISSUE: ${{ needs.preparar.outputs.issue }}
-          CUENTA: ${{ matrix.cuenta }}
+          TABLERO_CADA: ${{ needs.preparar.outputs.cada }}
           ED_CUENTAS: ${{ secrets.ED_CUENTAS }}
-          ED_USER: ${{ secrets[format('ED_USER_{0}', matrix.cuenta)] }}
-          ED_PASS: ${{ secrets[format('ED_PASS_{0}', matrix.cuenta)] }}
+          ED_CUENTA_S1: ${{ secrets[format('ED_CUENTA_{0}', matrix.grupo.c1)] }}
+          ED_USER_S1: ${{ secrets[format('ED_USER_{0}', matrix.grupo.c1)] }}
+          ED_PASS_S1: ${{ secrets[format('ED_PASS_{0}', matrix.grupo.c1)] }}
+          ED_CUENTA_S2: ${{ secrets[format('ED_CUENTA_{0}', matrix.grupo.c2)] }}
+          ED_USER_S2: ${{ secrets[format('ED_USER_{0}', matrix.grupo.c2)] }}
+          ED_PASS_S2: ${{ secrets[format('ED_PASS_{0}', matrix.grupo.c2)] }}
+          ED_CUENTA_S3: ${{ secrets[format('ED_CUENTA_{0}', matrix.grupo.c3)] }}
+          ED_USER_S3: ${{ secrets[format('ED_USER_{0}', matrix.grupo.c3)] }}
+          ED_PASS_S3: ${{ secrets[format('ED_PASS_{0}', matrix.grupo.c3)] }}
+          ED_CUENTA_S4: ${{ secrets[format('ED_CUENTA_{0}', matrix.grupo.c4)] }}
+          ED_USER_S4: ${{ secrets[format('ED_USER_{0}', matrix.grupo.c4)] }}
+          ED_PASS_S4: ${{ secrets[format('ED_PASS_{0}', matrix.grupo.c4)] }}
           MODO: ${{ github.event.inputs.modo || 'completar' }}
           MINUTOS: ${{ github.event.inputs.minutos || '330' }}
           RITMO: ${{ github.event.inputs.ritmo || '5' }}
-      - name: Guardar la memoria del bot
+      - name: Separar las memorias para guardarlas
         if: always()
+        run: mkdir -p guardar && (cp estado/cuenta-*.json guardar/ 2>/dev/null || true) && ls guardar
+      - name: Guardar la memoria · cuenta 1
+        if: always() && matrix.grupo.c1 != ''
+        run: rm -rf estado && mkdir -p estado && (cp "guardar/cuenta-${{ matrix.grupo.c1 }}.json" estado/ 2>/dev/null || true)
+      - name: Guardar la memoria en la caché · cuenta 1
+        if: always() && matrix.grupo.c1 != ''
         uses: actions/cache/save@v4
         with:
           path: estado
-          key: ed-estado-${{ matrix.cuenta }}-${{ github.run_id }}
-      - name: Subir reporte y fotos
-        if: always()
+          key: ed-estado-${{ matrix.grupo.c1 }}-${{ github.run_id }}
+      - name: Subir reporte y fotos · cuenta 1
+        if: always() && matrix.grupo.c1 != ''
         uses: actions/upload-artifact@v4
         with:
-          name: cuenta-${{ matrix.cuenta }}
-          path: salida/
+          name: cuenta-${{ matrix.grupo.c1 }}
+          path: salida/${{ matrix.grupo.c1 }}/
           retention-days: 3
-      - name: Pasar el banco de esta cuenta al job "juntar"
-        if: always()
+          if-no-files-found: ignore
+      - name: Pasar el banco al job "juntar" · cuenta 1
+        if: always() && matrix.grupo.c1 != ''
         uses: actions/upload-artifact@v4
         with:
-          name: banco-${{ matrix.cuenta }}
-          path: banco/
+          name: banco-${{ matrix.grupo.c1 }}
+          path: banco-salida/${{ matrix.grupo.c1 }}/
+          retention-days: 1
+          if-no-files-found: ignore
+      - name: Guardar la memoria · cuenta 2
+        if: always() && matrix.grupo.c2 != ''
+        run: rm -rf estado && mkdir -p estado && (cp "guardar/cuenta-${{ matrix.grupo.c2 }}.json" estado/ 2>/dev/null || true)
+      - name: Guardar la memoria en la caché · cuenta 2
+        if: always() && matrix.grupo.c2 != ''
+        uses: actions/cache/save@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c2 }}-${{ github.run_id }}
+      - name: Subir reporte y fotos · cuenta 2
+        if: always() && matrix.grupo.c2 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuenta-${{ matrix.grupo.c2 }}
+          path: salida/${{ matrix.grupo.c2 }}/
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: Pasar el banco al job "juntar" · cuenta 2
+        if: always() && matrix.grupo.c2 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: banco-${{ matrix.grupo.c2 }}
+          path: banco-salida/${{ matrix.grupo.c2 }}/
+          retention-days: 1
+          if-no-files-found: ignore
+      - name: Guardar la memoria · cuenta 3
+        if: always() && matrix.grupo.c3 != ''
+        run: rm -rf estado && mkdir -p estado && (cp "guardar/cuenta-${{ matrix.grupo.c3 }}.json" estado/ 2>/dev/null || true)
+      - name: Guardar la memoria en la caché · cuenta 3
+        if: always() && matrix.grupo.c3 != ''
+        uses: actions/cache/save@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c3 }}-${{ github.run_id }}
+      - name: Subir reporte y fotos · cuenta 3
+        if: always() && matrix.grupo.c3 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuenta-${{ matrix.grupo.c3 }}
+          path: salida/${{ matrix.grupo.c3 }}/
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: Pasar el banco al job "juntar" · cuenta 3
+        if: always() && matrix.grupo.c3 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: banco-${{ matrix.grupo.c3 }}
+          path: banco-salida/${{ matrix.grupo.c3 }}/
+          retention-days: 1
+          if-no-files-found: ignore
+      - name: Guardar la memoria · cuenta 4
+        if: always() && matrix.grupo.c4 != ''
+        run: rm -rf estado && mkdir -p estado && (cp "guardar/cuenta-${{ matrix.grupo.c4 }}.json" estado/ 2>/dev/null || true)
+      - name: Guardar la memoria en la caché · cuenta 4
+        if: always() && matrix.grupo.c4 != ''
+        uses: actions/cache/save@v4
+        with:
+          path: estado
+          key: ed-estado-${{ matrix.grupo.c4 }}-${{ github.run_id }}
+      - name: Subir reporte y fotos · cuenta 4
+        if: always() && matrix.grupo.c4 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuenta-${{ matrix.grupo.c4 }}
+          path: salida/${{ matrix.grupo.c4 }}/
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: Pasar el banco al job "juntar" · cuenta 4
+        if: always() && matrix.grupo.c4 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: banco-${{ matrix.grupo.c4 }}
+          path: banco-salida/${{ matrix.grupo.c4 }}/
           retention-days: 1
           if-no-files-found: ignore
 
   # NUEVO v21.13: junta los bancos de todas las cuentas (por curso) y los guarda en la caché para la próxima corrida
   juntar:
-    needs: correr
-    if: always()
+    needs: [preparar, correr]
+    if: always() && needs.preparar.outputs.hay == 'si'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

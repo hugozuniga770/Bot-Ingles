@@ -16,10 +16,10 @@
 'use strict';
 const fs = require('fs'), path = require('path');
 
-const K = { answers: 'ed:answers:v1', testAns: 'ed:testAns:v2', known: 'ed:testKnown:v1' };
+const K = { answers: 'ed:answers:v1', testAns: 'ed:testAns:v2', known: 'ed:testKnown:v1', aprendido: 'ed:aprendido:v1', catalogo: 'ed:catalogo:v1' };   // AJUSTADA v21.16: + aprendido, catálogo
 const slug = c => String(c || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 const parse = (s, def) => { try { const v = typeof s === 'string' ? JSON.parse(s) : s; return v == null ? def : v; } catch (e) { return def; } };
-const vacio = curso => ({ curso: curso || null, actualizado: null, answers: {}, testAns: {}, known: [] });
+const vacio = curso => ({ curso: curso || null, actualizado: null, answers: {}, testAns: {}, known: [], aprendido: {}, catalogo: { lugares: {}, firmas: {} } });
 const tieneRespuestas = (b, k) => !!(b.testAns && b.testAns[k] && Object.keys(b.testAns[k]).length);
 const contar = b => Object.keys((b && b.testAns) || {}).filter(k => tieneRespuestas(b, k)).length;
 
@@ -30,9 +30,24 @@ function mezclar(a, b) {
   for (const src of [b.testAns, a.testAns]) for (const [k, qs] of Object.entries(src || {})) r.testAns[k] = Object.assign(r.testAns[k] || {}, qs || {});
   // "known" de b solo si b trae respuestas de ese test (un "known" sin respuestas haría un replay a ciegas)
   r.known = [...new Set([...(a.known || []), ...(b.known || []).filter(k => tieneRespuestas(b, k))])];
+  // NUEVO v21.16: lo que aprendió el Explorador (qué acción marca cada tipo de pantalla); lo de a manda
+  r.aprendido = Object.assign({}, b.aprendido || {}, a.aprendido || {});
+  // NUEVO v21.16: catálogo del nivel. Por lugar manda a, salvo que en b se marcó y en a no; por tipo de pantalla manda
+  // a, pero se conserva el dump de ejemplo de cualquiera de los dos
+  const ca = (a.catalogo || {}), cb = (b.catalogo || {});
+  r.catalogo = { lugares: {}, firmas: {} };
+  for (const k of new Set([...Object.keys(cb.lugares || {}), ...Object.keys(ca.lugares || {})])) {
+    const x = (ca.lugares || {})[k], y = (cb.lugares || {})[k];
+    r.catalogo.lugares[k] = x && (x.estado === 'ok' || !y || y.estado !== 'ok') ? x : y;
+  }
+  for (const k of new Set([...Object.keys(cb.firmas || {}), ...Object.keys(ca.firmas || {})])) {
+    const x = (ca.firmas || {})[k], y = (cb.firmas || {})[k];
+    r.catalogo.firmas[k] = Object.assign({}, y || {}, x || {}, { ejemplo: (x && x.ejemplo) || (y && y.ejemplo) || undefined });
+  }
   return r;
 }
-const desdeLocal = datos => ({ answers: parse(datos[K.answers], {}), testAns: parse(datos[K.testAns], {}), known: parse(datos[K.known], []) });
+const desdeLocal = (datos, curso) => ({ answers: parse(datos[K.answers], {}), testAns: parse(datos[K.testAns], {}), known: parse(datos[K.known], []), aprendido: parse(datos[K.aprendido], {}),
+  catalogo: (curso && parse(datos[K.catalogo], {})[curso]) || { lugares: {}, firmas: {} } });   // AJUSTADA v21.16: + catálogo de ESE curso
 function leer(dir, curso) {
   const f = path.join(dir, slug(curso) + '.json');
   return fs.existsSync(f) ? Object.assign(vacio(curso), parse(fs.readFileSync(f, 'utf8'), {}), { curso }) : vacio(curso);

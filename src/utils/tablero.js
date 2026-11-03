@@ -38,7 +38,7 @@ class Tablero {
       if (!(prev && (estado === 'visto' || (estado === 'saltado' && prev === 'falla')))) e.tareas[tn] = estado;
       if (estado === 'falla' && extra && extra.motivo) { e.motivo = extra.motivo; if (extra.reporte) e.reporte = extra.reporte; }
       if (extra && extra.kind) e.kind = extra.kind;
-      e.hora = new Date().toISOString();
+      e.hora = new Date().toISOString(); if (!e.desde) e.desde = e.hora;   // AJUSTADA v21.16: + desde (minutos por unidad)
       t.pasos[k] = e; t.ultimo = k;
       localStorage.setItem(K_TABLERO, JSON.stringify(t));
     } catch (e) {}

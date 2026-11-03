@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.15  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.16  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.15';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.16';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -398,6 +398,213 @@
     return false;
   }
 
+  // ▼▼▼ src/utils/guia.js ▼▼▼
+  // =====================================================================
+  //  GUÍA — cierra la "guía" de ED (globito con "Got it!" y "Don't show again") que TAPA la página
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.16. Causa encontrada en los 6 zips del 02/11 (Nore, UPB High Intermediate 2): en 20 reportes había un
+  //  globito de la librería driver.js (button.driver-popover-next-btn "Got it!", label #dontShowAgainLbl "Don't show
+  //  again", input #dontShowAgainCbx, y learning__main con la clase driver-active-element). Mientras ese globito está
+  //  abierto, driver.js deja TODA la página con pointer-events: none (solo se puede tocar el globito) → los
+  //  arrastres del bot "caían" en la nada: 7 de 9 DnD sin marcar (reverseColumn "Drag Here" a la izquierda y la tabla
+  //  True/False de "Career Advisor", "Read again" de "Eco-vacation"), la secuencia del test "Let's review" (replay
+  //  ok:false → tests en 84 %, 75 %…) y "Preparing for branching speaking". Hugo, en su PC, ya había cerrado ese
+  //  globito (o marcado "Don't show again") → para él los mismos ejercicios funcionaban.
+  //  Qué hace: si hay una guía abierta → marca "Don't show again", pulsa "Got it!" (o Done / Close / la X) y VERIFICA
+  //  que se cerró; si no, Escape; si tampoco, clic en el fondo oscuro; último recurso: quita las capas a mano.
+  //  Lo llama MainEngine.step() en cada paso (es barato: si no hay guía, no hace nada).
+  //  DEPENDE DE: utils/dom.js, utils/press.js, utils/logger.js
+  //  EXPONE:     Guia
+  // =====================================================================
+
+  class Guia {
+    // ¿hay una guía/tour abierta encima de la página?
+    static abierta() {
+      const b = document.body, h = document.documentElement;
+      if (qav('.driver-popover, #driver-popover-content, #driver-popover-item, .introjs-tooltip, .shepherd-element').length) return true;
+      if ((b && /\bdriver-active\b/.test(b.className)) || (h && /\bdriver-active\b/.test(h.className))) return !!qv('.driver-popover-next-btn, .driver-popover-done-btn, .driver-popover-close-btn, .driver-overlay, #driver-page-overlay');
+      return !!qv('.driver-popover-next-btn, .driver-popover-done-btn');
+    }
+
+    // lo que el reporte guarda de la guía (para entenderla si alguna no se deja cerrar)
+    static info() {
+      try {
+        const p = q('.driver-popover, #driver-popover-content, #driver-popover-item, .introjs-tooltip, .shepherd-element');
+        const act = qa('.driver-active-element, .driver-highlighted-element').slice(0, 3).map(e => (typeof e.className === 'string' ? e.className : '').slice(0, 80));
+        const capas = qa('.driver-overlay, #driver-page-overlay, .driver-popover, .introjs-overlay').length;
+        if (!p && !act.length && !capas) return null;
+        return { abierta: this.abierta(), texto: p ? txt(p).slice(0, 300) : '', html: p ? p.outerHTML.replace(/\s+/g, ' ').slice(0, 1500) : '', resaltado: act,
+          bodyClase: (document.body.className || '').slice(0, 120), capas, cerradas: this._n || 0 };
+      } catch (e) { return null; }
+    }
+
+    static async cerrar() {
+      if (!this.abierta()) return null;
+      const intentos = [];
+      const cerrada = () => !this.abierta();
+      const texto = txt(q('.driver-popover, .introjs-tooltip, .shepherd-element')).slice(0, 120);
+      log('🪧 Hay una guía de ED tapando la página ("' + texto.slice(0, 60) + '") → la cierro');
+      // 1) "Don't show again" (así no vuelve a salir en esta cuenta)
+      const cb = q('#dontShowAgainCbx') || qa('.driver-popover input[type="checkbox"]')[0];
+      if (cb && !cb.checked) {
+        const lb = q('#dontShowAgainLbl') || (cb.id && q('label[for="' + cb.id + '"]'));
+        if (await press(cb, () => cb.checked, 800) || (lb && await press(lb, () => cb.checked, 800))) intentos.push('no_mostrar');
+        else { try { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); intentos.push('no_mostrar(forzado)'); } catch (e) {} }
+      }
+      // 2) los botones de la guía, de a uno, verificando (una guía de varios globitos: "Got it!" pasa al siguiente → otra vuelta)
+      for (let vuelta = 0; vuelta < 5 && !cerrada(); vuelta++) {
+        const firma = txt(q('.driver-popover, .introjs-tooltip, .shepherd-element'));
+        const botones = [...qa('.driver-popover-next-btn, .driver-popover-done-btn, .driver-popover-close-btn, .driver-close-btn, .driver-next-btn, .introjs-donebutton, .introjs-skipbutton, .shepherd-cancel-icon'),
+          ...qa('.driver-popover button, .driver-popover a').filter(b => /got it|ok|entendido|close|cerrar|done|listo|skip|omitir/i.test(txt(b) + ' ' + (b.getAttribute('aria-label') || '')))].filter((b, i, a) => vis(b) && a.indexOf(b) === i);
+        let avanzo = false;
+        for (const b of botones) {
+          const cambio = () => cerrada() || txt(q('.driver-popover, .introjs-tooltip, .shepherd-element')) !== firma;
+          if (await press(b, cambio, 1500)) { intentos.push('boton:' + ((typeof b.className === 'string' && b.className.split(' ')[0]) || b.tagName.toLowerCase())); avanzo = true; break; }
+        }
+        if (!avanzo) break;
+      }
+      // 3) Escape (driver.js lo escucha en window/document)
+      if (!cerrada()) {
+        for (const t of [window, document]) { try { for (const ty of ['keydown', 'keyup']) t.dispatchEvent(new KeyboardEvent(ty, { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true })); } catch (e) {} }
+        if (await waitFor(cerrada, 1200, 200)) intentos.push('escape');
+      }
+      // 4) clic en el fondo oscuro
+      if (!cerrada()) {
+        const ov = qv('.driver-overlay, #driver-page-overlay, .introjs-overlay');
+        if (ov && await press(ov, cerrada, 1200)) intentos.push('fondo');
+      }
+      // 5) último recurso: quitar las capas (la página vuelve a recibir clics y arrastres)
+      if (!cerrada()) {
+        qa('.driver-popover, .driver-overlay, #driver-page-overlay, #driver-popover-item, .introjs-overlay, .introjs-tooltip').forEach(e => { try { e.remove(); } catch (_) {} });
+        for (const e of [document.body, document.documentElement]) { if (e) e.className = e.className.replace(/\bdriver-(active|fade|simple|no-interaction)\b/g, ' ').replace(/\s+/g, ' ').trim(); }
+        qa('.driver-active-element').forEach(e => e.classList.remove('driver-active-element'));
+        intentos.push('capas_quitadas');
+      }
+      this._n = (this._n || 0) + 1;
+      const ok = cerrada();
+      log(ok ? '🪧 Guía cerrada (' + intentos.join(', ') + ')' : '🪧 No pude cerrar la guía', intentos);
+      await sleep(500);
+      return { guia: ok ? 'cerrada' : 'sigue', intentos, texto };
+    }
+
+    // NUEVO v21.16 (idea 13 de Hugo) — VENTANA DESCONOCIDA: un popup que el bot no conoce y que tapa la página (diálogo,
+    // modal...). Se guarda su dump UNA vez (reporte popup_desconocido) y se pulsa SOLO un botón inofensivo: OK / Close /
+    // Aceptar / Cerrar / Got it / Entendido / ×. Nunca el aviso "You haven't submitted your test" (ese lo maneja el engine).
+    static async popup() {
+      const cands = qav('[role="dialog"], [role="alertdialog"], .modal.show, .modal.in, .ui-dialog, .swal2-popup, .popupWrapper')
+        .filter(e => !e.closest('#ed-autopilot-hud, .driver-popover') && !q('#btnOk', e) && !e.closest('.modalW_confirm, .modalW_alert, #alertModal, .confirmPopup__main'));
+      for (const p of cands) {
+        const r = p.getBoundingClientRect(); if (r.width * r.height < innerWidth * innerHeight * 0.04) continue;
+        const t = txt(p); if (/submitted your test|no has enviado|exit now|log ?out|cerrar sesi/i.test(t)) continue;
+        const b = qa('button, a, input[type="button"], input[type="submit"], [role="button"]', p).filter(vis)
+          .find(x => /^(ok|okay|close|cerrar|aceptar|accept|got it!?|entendido|listo|done|×|✕|x)$/i.test(String(txt(x) || x.value || x.getAttribute('aria-label') || '').trim()));
+        if (!b) continue;
+        this._vistos = this._vistos || new Set();
+        const firma = t.slice(0, 80);
+        if (!this._vistos.has(firma)) { this._vistos.add(firma); Reporter.capture('popup_desconocido', { texto: t.slice(0, 300), boton: txt(b) || b.value || '', html: p.outerHTML.replace(/\s+/g, ' ').slice(0, 2000) }); }
+        const ok = await press(b, () => !p.isConnected || !vis(p), 1500);
+        log('🪟 Ventana desconocida ("' + t.slice(0, 50) + '") → ' + (txt(b) || b.value || 'botón') + (ok ? ' ✓' : ' ✗'));
+        return { popup: ok ? 'cerrada' : 'sigue', texto: t.slice(0, 80) };
+      }
+      return null;
+    }
+  }
+
+  // ▼▼▼ src/utils/manos.js ▼▼▼
+  // =====================================================================
+  //  MANOS — teclado y mouse "de verdad" cuando el bot corre en la nube (y teclado completo en tu PC)
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.16. Algunas pantallas de ED no "ven" lo que el bot escribe o arrastra con eventos simulados:
+  //   • "Personalized writing" (corregir el e-mail, writingEditFrame): el bot agregaba una "s" a 5 campos (editados: 5)
+  //     y ED NO marcaba la tarea (Maria, Luis, Thiago, Nore: U10 L3 · Step 4, "I'm an Extrovert!" · Step 7,
+  //     "The Experience of a Lifetime" · Step 3). Hugo: "ejemplo 'was' ahí añádele 'wasa' y ya sale completo" — él
+  //     TECLEA. El bot ponía el valor de golpe (sin keydown/keypress) y ED escucha el teclado.
+  //  En la nube, cloud/runner.js le da al bot window.__edReal(op): Playwright mueve el mouse y teclea como una persona
+  //  (eventos reales del navegador, isTrusted). En tu PC (consola/Tampermonkey) no existe → se usa el teclado simulado
+  //  COMPLETO: keydown → keypress → beforeinput → insertText → input → keyup, y luego el campo pierde el foco.
+  //  DEPENDE DE: utils/dom.js, utils/drag.js (dropPoint)
+  //  EXPONE:     Manos
+  // =====================================================================
+
+  class Manos {
+    static hay() { return typeof window.__edReal === 'function'; }
+    static async real(op) {
+      try { const r = await window.__edReal(op); return r || { ok: true }; } catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 120) }; }
+    }
+
+    // escribir `texto` AL FINAL de un input/textarea. Devuelve cómo lo hizo ('real' | 'simulado' | null)
+    static async teclear(el, texto) {
+      if (!el) return null;
+      try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+      const v0 = el.value || '';
+      try { el.focus(); } catch (e) {}
+      try { const n = (el.value || '').length; el.setSelectionRange(n, n); } catch (e) {}
+      if (this.hay() && document.activeElement === el) {
+        const r = await this.real({ tipo: 'teclear', texto });
+        await sleep(200);
+        if (r && r.ok !== false && (el.value || '') !== v0) return 'real';
+      }
+      this.teclearSimulado(el, texto);
+      return (el.value || '') !== v0 ? 'simulado' : null;
+    }
+
+    static teclearSimulado(el, texto) {
+      const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+      const tecla = (tipo, ch, codigo) => {
+        const e = new KeyboardEvent(tipo, { key: ch, code: /[a-z]/i.test(ch) ? 'Key' + ch.toUpperCase() : '', bubbles: true, cancelable: true, composed: true, view: window });
+        // keyCode/which/charCode no se pueden poner en el constructor: se definen en el evento (jQuery los lee de ahí)
+        for (const [k, val] of [['keyCode', codigo], ['which', codigo], ['charCode', tipo === 'keypress' ? ch.charCodeAt(0) : 0]]) { try { Object.defineProperty(e, k, { get: () => val }); } catch (_) {} }
+        return el.dispatchEvent(e);
+      };
+      try { el.focus(); } catch (e) {}
+      for (const ch of String(texto)) {
+        const kc = ch.toUpperCase().charCodeAt(0);
+        tecla('keydown', ch, kc);
+        tecla('keypress', ch, ch.charCodeAt(0));
+        const antes = el.value || '';
+        let ok = false;
+        try { ok = document.execCommand && document.execCommand('insertText', false, ch) && (el.value || '') !== antes; } catch (e) { ok = false; }
+        if (!ok) {
+          try { el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: ch })); } catch (e) {}
+          setter.call(el, antes + ch);
+          try { el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ch })); } catch (e) { el.dispatchEvent(new Event('input', { bubbles: true })); }
+        }
+        tecla('keyup', ch, kc);
+      }
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // el campo pierde el foco "de verdad" (blur + focusout reales) para que ED registre el cambio
+    static soltarFoco(el) {
+      try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+      try { el.blur(); } catch (e) {}
+      try { if (document.activeElement === el) document.body.focus(); } catch (e) {}
+    }
+
+    // arrastre con el mouse real (solo en la nube). true si Playwright lo hizo
+    static async arrastrar(src, dst) {
+      if (!this.hay() || !src || !dst) return false;
+      try { src.scrollIntoView({ block: 'center' }); } catch (e) {}
+      await sleep(200);
+      const sr = src.getBoundingClientRect();
+      const { x, y } = dropPoint(dst);
+      const r = await this.real({ tipo: 'arrastrar', de: [Math.round(sr.left + sr.width / 2), Math.round(sr.top + sr.height / 2)], a: [Math.round(x), Math.round(y)], pasos: 18 });
+      await sleep(600);
+      return !!(r && r.ok !== false);
+    }
+
+    // clic con el mouse real en el centro de un elemento (solo en la nube)
+    static async clic(el) {
+      if (!this.hay() || !el) return false;
+      try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+      await sleep(150);
+      const r = el.getBoundingClientRect();
+      const res = await this.real({ tipo: 'clic', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+      return !!(res && res.ok !== false);
+    }
+  }
+
   // ▼▼▼ src/utils/reporter.js ▼▼▼
   // =====================================================================
   //  REPORTE AUTOMÁTICO DE FALLOS — "lo que no pude hacer", listo para pegar en el chat
@@ -511,7 +718,35 @@
       out.medios = qa('audio, video').slice(0, 8).map(m => ({ tag: m.tagName.toLowerCase(), src: corta((m.currentSrc || m.src || '').split('/').pop(), 80), pausado: m.paused, t: Math.round(m.currentTime || 0), dur: Math.round(m.duration || 0), visible: vis(m), clasePadre: corta(cls(m.parentElement), 60) }));
       out.iframes = qa('iframe').slice(0, 6).map(f => { const o = { id: f.id || null, src: corta(f.getAttribute('src'), 120), visible: vis(f) };
         try { const b = f.contentDocument && f.contentDocument.body; if (b) { o.texto = corta(b.innerText || b.textContent, 300); o.html = limpio(b, 1500); } } catch (e) { o.ajeno = true; } return o; });
+      // NUEVO v21.16 — lo que faltó para entender los DnD de Nore: ¿algo TAPA la página? (guía de ED) y DÓNDE está cada
+      // cosa (rectángulos + qué elemento hay de verdad en el centro de cada hueco)
+      try { out.capas = Guia.info(); } catch (e) {}
+      try { out.geo = Reporter.geometria(); } catch (e) {}
       return out;
+    }
+
+    // NUEVO v21.16 — captura de pantalla (solo en la nube: cloud/runner.js da window.__edFoto). Devuelve el nombre del
+    // archivo (fotos/xxx.png) o null. No espera: la foto se toma enseguida mientras el bot sigue.
+    static foto(nombre) {
+      try {
+        if (typeof window.__edFoto !== 'function') return null;
+        const limpio = String(nombre).replace(/[^\w.-]+/g, '_').slice(0, 80);
+        const p = window.__edFoto(limpio); if (p && p.catch) p.catch(() => {});
+        return 'fotos/' + limpio + '.png';
+      } catch (e) { return null; }
+    }
+
+    // NUEVO v21.16 — geometría: pantalla, huecos/fichas/opciones con su rectángulo y qué hay encima de su centro
+    static geometria() {
+      const R = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); };
+      const cad = e => { const o = []; for (let x = e, k = 0; x && k < 4 && x !== document.body; x = x.parentElement, k++) o.push(x.tagName.toLowerCase() + (typeof x.className === 'string' && x.className.trim() ? '.' + x.className.trim().split(/\s+/).slice(0, 2).join('.') : '')); return o.join(' < '); };
+      const encima = e => { try { const r = e.getBoundingClientRect(); const x = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 20)); return x ? (e.contains(x) || x === e ? 'él mismo' : cad(x)) : null; } catch (_) { return null; } };
+      const lista = (sel, n) => qa(sel).filter(vis).slice(0, n).map(e => ({ clase: (typeof e.className === 'string' ? e.className : '').slice(0, 60), texto: txt(e).slice(0, 25), rect: R(e), encima: encima(e) }));
+      const g = { pantalla: innerWidth + 'x' + innerHeight, scroll: Math.round(scrollY), huecos: lista('.dndZone, .droptarget', 10), fichas: lista('.dnditem, .draggable', 8),
+        opciones: lista('.prMCQ__answers, .prMCQ__answerLabel', 6), campos: lista('input[type="text"], textarea', 6), espejo: !!q('.gu-mirror'), enTransito: !!q('.gu-transit') };
+      const pr = qv('.learning__practiceArea'), ra = qv('.learning__resourcesArea');
+      if (pr) g.practica = R(pr); if (ra) g.recursos = R(ra);
+      return g;
     }
 
     // NUEVO v21.11 — estado ANTES de que el bot actúe (el engine lo llama justo antes del solver). Si luego hay un
@@ -540,6 +775,8 @@
         try { localStorage.setItem('ed:report:num:v1', String(num)); } catch (_) {}
         Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: num });
         const e = Object.assign({ clave, num, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
+        // NUEVO v21.16 — captura de pantalla con cada reporte (en la nube queda en el zip: fotos/reporte-N.png)
+        { const f = Reporter.foto('reporte-' + num + '-' + motivo); if (f) e.foto = f; }
         // NUEVO v21.11: el "antes" de la acción del bot, si es del mismo lugar y de hace menos de 3 min
         const t = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
         const lugar = [s.leccion, s.step, s.contador || '', t ? t.n : ''].join('|');
@@ -657,7 +894,7 @@
         if (!(prev && (estado === 'visto' || (estado === 'saltado' && prev === 'falla')))) e.tareas[tn] = estado;
         if (estado === 'falla' && extra && extra.motivo) { e.motivo = extra.motivo; if (extra.reporte) e.reporte = extra.reporte; }
         if (extra && extra.kind) e.kind = extra.kind;
-        e.hora = new Date().toISOString();
+        e.hora = new Date().toISOString(); if (!e.desde) e.desde = e.hora;   // AJUSTADA v21.16: + desde (minutos por unidad)
         t.pasos[k] = e; t.ultimo = k;
         localStorage.setItem(K_TABLERO, JSON.stringify(t));
       } catch (e) {}
@@ -1117,6 +1354,8 @@
     static get() { try { return JSON.parse(localStorage.getItem(K_SWEEP) || 'null'); } catch (e) { return null; } }
     static set(s) { if (s) localStorage.setItem(K_SWEEP, JSON.stringify(s)); else localStorage.removeItem(K_SWEEP); }
     static active() { const s = this.get(); return !!(s && s.active); }
+    static explorando() { const s = this.get(); return !!(s && s.active && s.explorar); }   // NUEVO v21.16 (core/catalogo.js)
+    static enRepaso() { const s = this.get(); return !!(s && s.active && s.repaso); }        // NUEVO v21.16 (idea 12)
 
     static start() {
       this.set({ active: true, phase: 'lesson', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: null, inicio: new Date().toISOString() });
@@ -1281,6 +1520,76 @@
       return { did: 'sweep_home' };
     }
 
+    // ===================== VARIOS CURSOS EN EL HOME (NUEVO v21.16) =====================
+    // Hugo (03/11): Roy y Mateo tienen "UPB Beginners 1" y "UPB Beginners 2" en el carrusel del Home (flechas ‹ ›).
+    // "Está bien que lo hagas todo, hazlo igual" → al terminar un curso (completar + tests < 100), el bot pasa con la
+    // flecha › al siguiente curso que no hizo en esta corrida y lo hace entero. El nombre del curso se VERIFICA después de
+    // cada flecha; si ninguna flecha cambia el curso → reporte con el HTML del carrusel (para afinarlo) y termina.
+    // Las clases de las flechas no se conocen (no hay dump del carrusel): se prueban candidatas, de a una.
+    static flechasCurso() {
+      const titulo = qa('h1, h2, h3').filter(vis).find(e => /UPB|Beginners|Basic|Intermediate|Advanced|Elementary|Level/i.test(txt(e)) && txt(e).length < 60);
+      const tr = titulo ? titulo.getBoundingClientRect() : null;
+      const cls = e => ((typeof e.className === 'string' ? e.className : '') + ' ' + (e.id || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).toLowerCase();
+      const zona = qa('[class*="arousel"], [class*="BSslide"], [class*="slider" i], [class*="slick"], [class*="swiper"]').filter(vis);
+      const todos = [...new Set([...zona.flatMap(z => qa('a, button, span, i, div, li', z)), ...qa('[class*="arrow" i], [class*="chevron" i], [class*="next" i], [class*="right" i]')])].filter(e => vis(e) && !e.closest('#ed-autopilot-hud, .sitemenu, header'));
+      const r = e => e.getBoundingClientRect();
+      const chico = e => r(e).width < 140 && r(e).height < 140;
+      const porClase = todos.filter(e => chico(e) && /next|right|forward|siguiente|derecha/.test(cls(e)) && !/prev|left|back|izq/.test(cls(e)));
+      const porLugar = tr ? todos.filter(e => chico(e) && !porClase.includes(e) && Math.abs((r(e).top + r(e).height / 2) - (tr.top + tr.height / 2)) < 220 && r(e).left > tr.right && txt(e).replace(/[›>❯→\s]/g, '').length === 0) : [];
+      const lejos = e => (tr ? Math.abs(r(e).top - tr.top) : 0);
+      return [...porClase.sort((a, b) => lejos(a) - lejos(b)), ...porLugar.sort((a, b) => lejos(a) - lejos(b))].slice(0, 8);
+    }
+    static async cambiarCurso() {
+      const antes = this.curso();
+      for (const f of this.flechasCurso()) {
+        if (await press(f, () => { const c = this.curso(); return !!c && c !== antes; }, 2500)) { await sleep(1500); return this.curso(); }
+      }
+      return null;
+    }
+    // en el Home: si el bot está trabajando en otro curso (s.cursoObjetivo) y el carrusel muestra otro → girarlo
+    static async asegurarCurso(s) {
+      if (!s.cursoObjetivo || this.curso() === s.cursoObjetivo || !this.curso()) return null;
+      const vistos = new Set([this.curso()]);
+      for (let k = 0; k < 6; k++) {
+        const c = await this.cambiarCurso();
+        if (!c || vistos.has(c) && c !== s.cursoObjetivo) break;
+        vistos.add(c);
+        if (c === s.cursoObjetivo) { log('🎠 Carrusel del Home → curso', c); return { did: 'curso_elegido', curso: c }; }
+      }
+      if (this.curso() === s.cursoObjetivo) return { did: 'curso_elegido', curso: s.cursoObjetivo };
+      Reporter.capture('home_no_encuentro_el_curso', { quiero: s.cursoObjetivo, veo: this.curso(), carrusel: this.htmlCarrusel() });
+      s.cursoObjetivo = null; this.set(s);   // sigue con el curso que muestra el Home
+      return null;
+    }
+    static htmlCarrusel() {
+      const z = qv('[class*="arousel"]') || qv('[class*="BSslide"]') || (qa('h1, h2').filter(vis)[0] || {}).parentElement;
+      return z ? z.outerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').slice(0, 5000) : null;
+    }
+    // al terminar un curso: ¿hay otro en el carrusel que no se hizo en esta corrida? → empezar con ese (y true)
+    static async otroCurso(s) {
+      if (CFG.todosLosCursos === false) return null;
+      const actual = this.curso();
+      if (!actual) return null;
+      s.cursosHechos = [...new Set([...(s.cursosHechos || []), actual])]; this.set(s);
+      const vistos = new Set([actual]);
+      for (let k = 0; k < 6; k++) {
+        const c = await this.cambiarCurso();
+        if (!c) { if (k === 0 && this.flechasCurso().length) Reporter.capture('home_flecha_no_cambia_el_curso', { curso: actual, carrusel: this.htmlCarrusel() }); break; }
+        if (vistos.has(c)) break;   // dio la vuelta: no hay más cursos
+        vistos.add(c);
+        if (!s.cursosHechos.includes(c)) {
+          const s2 = this.get();
+          Object.assign(s2, { active: true, mode: s2.modoInicial || (s2.testsHechos ? 'completar' : s2.mode), phase: 'home', unitsDone: [], lessonsDone: [], objHechos: [], objetivos: null, resultados: [], testsHechos: false,
+            mapaHecho: false, sinMapa: false, ut: null, cursoObjetivo: c, cursosHechos: s.cursosHechos, inicio: new Date().toISOString(), fin: null });
+          if (s2.mode !== 'completar' && s2.mode !== 'tests') s2.mode = 'completar';
+          this.set(s2);
+          log('🎠 Curso "' + actual + '" terminado → sigo con "' + c + '" (Hugo: "hazlo todo")');
+          return { did: 'otro_curso', de: actual, a: c };
+        }
+      }
+      return null;
+    }
+
     // ===================== MODO "COMPLETAR" (NUEVO v21.3) =====================
     // Hace TODO el curso unidad por unidad (prácticas + tests); al final, si el promedio de tests < 100,
     // pasa solo al barrido de tests. Lo que no logra queda en el reporte y sigue con lo siguiente.
@@ -1295,8 +1604,24 @@
       // AJUSTADA v21.8: con el mapa de My Progress, las unidades pendientes son las de realización < 100 %
       const m = ProgressMap.get(), conMapa = s.mapaHecho && m && m.unidades && m.unidades.length;
       const nums = conMapa ? m.unidades.filter(x => !x.locked && (x.completion == null || x.completion < 100)).map(x => x.n) : null;
-      const pend = this.unidades().filter(u => (nums ? nums.includes(u.n) : !u.completa) && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
+      // AJUSTADA v21.16: en modo EXPLORAR se recorren TODAS las unidades (también las terminadas), desde la lección 1
+      const pend = this.unidades().filter(u => (s.explorar ? !u.bloqueada : (nums ? nums.includes(u.n) : !u.completa)) && !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n);
+      if (!pend.length && s.explorar) {
+        log('🔭 EXPLORAR terminado: catálogo del nivel', Catalogo.resumen());
+        { const r = await this.otroCurso(s); if (r) return r; }
+        s.active = false; s.fin = new Date().toISOString(); this.set(s); window.__ed.stop();
+        return { did: 'explorar_fin', catalogo: Catalogo.resumen() };
+      }
       if (!pend.length) {
+        // NUEVO v21.16 (idea 12 de Hugo: "rehacer al final las tareas que fallaron, con más paciencia") — REPASO: las unidades
+        // donde algo falló en esta corrida se recorren UNA vez más, con el doble de paciencia y un intento más por tarea
+        if (!s.repasoHecho && CFG.repaso !== false) {
+          const malas = [...new Set(Object.values(Tablero.get().pasos || {}).filter(p => Object.values(p.tareas || {}).some(v => v === 'falla' || v === 'saltado')).map(p => p.u))].filter(Boolean);
+          s.repasoHecho = true;
+          if (malas.length) { Object.assign(s, { repaso: true, unitsDone: s.unitsDone.filter(u => !malas.includes(u)) }); this.set(s); log('🔁 REPASO: vuelvo a las unidades con fallos (' + malas.join(', ') + ') con más paciencia'); return { did: 'repaso', unidades: malas }; }
+          this.set(s);
+        }
+        if (s.repaso) { s.repaso = false; this.set(s); }
         // NUEVO v21.11: unidades recorridas → Unit Tests sin hacer o < 100 (los que están en 100 no)
         { const r = await UnitTests.enHome(s, true); if (r) return r; }
         if (!s.testsHechos && (conMapa ? ProgressMap.testsBajos(m).length > 0 || (s.widgets.avg != null && s.widgets.avg < 100) : s.widgets.avg != null && s.widgets.avg < 100)) {
@@ -1305,13 +1630,14 @@
           log('🧭 Unidades recorridas; promedio de tests', s.widgets.avg + '% → barrido de tests < 100');
           return { did: 'completar_a_tests' };
         }
+        { const r = await this.otroCurso(s); if (r) return r; }   // NUEVO v21.16: el siguiente curso del carrusel
         s.active = false; s.fin = new Date().toISOString(); this.set(s);
         log('🏁 COMPLETAR terminado.', s.widgets);
         window.__ed.stop();
         return { did: 'completar_fin', widgets: s.widgets };
       }
       const u = pend[0];
-      const lu = conMapa ? (m.unidades.find(x => x.n === u.n) || { lecciones: [] }).lecciones.find(l => !l.terminado) : null;   // NUEVO v21.8
+      const lu = s.explorar ? { n: 1 } : conMapa ? (m.unidades.find(x => x.n === u.n) || { lecciones: [] }).lecciones.find(l => !l.terminado) : null;   // NUEVO v21.8 (v21.16: explorar → lección 1)
       Object.assign(s, { phase: 'entering_unit', unitTarget: u.n, unitStart: Date.now() }); this.set(s);
       if (!(await this.abrirUnidad(u, lu ? lu.n : null))) {
         Reporter.capture('home_no_abre_lista_de_lecciones', { unidad: u.n, titulo: u.t });
@@ -1332,6 +1658,13 @@
       // Atasco: misma pantalla 6 pasos seguidos, o demasiado tiempo en la unidad
       const firma = NavigationManager.screenSig() + '|' + (TestManager.isScore() ? 'score' : '') + '|' + (TestManager.isReview() ? 'rev' : '');
       TestSweep._same = firma === TestSweep._firma ? (TestSweep._same || 0) + 1 : 0; TestSweep._firma = firma;
+      // NUEVO v21.16 — puntaje 100 % del ÚLTIMO test de la unidad ("To go to the next lesson click on the next arrow",
+      // pero no hay lección siguiente: 8 atascos falsos en las corridas del 02/11) → fin de unidad, sin atasco
+      if (TestSweep._same >= 2 && TestManager.isScore() && TestManager.scorePct() === 100) {
+        const a = await this.avanzar();
+        if (a) { TestSweep._same = 0; log('🧭 Puntaje 100 % y Next no avanza → paso a', a); return { did: 'completar_avance', a }; }
+        const f = await this.finDeUnidad('puntaje 100 %'); if (f) { TestSweep._same = 0; return { did: 'fin_de_unidad', a: f }; }
+      }
       const min = (Date.now() - (s.unitStart || Date.now())) / 60000;
       const tope = min > (CFG.maxMinPorUnidad || 150);
       if (TestSweep._same >= 6 || tope) {
@@ -1346,7 +1679,7 @@
         TestSweep._saltos = TestSweep._saltosPor[dondeAhora] = (TestSweep._saltosPor[dondeAhora] || 0) + 1;
         const mismo = TestSweep._saltos >= 2;
         // AJUSTADA v21.12: el reporte (dump completo) se toma en CADA atasco, no solo en el 2.º
-        Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos });
+        Reporter.capture('atascado_en_el_mismo_lugar', { donde: dondeAhora, veces: TestSweep._saltos, diagnostico: Explorador.diagnostico() });   // AJUSTADA v21.16: + por qué
         try { localStorage.setItem('ed:saliendo', String(Date.now())); } catch (e) {}
         if (!tope) {
           // NUEVO v21.12 — corrida de Mateo (02/11): la UNIDAD 8 ENTERA quedó sin hacer. Atascado en "Lesson 2 · Step 1:
@@ -1373,6 +1706,34 @@
         return await this.irHome();
       }
       return null;   // flujo normal: prácticas y tests
+    }
+
+    // NUEVO v21.16 — FIN DE UNIDAD: el test de la ÚLTIMA lección ya está hecho (o su puntaje es 100 %) y no hay paso ni
+    // lección siguiente. En las 6 corridas del 02/11 el bot se quedaba ahí ~30 s ("test_ya_terminado" ×6 o el puntaje
+    // "To go to the next lesson click on the next arrow" que no lleva a ningún lado), lo anotaba como ATASCO (25 reportes
+    // falsos, ❌ en el tablero) y volvía atrás a lo pendiente que ya había fallado. Ahora:
+    //   • si en esta unidad no falló nada en esta corrida y ED aún muestra algo pendiente → ir ahí UNA vez;
+    //   • si no (o ya se intentó) → unidad terminada → Home → la siguiente.
+    // Solo en el modo completar; en los otros modos devuelve null (sigue como antes).
+    static async finDeUnidad(motivo) {
+      const s = this.get(); if (!s || !s.active || s.mode !== 'completar') return null;
+      // solo si DE VERDAD es el final: ni paso ni lección siguiente en los desplegables (si los hay y avanzar() no pudo,
+      // es otro problema → lo de siempre: atasco con su reporte)
+      const num = t => +((String(t).match(/^(\d+)\s*\./) || [])[1] || 0);
+      const pasoAct = +stepNum(NavigationManager.stepLabel()) || 0, lecAct = +lessonNum(NavigationManager.lessonLabel()) || 0;
+      if (!DropdownNav.items('lessons').length) return null;   // sin la lista de lecciones no se puede saber si es el final
+      if (DropdownNav.items('steps').some(x => num(x.t) > pasoAct) || DropdownNav.items('lessons').some(x => num(x.t) > lecAct)) return null;
+      const u = this.unitNum();
+      const fallasAca = Object.values(Tablero.get().pasos || {}).some(p => p.u === u && Object.values(p.tareas || {}).some(v => v === 'falla' || v === 'saltado'));
+      if (!fallasAca && !Corrida.fallos('fin|' + u)) {
+        Corrida.fallo('fin|' + u);
+        const r = await DropdownNav.gotoNextIncomplete();
+        if (r) { log('🧭 Fin de la unidad', u, '(' + motivo + ') → ED todavía muestra algo pendiente:', r); return 'pendiente ' + r; }
+      }
+      const s2 = this.get(); if (!s2.unitsDone.includes(u)) s2.unitsDone.push(u); this.set(s2);
+      log('🏁 Unidad', u, 'al final (' + motivo + ')' + (fallasAca ? ' — lo que falló ya está en el reporte' : '') + ' → Home');
+      await this.irHome();
+      return 'home';
     }
 
     // NUEVO v21.12 — avanzar por los desplegables: siguiente paso de esta lección o, si es el último, la siguiente lección.
@@ -1418,6 +1779,8 @@
       }
       if (/#\/home/i.test(location.href) || qv('.home__unitW')) {
         s.homeUrl = location.href.split('#')[0] + '#/home'; this.set(s);
+        // NUEVO v21.16: trabajando en otro curso del carrusel → que el Home muestre ESE curso antes de nada
+        if (s.cursoObjetivo) { const r = await this.asegurarCurso(s); if (r) return r; }
         // NUEVO v21.8: antes de nada, leer My Progress (una vez por fase); si no se puede, se sigue sin mapa
         if (!s.mapaHecho && !s.sinMapa) {
           if (await ProgressMap.ir()) return { did: 'voy_a_my_progress' };
@@ -1430,6 +1793,7 @@
           if (!o) {
             // NUEVO v21.11: antes de terminar, los Unit Tests < 100 (según My Progress)
             { const r = await UnitTests.enHome(s, false); if (r) return r; }
+            { const r = await this.otroCurso(s); if (r) return r; }   // NUEVO v21.16: el siguiente curso del carrusel
             s.active = false; s.fin = new Date().toISOString(); this.set(s);
             // AJUSTADA v21.11: el mensaje decía "no quedan tests < 100" aunque quedara uno del que se rindió
             const rendidos = (s.resultados || []).filter(r => /sin 100/.test(r.nota || ''));
@@ -1449,6 +1813,7 @@
         // AJUSTADA v21.6: todas las unidades aún no revisadas en este barrido (antes solo las posteriores a la última)
         const sig = units.filter(u => !s.unitsDone.includes(u.n)).sort((a, b) => a.n - b.n)[0];
         if (!sig) {
+          { const r = await this.otroCurso(s); if (r) return r; }   // NUEVO v21.16: el siguiente curso del carrusel
           s.active = false; s.fin = new Date().toISOString(); this.set(s);
           log('🏁 BARRIDO COMPLETO. Resultados:', s.resultados);
           if (!units.length) Reporter.capture('barrido_home_sin_unidades');
@@ -1604,6 +1969,287 @@
       if (a.vioTest) { this.terminar(s, 'hecho'); return await TestSweep.irHome(); }
       if (a.pasos >= 6) { Reporter.capture('unit_test_no_aparece', { unidad: a.unidad, metodo: a.metodo }); this.terminar(s, 'no_aparecio_el_test'); return await TestSweep.irHome(); }
       return null;   // p. ej. una pantalla de introducción: el flujo normal pulsa Next
+    }
+  }
+
+  // ▼▼▼ src/core/explorador.js ▼▼▼
+  // =====================================================================
+  //  EXPLORADOR — cuando una tarea NO se marca, prueba de todo, saca fotos y APRENDE qué la marcó
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.16. Pedido de Hugo (03/11): "un botcito que se llame explorador, que busque directo en los errores, les
+  //  saque captura y dump completísimo, que pruebe cosas, mueva cosas, haga lo que sea para que marquen, y cuando lo
+  //  marque guarde la información de qué es lo que hizo que marque: así es como vas a aprender; que averigüe todos los
+  //  botones y lo que hacen; que revise por qué suceden los atascos".
+  //  Cuándo: el solver normal y su reintento fallaron (tarea_no_marcada / tipo_desconocido). NUNCA en un test (cada
+  //  clic podría cambiar una respuesta) y una sola vez por lugar en cada corrida (regla 4: no perder tiempo; tope 60 s).
+  //  Qué prueba (de a uno, verificando si ED marcó la tarea después de cada cosa):
+  //    1) lo APRENDIDO antes para una pantalla igual (ed:aprendido:v1; en la nube se comparte entre cuentas por el banco)
+  //    2) play de audio/video · 3) escribir una letra en cada campo · 4) arrastrar cada ficha a cada hueco (mouse real
+  //       en la nube) · 5) tocar cada opción, imagen, botón, frase o ícono de la práctica (de a uno, sin Next/Back/
+  //       Submit/Home/Reset) · 6) los botones de la barra de abajo que no navegan (✓, 👁)
+  //  Lo que pasó queda en el reporte (resultado.explorador: cada prueba, si cambió algo en la pantalla y si marcó) y
+  //  fotos antes/después (en la nube: fotos/explorador-*.png). Si algo marcó → se guarda para la próxima vez.
+  //  También: Explorador.diagnostico() → por qué está atascado (va en cada reporte de atasco).
+  //  DEPENDE DE: utils/*, core/navigation.js, tests/test-manager.js (en tiempo de ejecución)
+  //  EXPONE:     Explorador
+  // =====================================================================
+
+  const K_APRENDIDO = 'ed:aprendido:v1';
+  // tipos donde tocar cosas al azar no sirve (necesitan voz real o ya tienen su propio intento largo)
+  const NO_EXPLORAR = new Set(['open_speech', 'interactive_speaking', 'sr_choice', 'writing']);
+
+  class Explorador {
+    static puede(kind, tn) {
+      try {
+        if (CFG.explorador === false || TestManager.inTest() || NO_EXPLORAR.has(kind) || !tn) return false;
+        return !Corrida.fallos('explorar|' + Corrida.lugar({ n: tn }));
+      } catch (e) { return false; }
+    }
+
+    // "firma" de la pantalla: tipo + clases que identifican el ejercicio (igual en todas las cuentas y cursos)
+    static firma(kind) {
+      const raiz = qv('.learning__angPracticeW') || qv('.answersWrapper') || qv('.learning__practiceArea') || document.body;
+      const clases = new Set();
+      for (const e of [raiz, ...qa('*', raiz).slice(0, 300)]) {
+        for (const c of (typeof e.className === 'string' ? e.className.split(/\s+/) : [])) if (/^(pr[A-Z]\w*__main|pr[A-Z]\w*__main--\w+|writingEdit\w*|fitb|interact\w*|memoG__\w+|dndZone|droptarget|vocabulary\w*|learning__RAMediaResourceW--\w+)$/.test(c)) clases.add(c);
+      }
+      const paso = (NavigationManager.stepLabel().match(/:\s*(.+)$/) || [])[1] || '';
+      return [kind, paso.replace(/\d+/g, '').trim().toLowerCase(), [...clases].sort().slice(0, 8).join('.')].join('|');
+    }
+    static aprendido() { try { return JSON.parse(localStorage.getItem(K_APRENDIDO) || '{}') || {}; } catch (e) { return {}; } }
+    static aprender(firma, c) {
+      try { const a = this.aprendido(); const v = a[firma]; a[firma] = { tipo: c.tipo, sel: c.sel, idx: c.idx, desc: c.desc, veces: ((v && v.veces) || 0) + 1, ultima: new Date().toISOString(), v: V };
+        localStorage.setItem(K_APRENDIDO, JSON.stringify(a)); } catch (e) {}
+    }
+
+    // ---- candidatos: todo lo que se puede tocar en la práctica y en el panel izquierdo ----
+    static fuera(e) { return !!e.closest('#ed-autopilot-hud, .learning__lessonsStepsNav, .edLADropDownList, .learning__header, .learning__headerW, header, .sitemenu, [class*="settingsMenu"], .learning__tasksNav, .learning__pnNavItem, .driver-popover'); }
+    static peligroso(e) {
+      // un enlace de verdad (lleva a otra página) no se toca
+      const h = e.tagName === 'A' ? (e.getAttribute('href') || '') : '';
+      if (h && !/^(#|javascript:)/i.test(h)) return true;
+      const s = ((typeof e.className === 'string' ? e.className : '') + ' ' + (e.id || '') + ' ' + txt(e).slice(0, 40) + ' ' + (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || '')).toLowerCase();
+      return /submit|tasksbt|next|prev|back|siguiente|anterior|enviar|home|logout|log out|salir|exit|start ?test|btnstarttest|reset|restart|again|retry|undo|reiniciar|print|imprimir|dictionary|help|ayuda|fullscreen|full-screen|volume|speed|mediasettings/.test(s);
+    }
+    static selDe(e) {
+      const esc = c => (window.CSS && CSS.escape ? CSS.escape(c) : String(c).replace(/([^\w-])/g, '\\$1'));
+      const p = []; for (let x = e, k = 0; x && k < 3 && x !== document.body; x = x.parentElement, k++) {
+        const cs = typeof x.className === 'string' ? x.className.trim().split(/\s+/).filter(c => c && !/^(ng-|mCS|_mCS|gu-|selected|active|checked|correct|incorrect|current|done)/.test(c)).slice(0, 2) : [];
+        p.unshift(x.tagName.toLowerCase() + cs.map(c => '.' + esc(c)).join(''));
+      }
+      return p.join(' > ');
+    }
+    static desc(e) { return (e.tagName.toLowerCase() + '.' + (typeof e.className === 'string' ? e.className.trim().split(/\s+/)[0] || '' : '') + (txt(e) ? ' "' + txt(e).slice(0, 20) + '"' : '')).slice(0, 70); }
+    static candidatos() {
+      const zonas = [qv('.learning__practiceArea'), qv('.learning__resourcesArea'), qv('.answersWrapper'), qv('.learning__angPracticeW')].filter(Boolean);
+      const raiz = zonas.length ? zonas : [document.body];
+      const dentro = e => raiz.some(z => z.contains(e));
+      const vistos = new Set(), out = [];
+      const add = (tipo, e, extra) => { if (!e || vistos.has(e) || !vis(e) || this.fuera(e) || this.peligroso(e) || !dentro(e)) return; vistos.add(e);
+        const sel = this.selDe(e), idx = Math.max(0, qa(sel).indexOf(e)); out.push(Object.assign({ tipo, el: e, sel, idx, desc: tipo + ': ' + this.desc(e) }, extra || {})); };
+      // 2) play
+      qa('#CTrackerPlayBtn, .layout__mediaPlayPause, .learning__RAMRButton, [class*="play" i]').forEach(e => add('clic', e));
+      // 3) campos
+      qa('input[type="text"], textarea').filter(e => !e.readOnly && !e.disabled).slice(0, 4).forEach(e => add('teclear', e));
+      // 4) fichas → huecos
+      const fichas = qa('.dnditem, .draggable').filter(vis).slice(0, 3), huecos = qa('.dndZone, .droptarget').filter(vis).filter(z => !fichas.some(f => z.contains(f))).slice(0, 3);
+      for (const f of fichas) for (const h of huecos) { if (out.length > 40) break; const sel = this.selDe(f); out.push({ tipo: 'arrastrar', el: f, a: h, sel, idx: Math.max(0, qa(sel).indexOf(f)), selA: this.selDe(h), idxA: Math.max(0, qa(this.selDe(h)).indexOf(h)), desc: 'arrastrar: ' + this.desc(f) + ' → ' + this.desc(h) }); }
+      // 5) opciones, imágenes, frases, botones y todo lo que tiene "manito" (cursor: pointer)
+      const tocables = 'label, input[type="checkbox"], input[type="radio"], .prMCQ__answers, .multiRadioWrapper, img, .segment, .speaker, button, a, [role="button"], [onclick], [class*="btn" i], [class*="button" i], [class*="card" i], [class*="option" i], [class*="answer" i]';
+      raiz.forEach(z => qa(tocables, z).forEach(e => add('clic', e)));
+      raiz.forEach(z => qa('div, span, li, i', z).slice(0, 400).forEach(e => { try { if (getComputedStyle(e).cursor === 'pointer') add('clic', e); } catch (_) {} }));
+      // 6) barra de abajo que no navega (✓ revisar, 👁 ver respuesta)
+      qa('.learning__PATools a, .learning__PATools div, .learning__PATools span, .learning__PATools button').forEach(e => { if (!vistos.has(e) && vis(e) && !this.peligroso(e)) { vistos.add(e); out.push({ tipo: 'clic', el: e, sel: this.selDe(e), idx: Math.max(0, qa(this.selDe(e)).indexOf(e)), desc: 'barra: ' + this.desc(e) }); } });
+      return out;
+    }
+
+    static firmaDom() {
+      const r = qv('.learning__practiceArea') || qv('.answersWrapper') || document.body;
+      return qa('*', r).slice(0, 600).map(e => (typeof e.className === 'string' ? e.className : '')).join('|').replace(/\b(mCS|_mCS)\w*/g, '').length + ':' + txt(r).length + ':' + qa('input', r).map(i => i.value + (i.checked ? '*' : '')).join(',');
+    }
+
+    static async hacer(c) {
+      if (c.tipo === 'teclear') { const f = await Manos.teclear(c.el, 'a'); Manos.soltarFoco(c.el); return f || 'nada'; }
+      if (c.tipo === 'arrastrar') { await drag(c.el, c.a); if (Manos.hay() && c.el.isConnected && !c.a.contains(c.el)) await Manos.arrastrar(c.el, c.a); return 'ok'; }
+      if (Manos.hay()) { if (await Manos.clic(c.el)) return 'mouse_real'; }
+      await press(c.el, null);
+      return 'clic';
+    }
+
+    // desde lo aprendido: volver a encontrar el elemento por su selector
+    static reencontrar(a) {
+      const el = qa(a.sel)[a.idx] || qa(a.sel)[0];
+      if (!el) return null;
+      const c = { tipo: a.tipo, el, sel: a.sel, idx: a.idx, desc: a.desc };
+      if (a.tipo === 'arrastrar') { c.a = qa(a.selA || '.dndZone')[a.idxA || 0] || qv('.dndZone, .droptarget'); if (!c.a) return null; }
+      return c;
+    }
+
+    static async explorar(tn, kind) {
+      const lugar = Corrida.lugar({ n: tn });
+      Corrida.fallo('explorar|' + lugar);
+      const hecho = () => NavigationManager.taskDone(tn);
+      const mismoLugar = () => Corrida.lugar({ n: tn }) === lugar;
+      const firma = this.firma(kind), t0 = Date.now(), pruebas = [];
+      log('🔭 [Explorador] La tarea', tn, 'no se marca → pruebo de todo (y aprendo qué la marca)…');
+      const fotoAntes = Reporter.foto('explorador-' + tn + '-antes');
+      const fin = (marcado, extra) => Object.assign({ marcado, firma, pruebas, segundos: Math.round((Date.now() - t0) / 1000) }, fotoAntes ? { fotoAntes } : {}, extra || {});
+      if (await Guia.cerrar()) pruebas.push({ accion: 'cerrar la guía de ED', marco: hecho() });
+      if (hecho()) return fin(true, { accion: 'cerrar la guía de ED' });
+      // 1) lo aprendido
+      const ap = this.aprendido()[firma];
+      if (ap) {
+        const c = this.reencontrar(ap);
+        if (c) {
+          await this.hacer(c);
+          const ok = !!(await waitFor(hecho, 2500, 250));
+          pruebas.push({ accion: 'APRENDIDO ' + c.desc, marco: ok });
+          if (ok) { this.aprender(firma, c); log('🔭 [Explorador] Lo aprendido funcionó:', c.desc); return fin(true, { accion: c.desc, deAprendido: true }); }
+        }
+      }
+      // 2–6) todo lo demás, de a uno
+      const lista = this.candidatos();
+      log('🔭 [Explorador]', lista.length, 'cosas para probar');
+      for (const c of lista) {
+        if (Date.now() - t0 > 60000 || pruebas.length >= 30 || !mismoLugar()) break;
+        if (!c.el.isConnected) continue;
+        const antes = this.firmaDom();
+        let como = '';
+        try { como = await this.hacer(c); } catch (e) { como = 'error: ' + e.message; }
+        const marco = !!(await waitFor(hecho, 1500, 250));
+        const cambio = this.firmaDom() !== antes;
+        pruebas.push(Object.assign({ accion: c.desc, como, cambio, marco }));
+        if (marco) {
+          this.aprender(firma, c);
+          const fotoMarco = Reporter.foto('explorador-' + tn + '-marco');
+          log('🔭 [Explorador] ¡Marcó! con', c.desc, '→ aprendido para la próxima');
+          return fin(true, Object.assign({ accion: c.desc }, fotoMarco ? { fotoMarco } : {}));
+        }
+        if (Guia.abierta()) await Guia.cerrar();
+        if (q('.modalW_confirm, .modalW_alert, #alertModal, .confirmPopup__main') || NavigationManager.modalOpen()) await NavigationManager.handleModals();
+      }
+      const fotoDespues = Reporter.foto('explorador-' + tn + '-despues');
+      log('🔭 [Explorador] Nada la marcó (' + pruebas.length + ' pruebas): queda todo en el reporte');
+      return fin(hecho(), fotoDespues ? { fotoDespues } : {});
+    }
+
+    // ---- por qué está atascado (va en cada reporte de atasco) ----
+    static diagnostico() {
+      try {
+        const nx = NavigationManager.nextBtn(), t = NavigationManager.curTask(), tasks = NavigationManager.tasks();
+        const d = { kind: MainEngine.detectKind(), tareas: tasks.length, actual: t ? t.n + (t.done ? '✓' : '') : null, pendientes: tasks.filter(x => !x.done).map(x => x.n).slice(0, 10),
+          next: nx ? { clase: (typeof nx.className === 'string' ? nx.className : '').slice(0, 70), visible: vis(nx), deshabilitado: /disabled|inactive/i.test(nx.className + ' ' + ((nx.parentElement && nx.parentElement.className) || '')) } : null,
+          guia: Guia.abierta(), modal: !!NavigationManager.modalOpen(), testStart: TestManager.isTestStart(), puntaje: TestManager.isScore() ? TestManager.scorePct() : null, review: TestManager.isReview(), enTest: TestManager.inTest(), contador: (NavigationManager.counter() || {}).s || null };
+        d.razon = d.guia ? 'una guía de ED ("Got it!") tapa la página' :
+          d.modal ? 'hay una ventana (popup) abierta' :
+          d.puntaje === 100 ? 'puntaje 100 % y Next no lleva a ningún lado (¿última lección de la unidad?)' :
+          d.testStart ? 'pantalla "Start Test" de un test ya hecho y no hay lección siguiente' :
+          d.review ? 'en el review del test y no sale de ahí' :
+          !nx ? 'no hay botón Next en la pantalla' :
+          (tasks.length && !t) ? 'la página no terminó de cargar (hay tareas pero ninguna activa)' :
+          d.kind === 'mcq_default' ? 'no reconozco el ejercicio de esta pantalla' :
+          (t && !t.done) ? 'la tarea ' + t.n + ' no se marca y Next no deja pasar' : 'Next no cambia la pantalla';
+        return d;
+      } catch (e) { return { error: e.message }; }
+    }
+  }
+
+  // ▼▼▼ src/core/catalogo.js ▼▼▼
+  // =====================================================================
+  //  CATÁLOGO POR NIVEL — lo que el bot sabe de CADA curso (High Intermediate 1/2, Intermediate 1/2, Advanced...)
+  // ---------------------------------------------------------------------
+  //  NUEVO v21.16. Hugo (03/11): "que el explorador explore todas las unidades de golpe y esa información se guarde
+  //  por nivel ... para que siempre se pueda acceder a eso, no importa si es en una o en la corrida siguiente; si es
+  //  nuevo el nivel, el explorador hace lo suyo".
+  //  Qué guarda (localStorage ed:catalogo:v1 = { "<curso>": { lugares, firmas } }):
+  //   • lugares: cada lección · paso · tarea del curso → tipo de ejercicio, firma de la pantalla, cómo se marcó
+  //     (el solver normal, o la acción del Explorador) o por qué falló (motivo + n.º de reporte).
+  //   • firmas: cada TIPO de pantalla distinta que apareció en el curso → tipo, cuántas veces, si se marcó, y UN
+  //     dump liviano de ejemplo (la primera vez que aparece) → así se conoce un nivel nuevo entero en una corrida.
+  //  En la nube viaja en el BANCO de ese curso (cloud/banco.js): todas las cuentas del mismo nivel lo comparten y
+  //  la corrida siguiente ya lo tiene. Y se usa: si en ESTE lugar lo que marcó la tarea fue una acción del Explorador,
+  //  la próxima vez se hace primero esa acción (sin perder tiempo con el solver que falló).
+  //  Modo "explorar" (nube: modo explorar · consola: __ed.explorarCurso()): recorre TODAS las unidades (también las
+  //  terminadas), cataloga cada pantalla y resuelve lo pendiente de práctica; NO empieza tests.
+  //  DEPENDE DE: core/navigation.js, core/sweep.js, core/explorador.js, utils/reporter.js (en tiempo de ejecución)
+  //  EXPONE:     Catalogo
+  // =====================================================================
+
+  const K_CATALOGO = 'ed:catalogo:v1';
+
+  class Catalogo {
+    static todo() { try { return JSON.parse(localStorage.getItem(K_CATALOGO) || '{}') || {}; } catch (e) { return {}; } }
+    static curso() { try { return TestSweep.curso() || ((TestSweep.get() || {}).widgets || {}).curso || 'curso ?'; } catch (e) { return 'curso ?'; } }
+    static guardar(t) {
+      for (let k = 0; k < 3; k++) {
+        try { localStorage.setItem(K_CATALOGO, JSON.stringify(t)); return; } catch (e) {
+          // sin lugar: se sueltan los dumps de ejemplo más viejos (lo demás es chico)
+          const fs = Object.values(t).flatMap(c => Object.values(c.firmas || {})).filter(f => f.ejemplo).sort((a, b) => String(a.primera).localeCompare(String(b.primera)));
+          fs.slice(0, Math.max(1, Math.ceil(fs.length / 3))).forEach(f => { delete f.ejemplo; });
+        }
+      }
+    }
+    static lugar(tn) {
+      try { return ['U' + TestSweep.unitNum(), NavigationManager.lessonLabel(), NavigationManager.stepLabel(), tn != null ? 'T' + tn : '-'].join('|'); } catch (e) { return null; }
+    }
+    static del(curso) { const t = this.todo(); const c = t[curso] = t[curso] || { lugares: {}, firmas: {} }; c.lugares = c.lugares || {}; c.firmas = c.firmas || {}; return { t, c }; }
+
+    // cada paso del engine: qué tipo de pantalla es (y su dump la primera vez que aparece en este curso)
+    static ver(kind, tn) {
+      try {
+        if (!kind || kind === 'not_in_lesson') return;
+        const curso = this.curso(), L = this.lugar(tn); if (!L) return;
+        const firma = Explorador.firma(kind);
+        const { t, c } = this.del(curso);
+        const f = c.firmas[firma] = c.firmas[firma] || { kind, veces: 0, ok: 0, falla: 0, primera: new Date().toISOString(), donde: L };
+        const lu = c.lugares[L] = c.lugares[L] || {};
+        // idea 3 de Hugo — ¿ED CAMBIÓ esta pantalla? (en una corrida anterior aquí había OTRO tipo de pantalla) → aviso con dump
+        const corr = Corrida.idActual();
+        if (lu.firma && lu.firma !== firma && lu.corrida && lu.corrida !== corr && lu.kind !== 'mcq_default' && kind !== 'mcq_default' && lu.kind !== 'test_start' && kind !== 'test_start')
+          Reporter.capture('ed_cambio_la_pantalla', { antes: lu.firma, ahora: firma });
+        if (lu.firma !== firma) { f.veces++; lu.firma = firma; lu.kind = kind; }
+        lu.corrida = corr;
+        if (!f.ejemplo && CFG.catalogarDumps !== false) { try { f.ejemplo = Reporter.dumpCompleto(true); } catch (e) {} }
+        this.guardar(t);
+      } catch (e) {}
+    }
+    // al terminar una tarea: cómo se marcó (o por qué no)
+    static resultado(tn, kind, res, marcada, ms) {
+      try {
+        const curso = this.curso(), L = this.lugar(tn); if (!L) return;
+        const { t, c } = this.del(curso);
+        const lu = c.lugares[L] = c.lugares[L] || {};
+        const firma = lu.firma || Explorador.firma(kind);
+        const f = c.firmas[firma] = c.firmas[firma] || { kind, veces: 1, ok: 0, falla: 0, primera: new Date().toISOString(), donde: L };
+        lu.kind = kind; lu.estado = marcada ? 'ok' : 'falla'; lu.hora = new Date().toISOString(); lu.v = V;
+        if (ms > 0) { f.ms = (f.ms || 0) + ms; f.nMs = (f.nMs || 0) + 1; }   // idea 25: tiempo por tipo de ejercicio
+        const ex = res && res.explorador;
+        if (marcada) {
+          f.ok++;
+          lu.como = ex && ex.marcado && ex.accion ? { tipo: 'explorador', accion: ex.accion, aprendido: (Explorador.aprendido()[ex.firma] || null) } : { tipo: 'solver', did: res && res.did, metodos: res && res.metodos, como: res && res.como };
+          delete lu.motivo;
+        } else { f.falla++; lu.motivo = (res && res.did) || 'sin marcar'; lu.fallas = [...new Set([...(lu.fallas || []), Corrida.idActual()])].slice(-5); }   // idea 19: ¿nuevo o ya conocido?
+        this.guardar(t);
+      } catch (e) {}
+    }
+    // ¿en este lugar lo que marcó la tarea fue una acción del Explorador? → se prueba primero
+    static atajo(tn) {
+      try { const lu = (this.todo()[this.curso()] || { lugares: {} }).lugares[this.lugar(tn)]; return lu && lu.estado === 'ok' && lu.como && lu.como.tipo === 'explorador' && lu.como.aprendido ? lu.como.aprendido : null; } catch (e) { return null; }
+    }
+    static async usarAtajo(tn, kind) {
+      const a = this.atajo(tn); if (!a) return null;
+      const c = Explorador.reencontrar(a); if (!c) return null;
+      log('📚 [Catálogo] En este lugar lo que marcó la tarea fue:', a.desc, '→ lo hago primero');
+      try { await Explorador.hacer(c); } catch (e) { return null; }
+      const ok = !!(await waitFor(() => NavigationManager.taskDone(tn), 2500, 250));
+      return { did: 'catalogo_atajo', accion: a.desc, marcado: ok };
+    }
+    // resumen corto (consola / registro)
+    static resumen(curso = this.curso()) {
+      const c = this.todo()[curso]; if (!c) return { curso, lugares: 0, firmas: 0 };
+      const ls = Object.values(c.lugares || {});
+      return { curso, lugares: ls.length, ok: ls.filter(l => l.estado === 'ok').length, fallan: ls.filter(l => l.estado === 'falla').length, tipos: Object.keys(c.firmas || {}).length,
+        tiposQueFallan: Object.entries(c.firmas || {}).filter(([, f]) => f.falla && !f.ok).map(([k]) => k).slice(0, 15) };
     }
   }
 
@@ -1818,7 +2464,8 @@
       if (!m || !m.dests.length) return { did: 'dnd_no_model' };
       const { bank, dests } = m;
       const tn = NavigationManager.curTask()?.n;
-      let moves = 0;
+      let moves = 0, fallidos = 0;
+      const metodos = {};
       const initial = bankItems(bank).length;
       const bucket = initial > dests.length && dests.every(d => d.getBoundingClientRect().height > 120);
       for (let g = 0; g < Math.max(initial, dests.length) + 4; g++) {
@@ -1828,11 +2475,44 @@
         if (bucket) dst = dests[g % dests.length];
         else dst = dests.find(d => !q('.dnditem', d));
         if (!dst) break;
-        await drag(items[0], dst); moves++;
+        // AJUSTADA v21.16: arrastre VERIFICADO (antes: drag() y a ciegas → "moves: 10" sin que cayera ninguna ficha)
+        const como = await this.arrastrarVerificado(items[0], dst, bank, tn); moves++;
+        if (como) metodos[como] = (metodos[como] || 0) + 1;
+        else if (++fallidos >= 2) return { did: 'dnd_no_cae', moves, metodos };   // no insistir 10 veces (la geometría va en el dump del reporte)
         if (stopWhenDone && tn && NavigationManager.taskDone(tn)) break;
-        if (moves === 1 && await practiceEnough(tn)) return { did: 'dnd_one_action', moves };   // NUEVO v20.7
+        if (moves === 1 && await practiceEnough(tn)) return Object.assign({ did: 'dnd_one_action', moves }, metodos.normal === moves ? {} : { metodos });   // NUEVO v20.7
       }
-      return { did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves };
+      return Object.assign({ did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves }, metodos.normal === moves ? {} : { metodos });
+    }
+
+    // ---------------------------------------------------------------
+    // NUEVO v21.16 — ARRASTRE VERIFICADO
+    // Corrida de Nore (02/11, "Career Advisor" · Listen again 1/6, 2/6, 3/6 y otras 4): "moves: 10" y ED sin marcar.
+    // En el dump, las 6 fichas seguían en el banco (solo reordenadas) y había un espejo de arrastre pegado: ninguna
+    // ficha CAYÓ en su hueco. Causa: la guía de ED ("Got it!") tapaba la página (utils/guia.js). Ahora, tras cada
+    // arrastre se comprueba que la ficha salió del banco / entró al hueco / ED marcó la tarea; si no:
+    //   1) ¿guía abierta? → cerrarla y repetir   2) soltar un arrastre pegado
+    //   3) mouse REAL (nube)   4) soltar en el centro de la caja visible ("Drag Here")
+    // Devuelve cómo cayó ('normal', 'tras_guia', 'mouse_real', 'caja') o null.
+    // ---------------------------------------------------------------
+    static async arrastrarVerificado(it, dst, bank, tn) {
+      const n0 = bankItems(bank).length, z0 = qa('.dnditem', dst).length;
+      const llego = () => !it.isConnected || !bank.contains(it) || bankItems(bank).length < n0 || qa('.dnditem', dst).length > z0 || !!(tn && NavigationManager.taskDone(tn));
+      await drag(it, dst);
+      if (llego()) return 'normal';
+      if (Guia.abierta()) { await Guia.cerrar(); await drag(it, dst); if (llego()) return 'tras_guia'; }
+      this.soltarPegado();
+      if (Manos.hay()) { await Manos.arrastrar(it, dst); if (await waitFor(llego, 1200, 200)) return 'mouse_real'; this.soltarPegado(); }
+      const caja = dst.closest('.prMT_T2T__regContainer, .prCl__col, ed-la-dndzone');
+      if (caja && caja !== dst && caja.getBoundingClientRect().height > dst.getBoundingClientRect().height + 4) { await drag(it, caja); if (llego()) return 'caja'; this.soltarPegado(); }
+      return null;
+    }
+
+    // si quedó un arrastre a medias (espejo .gu-mirror de dragula pegado al mouse), soltarlo
+    static soltarPegado() {
+      if (!q('.gu-mirror') && !q('.gu-transit')) return false;
+      for (const t of ['pointerup', 'mouseup']) { try { document.documentElement.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: 0, clientY: 0, button: 0, buttons: 0 })); } catch (e) {} }
+      return true;
     }
 
     // ---------------------------------------------------------------
@@ -1870,7 +2550,22 @@
           if (it) { await revealInBox(dst); await revealInBox(it); await drag(it, dst); moves++; }
         }
       }
-      return { did: 'dnd_replay', moves };
+      // NUEVO v21.16 — Nore, "The Tour Group" · Let's review: 90 % con "dnd_replay moves 6" y nada en el reporte para saber
+      // qué pregunta falló. Ahora se VERIFICA qué quedó en cada hueco; si no coincide con lo cosechado → replay_incompleto
+      // (con el dump completo y la lista hueco → quería / hay).
+      const mf = testDndModel() || m, labs = mf.dests.map(zoneLabel);
+      const usar = new Set(labs).size === labs.length && new Set(mapping.map(x => x.label)).size === mapping.length;
+      let ok = 0, total = 0; const mal = [];
+      for (let i = 0; i < mf.dests.length; i++) {
+        const entry = (usar ? mapping.find(x => x.label && x.label === labs[i]) : null) || mapping[i];
+        if (!entry) continue;
+        const wants = (entry.texts && entry.texts.length ? entry.texts : [entry.text]).filter(Boolean);
+        if (!wants.length) continue;
+        total++;
+        const hay = qa('.dnditem', mf.dests[i]).map(e => norm(txt(e)));
+        if (wants.every(w => hay.includes(norm(w)))) ok++; else mal.push({ hueco: i + 1, quiere: wants.slice(0, 3), hay: hay.slice(0, 3) });
+      }
+      return Object.assign({ did: 'dnd_replay', moves }, total ? { ok, total } : {}, mal.length ? { mal: mal.slice(0, 6) } : {});
     }
   }
 
@@ -1918,16 +2613,22 @@
           // y, si ED no marca la tarea, la siguiente imagen (Hugo: "solo tocar en una imagen que es como seleccionable").
           const ops = () => qa('.prMCQ__answers', s).filter(e => vis(e) && (q('.prMCQ__answerImage', e) ? vis(q('.prMCQ__answerImage', e)) : true));
           await waitFor(() => ops().length > 0, 20000, 400);
-          if (q('.selection--v, .prMCQ__answerImage--correct', s)) continue;
+          // AJUSTADA v21.16 — Maria, Luis y Thiago (U10 L4 · Watch again 2/3, "Choose the correct picture"): marked 0. ED trae
+          // en CADA opción, desde antes de contestar, un ícono .checkAnswerIcon.selection--x / --v (y "correct" en la buena),
+          // ESCONDIDOS hasta que se elige. El bot creía que ya estaba contestada y no tocaba nada. Ahora solo cuentan los
+          // íconos que se VEN, y se toca primero la opción que ED marca como correcta.
+          const seVe = e => { if (!e || !vis(e)) return false; try { const cs = getComputedStyle(e); return cs.visibility !== 'hidden' && cs.opacity !== '0' && cs.display !== 'none'; } catch (_) { return true; } };
+          if (qa('.selection--v, .prMCQ__answerImage--correct', s).some(seVe)) continue;
           const tn = NavigationManager.curTask()?.n;
           // la verificación: cambió alguna clase de la opción (el dump real trae selection--x, --incorrect, correct,
           // checked) o ED marcó la tarea; mCS_* lo pone el scroll al cargar la imagen, no cuenta
           const firmaOp = op => [op, ...qa('*', op)].map(e => (typeof e.className === 'string' ? e.className : '')).join('|').replace(/\bmCS\w*/g, '');
-          for (const op of ops().slice(0, 6)) {
-            const yaElegida = () => !!q('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', op) || /selection--|--correct|--incorrect/.test(op.className);
+          const orden = ops().slice(0, 6).sort((a, b) => (q('.multiRadioWrapper.correct, .correct', b) ? 1 : 0) - (q('.multiRadioWrapper.correct, .correct', a) ? 1 : 0));
+          for (const op of orden) {
+            const yaElegida = () => qa('.selection--v, .selection--x, .prMCQ__answerImage--correct, .prMCQ__answerImage--incorrect', op).some(seVe) || /selection--|--correct|--incorrect/.test(op.className);
             if (yaElegida()) continue;
             const f0 = firmaOp(op);
-            for (const el of [q('.prMCQ__answerImage', op), q('.multiRadioWrapper', op), op].filter(Boolean)) { if (await press(el, () => firmaOp(op) !== f0 || yaElegida() || !!(tn && NavigationManager.taskDone(tn)), 2000)) { marked++; break; } }
+            for (const el of [q('.prMCQ__answerImage', op), q('img', op), q('.multiRadioWrapper', op), op].filter((x, i, a) => x && a.indexOf(x) === i)) { if (await press(el, () => firmaOp(op) !== f0 || yaElegida() || !!(tn && NavigationManager.taskDone(tn)), 2000)) { marked++; break; } }
             await sleep(400);
             if (TestManager.inTest()) break;   // en un TEST una sola imagen (como v21.11): probar varias cambiaría la respuesta
             if (q('.selection--v, .prMCQ__answerImage--correct', s)) break;
@@ -2031,14 +2732,28 @@
       // letra cualquiera en el primero y ya". Se agrega una letra al 1.º y se verifica; si no, al siguiente (hasta 5).
       // OJO: SOLO en prácticas. En un TEST los campos llenos son respuestas (del replay): tocarlas bajaría la nota.
       let editados = 0;
+      const como = [];
       if (!n && !TestManager.inTest()) {
-        for (const t of this.textInputs().slice(0, 5)) {
-          setNative(t, (t.value || '') + 's'); editados++;
+        // AJUSTADA v21.16 — con "editados: 5" ED seguía sin marcar (Maria, Luis, Thiago, Nore ×2): el valor se ponía de
+        // golpe. Hugo: "'was' ahí añádele 'wasa' y ya sale completo" → ahora se TECLEA una letra (teclado real en la
+        // nube, simulado completo en la PC) y el campo pierde el foco. Primero los campos del lado de la práctica.
+        const lado = qav('.writingEditPracticeWrapper input[type="text"], .writingEditPracticeWrapper textarea');
+        const campos = (lado.length ? lado : this.textInputs()).slice(0, 5);
+        for (const t of campos) {
+          const forma = await this.editarCampo(t); editados++; como.push(forma || 'nada');
           await sleep(250);
           if (!tn || await waitFor(() => NavigationManager.taskDone(tn), 2000, 250)) break;
         }
       }
-      return { did: 'text_solved', n, editados, long: isLong, waitDone: 3500 };
+      return Object.assign({ did: 'text_solved', n, editados, long: isLong, waitDone: 3500 }, como.length ? { como } : {});
+    }
+
+    // NUEVO v21.16 — tecleo de UNA letra al final del campo, como una persona (ver utils/manos.js)
+    static async editarCampo(t) {
+      const forma = await Manos.teclear(t, 'a');
+      if (!forma) setNative(t, (t.value || '') + 'a');   // último recurso: lo de antes
+      Manos.soltarFoco(t);
+      return forma;
     }
   }
 
@@ -2669,8 +3384,11 @@
     static isExplore() {
       if (this.hayTarjetas() && !q('.dnditem, .dndZone .draggable, .prMCQ__qaInnerSet, .DDLOptions__selected')) return true;
       if (!this.esPasoExplore()) return false;
-      return this.hayVideo() || qav('.speaker').length > 0 || qav('.segment').length >= 2;
+      return this.hayVideo() || this.hayAudio() || qav('.speaker').length > 0 || qav('.segment').length >= 2;   // AJUSTADA v21.16: + audio
     }
+    // NUEVO v21.16 — reproductor de AUDIO de los Explore de gramática (dump de Hugo "Lesson 4: Past Form of Modals:
+    // Should/Could Have · Step 1: Explore": .learning__RAMediaResourceW--html5Audio con #CTrackerPlayBtn y "00:00/00:09")
+    static hayAudio() { return !!q('.learning__RAMediaResourceW--html5Audio, .learning__resourcesArea .layout__audioControlsW'); }
 
     static async solveExplore() {
       const tn = NavigationManager.curTask()?.n;
@@ -2680,8 +3398,53 @@
       if (hecho()) return fin(true);
       if (this.hayTarjetas()) { if (await this.tarjetas(tn, hecho, intentos)) return fin(true); }
       if (this.hayVideo()) { if (await this.video(hecho, intentos)) return fin(true); }
+      if (this.hayAudio() && !this.hayVideo()) { if (await this.audio(hecho, intentos, !tn)) return fin(true); if (!tn && intentos.includes('sin_tarea')) return fin(false); }   // NUEVO v21.16
       if (await this.parlantes(hecho, intentos, !tn)) return fin(true);
       return fin(hecho());
+    }
+
+    // ---- AUDIO (NUEVO v21.16) ----
+    // 13 Explore de gramática sin marcar solo en Nore (y 2–4 en cada cuenta: U14 L1–L5): el bot tocaba las 2 frases
+    // (segmentos:4✗) y ED no marcaba. Hugo: "solo era esperar a que cargue y tocar play ... dale tiempito y play 3
+    // segundos ... casi todos tardan en cargar". → esperar a que cargue (hasta 40 s), play VERIFICADO (clic, mouse real
+    // en la nube, o el <audio> directo) y dejarlo sonar hasta que ED marque la tarea o termine el audio.
+    static async audio(hecho, intentos, sinTarea) {
+      log('🎧 [Explore] Audio: espero a que cargue y le doy play...');
+      const zona = () => q('.learning__RAMediaResourceW--html5Audio') || q('.learning__resourcesArea') || document;
+      const t = id => txt(q('#' + id, zona()) || q('#' + id));
+      const seg = s => { const m = String(s || '').match(/(\d+):(\d+)/); return m ? +m[1] * 60 + +m[2] : 0; };
+      const total = () => seg(t('total-time'));
+      // el <audio> del recurso: el que dura como dice el reproductor (hay otro corto de efectos)
+      const aud = () => { const as = qa('audio'); const tt = total(); return (tt && as.find(a => Math.abs((a.duration || 0) - tt) <= 2)) || as.filter(a => a.duration > 0).sort((a, b) => b.duration - a.duration)[0] || as[0] || null; };
+      const botones = () => [qv('#CTrackerPlayBtn', zona()), qv('.layout__mediaPlayPause--play', zona()), qv('.learning__RAMRButton', zona()), qv('.layout__mediaPlayPause', zona())].filter((b, i, a) => b && a.indexOf(b) === i);
+      // cargado = el botón de play SE VE y ya se sabe cuánto dura (o el <audio> tiene datos, o el cargador dice 100 %)
+      const cargado = () => botones().length > 0 && (total() > 0 || qa('audio').some(a => a.readyState >= 2 && a.duration > 0) || /100\s*%/.test(t('mediaLoadProgressPercent')) || !qv('#mediaLoadPanel'));
+      const ok = await waitFor(cargado, 40000, 500);
+      intentos.push(ok ? 'audio_cargado' : 'audio_sin_cargar');
+      const reloj0 = t('playing-time');
+      const sonando = () => { const a = aud(); if (a && !a.paused && !a.ended && a.currentTime > 0) return true;
+        const b = q('#CTrackerPlayBtn', zona()) || q('.layout__mediaPlayPause', zona()); if (b && /--pause\b|\bpause\b/i.test(b.className) && !/--play\b/.test(b.className)) return true;
+        return !!(reloj0 != null && t('playing-time') && t('playing-time') !== reloj0); };
+      let empezo = false;
+      for (const b of botones()) {
+        if (await press(b, () => sonando() || hecho(), 4000)) { empezo = true; intentos.push('play:' + ((typeof b.className === 'string' && b.className.split(' ')[0]) || b.id || 'boton')); break; }
+      }
+      if (!empezo && Manos.hay() && botones()[0]) {
+        await Manos.clic(botones()[0]);
+        empezo = !!(await waitFor(() => sonando() || hecho(), 4000, 300)); intentos.push('play:mouse_real' + (empezo ? '' : '✗'));
+      }
+      if (!empezo && aud()) {   // último recurso: el <audio> directo
+        try { const pr = aud().play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+        empezo = !!(await waitFor(() => sonando() || hecho(), 4000, 300)); intentos.push('audio.play' + (empezo ? '' : '✗'));
+      }
+      // sin barra de tareas no hay nada que verificar: con que suene unos segundos basta (Hugo: "play 3 segundos")
+      if (sinTarea) { await sleep(5000); intentos.push('sin_tarea'); return false; }
+      // dejarlo sonar: hasta que ED marque o termine (tope: lo que dura + 15 s, entre 20 s y 4 min); NO se pausa
+      const tope = Math.min(240000, Math.max(20000, (total() + 15) * 1000));
+      await waitFor(() => hecho() || (aud() && aud().ended) || (total() > 0 && seg(t('playing-time')) >= total()), tope, 500);
+      if (!hecho()) await waitFor(hecho, 3000, 300);
+      if (!hecho()) intentos.push('audio_sin_marcar');
+      return hecho();
     }
 
     // ---- VIDEO: esperar a que cargue (hasta 30 s), darle play y esperar a que ED marque (hasta 100 s) ----
@@ -3086,13 +3849,19 @@
       }
       if (saved) StorageManager.addKnown(key);
       else Reporter.capture('cosecha_vacia', { idx });   // NUEVO v20.8
+      const sig0 = NavigationManager.screenSig();
       await NavigationManager.goNext();
       await sleep(1500);
 
       // ¿Terminó el review? (ya no hay pestañas tras esperar un poco y el contador estaba en la última)
       const stillReview = await waitFor(() => this.hasReviewTabs(), 2500, 300);
       const looksLast = !c || c.i >= c.n;
-      if (!stillReview && looksLast && CFG.retakeAfterReview) await this.reopenAfterReview(key);   // AJUSTADA v20.1
+      // NUEVO v21.16 — Roy y Mateo (U14 L5 "Be: Tag Questions", la ÚLTIMA lección): en la última pregunta del review, Next
+      // no lleva a ningún lado → el bot cosechaba la 5/5 seis veces (~40 s) hasta el atasco. Si Next no cambió nada en la
+      // última pregunta, el review terminó igual → volver al test.
+      const atorado = stillReview && looksLast && NavigationManager.screenSig() === sig0;
+      if (atorado) log('📖 Última pregunta del review y Next no avanza → el review terminó, vuelvo al test');
+      if ((!stillReview || atorado) && looksLast && CFG.retakeAfterReview) await this.reopenAfterReview(key);   // AJUSTADA v20.1
       return { harvested: true, idx, saved };
     }
 
@@ -3212,7 +3981,8 @@
       else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
       else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
       // NUEVO v20.8: anotar en el reporte lo que no salió completo (o una pregunta que el bot no sabe contestar)
-      const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total);
+      const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total) ||
+        (out.dnd && out.dnd.total != null && out.dnd.ok < out.dnd.total);   // AJUSTADA v21.16: + DnD verificado
       const nada = !['mcq', 'fitb', 'dnd', 'drop', 'seq', 'lddl', 'lmcq'].some(k => out[k]);
       if (incompleto) Reporter.capture('replay_incompleto', { out, cosechado: scr });   // AJUSTADA v20.9: + lo que se guardó
       else if (nada) Reporter.capture('replay_sin_accion', { cosechado: Object.keys(scr) });
@@ -3335,6 +4105,11 @@
           return { did: 'aviso_test_sin_enviar', boton: saliendo ? 'Continue' : 'Cancel' };
         }
       }
+      // NUEVO v21.16: la guía de ED ("Got it!" / "Don't show again") tapa la página y los arrastres no caen (utils/guia.js)
+      await Guia.cerrar();
+      await Guia.popup();   // NUEVO v21.16 (idea 13): ventana desconocida → dump una vez + OK/Cerrar
+      // NUEVO v21.16 (idea 12): en el REPASO del final, el doble de paciencia para cargar
+      if (TestSweep.enRepaso() && !(CFG.paciencia >= 2.5)) CFG.paciencia = 2.5;
       if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
         const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
         return sw || { did: 'not_in_lesson' };
@@ -3352,9 +4127,12 @@
         const salir = async () => {
           const sg = NavigationManager.screenSig();
           await NavigationManager.goNext();
-          if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; } }
+          if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; }
+            const f = await TestSweep.finDeUnidad('test ya hecho'); if (f) return f; }   // NUEVO v21.16: último test de la unidad
           return null;
         };
+        // NUEVO v21.16 — modo EXPLORAR: solo se recorre y se cataloga; los tests no se empiezan
+        if (TestSweep.explorando()) { Catalogo.ver('test_start', null); const a = await salir(); return Object.assign({ did: 'explorar_salta_test', key }, a ? { avance: a } : {}); }
         if (TestSweep.rendido()) {
           log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
           const a = await salir();
@@ -3509,11 +4287,15 @@
           }
           // NUEVO v21.13: tablero (paso sin tareas: "visto", u "ok" si el solver confirmó que ED lo marcó)
           Tablero.anotar(res.marcado ? 'ok' : 'visto', { kind });
+          Catalogo.ver(kind, null);   // NUEVO v21.16
         }
         await NavigationManager.goNext();
         return res;
       }
-      if (t.done) { Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
+      if (t.done) {
+        if (TestSweep.explorando()) Catalogo.ver(MainEngine.detectKind(), t.n);   // NUEVO v21.16: modo explorar → catalogar también lo hecho
+        Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' };
+      }
 
       // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
       let kind = MainEngine.detectKind();
@@ -3526,14 +4308,20 @@
       }
       // NUEVO v21.11 — REGLA 4 de Hugo: si esta tarea ya falló 2 veces en esta corrida (1 si es de las caras/imposibles:
       // speaking, memoria, Explore...), no se vuelve a intentar: ya está en el reporte.
+      Catalogo.ver(kind, t.n);   // NUEVO v21.16: catálogo del nivel (tipo de pantalla; su dump la 1.ª vez)
       const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
-      if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
+      if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2) + (TestSweep.enRepaso() && previos < 3 ? 1 : 0)) {   // AJUSTADA v21.16: + 1 en el repaso
         log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
         Tablero.anotar('saltado', { tarea: t.n, kind });
         await NavigationManager.goNext();
         return { did: 'saltado_ya_fallo', kind, veces: previos };
       }
+      // NUEVO v21.16 — CATÁLOGO: si aquí (este curso, esta lección/paso/tarea) lo que marcó fue una acción del Explorador
+      // en otra cuenta o corrida → esa primero
+      { const at = await Catalogo.usarAtajo(t.n, kind);
+        if (at && at.marcado) { Tablero.anotar('ok', { tarea: t.n, kind }); await sleep(400); await NavigationManager.goNext(); return Object.assign(at, { kind, taskMarked: true }); } }
       Reporter.marcarAntes();   // NUEVO v21.11: estado ANTES de actuar (sale en el reporte si falla)
+      const t0Tarea = Date.now();   // NUEVO v21.16: tiempo por tipo de ejercicio (catálogo)
       const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
       // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
@@ -3549,10 +4337,16 @@
           try { res.retry = await MainEngine.runKind(kind); } catch (e) { res.retryError = e.message; } finally { CFG.practiceOneAction = prev; }
           done = await waitFor(() => NavigationManager.taskDone(t.n), 2500, 250);
         }
+        // NUEVO v21.16 — EXPLORADOR (pedido de Hugo): si sigue sin marcar, prueba de todo, saca fotos y aprende qué la marca
+        if (!done && Explorador.puede(kind, t.n)) {
+          try { res.explorador = await Explorador.explorar(t.n, kind); } catch (e) { res.explorador = { error: e.message }; }
+          done = !!(res.explorador && res.explorador.marcado) || !!(await waitFor(() => NavigationManager.taskDone(t.n), 1000, 250));
+        }
         res.taskMarked = !!done;
         if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
         if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
         Tablero.anotar(done ? 'ok' : 'falla', { tarea: t.n, kind });   // NUEVO v21.13
+        Catalogo.resultado(t.n, kind, res, !!done, Date.now() - t0Tarea);   // NUEVO v21.16: catálogo del nivel (cómo se marcó / por qué no)
       }
 
       await sleep(400);   // AJUSTADA v20.7: era 800
@@ -3606,6 +4400,16 @@
     // ---- NUEVO v20.8: reporte automático de fallos ----
     report: () => { Reporter.copy(); return Reporter.text(); },
     reportText: () => Reporter.text(),   // NUEVO v21.2: el reporte como texto (lo usa la nube)
+    // NUEVO v21.16: a mano desde la consola
+    explorar: async () => { const t = NavigationManager.curTask(); if (!t) { warn('explorar: no hay tarea en esta pantalla'); return null; } return Explorador.explorar(t.n, MainEngine.detectKind()); },
+    diagnostico: () => Explorador.diagnostico(),   // ¿por qué está atascado aquí?
+    cerrarGuia: () => Guia.cerrar(),                // cierra la guía de ED ("Got it!") si está abierta
+    aprendido: () => Explorador.aprendido(),        // lo que el Explorador aprendió (qué marca cada pantalla)
+    catalogo: () => Catalogo.resumen(),             // qué sabe el bot de ESTE nivel (lugares, tipos de pantalla, qué falla)
+    explorarCurso() {                               // recorrer TODO el curso catalogando (sin tests); como el modo explorar de la nube
+      TestSweep.set({ active: true, mode: 'completar', explorar: true, phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: null, inicio: new Date().toISOString() });
+      log('🔭 Modo EXPLORAR: todas las unidades, cataloga cada pantalla, no empieza tests. Ve al Home y __ed.auto().');
+    },
     reportFile: () => Reporter.file(),
     reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
     // ---- NUEVO v20.8: barrido de tests < 100 ----

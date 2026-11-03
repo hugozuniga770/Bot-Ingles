@@ -110,7 +110,35 @@ class Reporter {
     out.medios = qa('audio, video').slice(0, 8).map(m => ({ tag: m.tagName.toLowerCase(), src: corta((m.currentSrc || m.src || '').split('/').pop(), 80), pausado: m.paused, t: Math.round(m.currentTime || 0), dur: Math.round(m.duration || 0), visible: vis(m), clasePadre: corta(cls(m.parentElement), 60) }));
     out.iframes = qa('iframe').slice(0, 6).map(f => { const o = { id: f.id || null, src: corta(f.getAttribute('src'), 120), visible: vis(f) };
       try { const b = f.contentDocument && f.contentDocument.body; if (b) { o.texto = corta(b.innerText || b.textContent, 300); o.html = limpio(b, 1500); } } catch (e) { o.ajeno = true; } return o; });
+    // NUEVO v21.16 — lo que faltó para entender los DnD de Nore: ¿algo TAPA la página? (guía de ED) y DÓNDE está cada
+    // cosa (rectángulos + qué elemento hay de verdad en el centro de cada hueco)
+    try { out.capas = Guia.info(); } catch (e) {}
+    try { out.geo = Reporter.geometria(); } catch (e) {}
     return out;
+  }
+
+  // NUEVO v21.16 — captura de pantalla (solo en la nube: cloud/runner.js da window.__edFoto). Devuelve el nombre del
+  // archivo (fotos/xxx.png) o null. No espera: la foto se toma enseguida mientras el bot sigue.
+  static foto(nombre) {
+    try {
+      if (typeof window.__edFoto !== 'function') return null;
+      const limpio = String(nombre).replace(/[^\w.-]+/g, '_').slice(0, 80);
+      const p = window.__edFoto(limpio); if (p && p.catch) p.catch(() => {});
+      return 'fotos/' + limpio + '.png';
+    } catch (e) { return null; }
+  }
+
+  // NUEVO v21.16 — geometría: pantalla, huecos/fichas/opciones con su rectángulo y qué hay encima de su centro
+  static geometria() {
+    const R = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); };
+    const cad = e => { const o = []; for (let x = e, k = 0; x && k < 4 && x !== document.body; x = x.parentElement, k++) o.push(x.tagName.toLowerCase() + (typeof x.className === 'string' && x.className.trim() ? '.' + x.className.trim().split(/\s+/).slice(0, 2).join('.') : '')); return o.join(' < '); };
+    const encima = e => { try { const r = e.getBoundingClientRect(); const x = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 20)); return x ? (e.contains(x) || x === e ? 'él mismo' : cad(x)) : null; } catch (_) { return null; } };
+    const lista = (sel, n) => qa(sel).filter(vis).slice(0, n).map(e => ({ clase: (typeof e.className === 'string' ? e.className : '').slice(0, 60), texto: txt(e).slice(0, 25), rect: R(e), encima: encima(e) }));
+    const g = { pantalla: innerWidth + 'x' + innerHeight, scroll: Math.round(scrollY), huecos: lista('.dndZone, .droptarget', 10), fichas: lista('.dnditem, .draggable', 8),
+      opciones: lista('.prMCQ__answers, .prMCQ__answerLabel', 6), campos: lista('input[type="text"], textarea', 6), espejo: !!q('.gu-mirror'), enTransito: !!q('.gu-transit') };
+    const pr = qv('.learning__practiceArea'), ra = qv('.learning__resourcesArea');
+    if (pr) g.practica = R(pr); if (ra) g.recursos = R(ra);
+    return g;
   }
 
   // NUEVO v21.11 — estado ANTES de que el bot actúe (el engine lo llama justo antes del solver). Si luego hay un
@@ -139,6 +167,8 @@ class Reporter {
       try { localStorage.setItem('ed:report:num:v1', String(num)); } catch (_) {}
       Tablero.anotar('falla', { tarea: tt ? tt.n : null, motivo, reporte: num });
       const e = Object.assign({ clave, num, motivo, hora: new Date().toLocaleTimeString(), v: V, resultado: extra }, s);
+      // NUEVO v21.16 — captura de pantalla con cada reporte (en la nube queda en el zip: fotos/reporte-N.png)
+      { const f = Reporter.foto('reporte-' + num + '-' + motivo); if (f) e.foto = f; }
       // NUEVO v21.11: el "antes" de la acción del bot, si es del mismo lugar y de hace menos de 3 min
       const t = (() => { try { return NavigationManager.curTask(); } catch (_) { return null; } })();
       const lugar = [s.leccion, s.step, s.contador || '', t ? t.n : ''].join('|');

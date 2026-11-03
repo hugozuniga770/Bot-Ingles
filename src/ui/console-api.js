@@ -42,6 +42,16 @@ window.__ed = {
   // ---- NUEVO v20.8: reporte automático de fallos ----
   report: () => { Reporter.copy(); return Reporter.text(); },
   reportText: () => Reporter.text(),   // NUEVO v21.2: el reporte como texto (lo usa la nube)
+  // NUEVO v21.16: a mano desde la consola
+  explorar: async () => { const t = NavigationManager.curTask(); if (!t) { warn('explorar: no hay tarea en esta pantalla'); return null; } return Explorador.explorar(t.n, MainEngine.detectKind()); },
+  diagnostico: () => Explorador.diagnostico(),   // ¿por qué está atascado aquí?
+  cerrarGuia: () => Guia.cerrar(),                // cierra la guía de ED ("Got it!") si está abierta
+  aprendido: () => Explorador.aprendido(),        // lo que el Explorador aprendió (qué marca cada pantalla)
+  catalogo: () => Catalogo.resumen(),             // qué sabe el bot de ESTE nivel (lugares, tipos de pantalla, qué falla)
+  explorarCurso() {                               // recorrer TODO el curso catalogando (sin tests); como el modo explorar de la nube
+    TestSweep.set({ active: true, mode: 'completar', explorar: true, phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: null, inicio: new Date().toISOString() });
+    log('🔭 Modo EXPLORAR: todas las unidades, cataloga cada pantalla, no empieza tests. Ve al Home y __ed.auto().');
+  },
   reportFile: () => Reporter.file(),
   reportClear: () => { Reporter.clear(); log('🧹 Reporte borrado.'); },
   // ---- NUEVO v20.8: barrido de tests < 100 ----

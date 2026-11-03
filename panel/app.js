@@ -1,0 +1,250 @@
+/* =====================================================================
+   panel/app.js — el panel del bot en el teléfono (NUEVO v21.16)
+   ---------------------------------------------------------------------
+   Habla SOLO con api.github.com, con TU token (fine-grained, solo el repo del bot):
+     • correr: workflow "nube" (workflow_dispatch) — una cuenta, varias o todas; cada pedido arranca YA (sin cola)
+     • parar: una cuenta → orden en el issue del tablero (cloud/lote.js la para y las demás de su máquina siguen);
+              una corrida entera → cancel
+     • agregar / quitar cuentas: reescribe el secret ED_CUENTAS (cifrado para GitHub con su llave pública)
+     • ver: corridas, máquinas y el tablero de cada cuenta (los comentarios del issue, con sus datos invisibles)
+   Todo lo que cambia algo pide TU clave otra vez (pedido de Hugo: "que me la pida cada que haga un running").
+   ===================================================================== */
+'use strict';
+(function () {
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const K = 'edpanel:v1', TITULO = '📊 Tablero del bot (se actualiza solo mientras corre la nube)';
+  const leer = () => { try { return JSON.parse(localStorage.getItem(K) || 'null') || {}; } catch (e) { return {}; } };
+  const escribir = o => localStorage.setItem(K, JSON.stringify(o));
+  // para probar en la PC: ?api=http://localhost:8767 (solo desde localhost)
+  const qs = new URLSearchParams(location.search);
+  const API = (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && qs.get('api')) || 'https://api.github.com';
+  const S = { token: null, lista: [], cfg: leer(), rama: 'main', issue: null, runs: [], ocup: {}, tab: {}, secretos: [], sel: new Set(), cargando: false, ultimo: 0 };
+
+  // ---------------------------------------------------------------- utilidades
+  function aviso(t, ms = 3200) { const a = $('#aviso'); a.textContent = t; a.hidden = false; clearTimeout(aviso._t); aviso._t = setTimeout(() => { a.hidden = true; }, ms); }
+  function vista(id) { $$('.vista').forEach(v => { v.hidden = v.id !== id; }); }
+  function hoja(html) { $('#hoja-contenido').innerHTML = html; $('#hoja').hidden = false; return $('#hoja-contenido'); }
+  function cerrarHoja() { $('#hoja').hidden = true; $('#hoja-contenido').innerHTML = ''; }
+  const hace = iso => { if (!iso) return ''; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h ${m % 60} min`; };
+  const dura = (a, b) => { const m = Math.max(0, Math.round(((b ? Date.parse(b) : Date.now()) - Date.parse(a)) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+  const b64json = s => { try { return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0)))); } catch (e) { return null; } };
+
+  async function gh(metodo, url, cuerpo, accept) {
+    const r = await fetch(API + url, { method: metodo, headers: Object.assign({ Authorization: 'Bearer ' + S.token, Accept: accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, cuerpo ? { 'Content-Type': 'application/json' } : {}), body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    if (r.status === 204) return null;
+    const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
+    if (!r.ok) { const e = new Error((j && j.message) || ('GitHub respondió ' + r.status)); e.status = r.status; throw e; }
+    return j;
+  }
+  const repo = () => S.cfg.repo;
+
+  // ---------------------------------------------------------------- lista ED_CUENTAS (igual que cloud/cuentas.js)
+  function cuentasDeLista(lista) {
+    return lista.map(l => l.trim()).filter(l => l && !l.startsWith('#')).map((l, i) => { const p = l.split(/[\s:,;]+/).filter(Boolean); return { n: String(i + 1), user: p[0] || '', ok: !!(p[0] && p[1]), nombre: p.slice(2).join(' ') || `cuenta ${i + 1}` }; }).filter(c => c.ok);
+  }
+  async function subirLista(lista) {
+    const k = await gh('GET', `/repos/${repo()}/actions/secrets/public-key`);
+    await gh('PUT', `/repos/${repo()}/actions/secrets/ED_CUENTAS`, { encrypted_value: Cripto.sellar(lista.join('\n'), k.key), key_id: k.key_id });
+  }
+  async function guardarCaja(clave) { S.cfg.caja = await Cripto.cifrar(JSON.stringify({ token: S.token, lista: S.lista }), clave); escribir(S.cfg); }
+
+  // ---------------------------------------------------------------- clave (al abrir y antes de cada acción)
+  function pedirClave(motivo) {
+    return new Promise(res => {
+      const h = hoja(`<h2>🔒 ${esc(motivo)}</h2><form id="f-clave"><label>Tu clave <input name="c" type="password" autocomplete="current-password" required></label><button class="btn grande verde">Confirmar</button><p class="error" id="e-clave"></p></form>`);
+      const f = $('#f-clave', h); setTimeout(() => f.c.focus(), 50);
+      $('.cerrar-hoja').onclick = () => { cerrarHoja(); res(null); };
+      f.onsubmit = async ev => { ev.preventDefault(); const c = f.c.value;
+        try { await Cripto.descifrar(S.cfg.caja, c); cerrarHoja(); res(c); } catch (e) { $('#e-clave', h).textContent = 'Clave incorrecta'; } };
+    });
+  }
+
+  // ---------------------------------------------------------------- datos (cada 20 s mientras se ve)
+  async function refrescar(silencio) {
+    if (S.cargando || !S.token) return; S.cargando = true; $('#b-refrescar').classList.add('girando');
+    try {
+      if (!S.issue) { const is = await gh('GET', `/repos/${repo()}/issues?state=open&per_page=50`); const i = (is || []).find(x => x.title === TITULO && !x.pull_request); S.issue = i ? i.number : null; }
+      const runs = (await gh('GET', `/repos/${repo()}/actions/workflows/nube.yml/runs?per_page=25`)).workflow_runs || [];
+      S.runs = runs;
+      // qué cuenta corre en qué máquina (jobs "correr 1,2,NORE")
+      const ocup = {};
+      for (const r of runs.filter(r => r.status !== 'completed').slice(0, 15)) {
+        const js = (await gh('GET', `/repos/${repo()}/actions/runs/${r.id}/jobs?per_page=100`)).jobs || [];
+        for (const j of js) { const m = /^correr\s+(.+)$/.exec(j.name || ''); if (!m || j.status === 'completed') continue;
+          const ids = m[1].split(',').map(x => x.trim().toUpperCase()); for (const id of ids) ocup[id] = { run: r.id, url: j.html_url, estado: j.status, desde: j.started_at || r.created_at, grupo: ids }; }
+        if (!js.some(j => /^correr/.test(j.name || ''))) ocup['__run' + r.id] = { run: r.id, preparando: true, desde: r.created_at };
+      }
+      S.ocup = ocup;
+      // tableros (con los datos invisibles que deja cloud/runner.js)
+      const tab = {};
+      if (S.issue) {
+        const cs = await gh('GET', `/repos/${repo()}/issues/${S.issue}/comments?per_page=100`, null, 'application/vnd.github.full+json');
+        for (const c of cs || []) { const m = /<!-- datos:([A-Za-z0-9+/=]+) -->/.exec(c.body || ''); if (!m) continue; const d = b64json(m[1]); if (!d) continue;
+          const id = String(d.cuenta).toUpperCase(); if (!tab[id] || Date.parse(d.hora) > Date.parse(tab[id].d.hora)) tab[id] = { d, html: c.body_html, url: c.html_url }; }
+      }
+      S.tab = tab;
+      try { S.secretos = ((await gh('GET', `/repos/${repo()}/actions/secrets?per_page=100`)).secrets || []).map(x => x.name); } catch (e) { S.secretos = []; }
+      S.ultimo = Date.now(); pintar();
+    } catch (e) { if (!silencio) aviso('⚠ ' + e.message); $('#estado-linea').textContent = '⚠ ' + e.message; }
+    finally { S.cargando = false; $('#b-refrescar').classList.remove('girando'); }
+  }
+
+  // ---------------------------------------------------------------- dibujar
+  function todasLasCuentas() {
+    const m = new Map();
+    for (const c of cuentasDeLista(S.lista)) m.set(c.n, { id: c.n, nombre: c.nombre, origen: 'lista' });
+    for (const s of S.secretos) { const a = (/^ED_CUENTA_([A-Z0-9_]+)$/.exec(s) || [])[1]; if (a && !m.has(a)) m.set(a, { id: a, nombre: a, origen: 'secret' }); }
+    for (const [id, t] of Object.entries(S.tab)) if (!m.has(id)) m.set(id, { id, nombre: t.d.nombre || id, origen: 'tablero' });
+    for (const id of Object.keys(S.ocup)) if (!/^__/.test(id) && !m.has(id)) m.set(id, { id, nombre: 'cuenta ' + id, origen: 'corriendo' });
+    return [...m.values()].map(c => { const t = S.tab[c.id.toUpperCase()]; if (t && t.d.nombre && c.origen !== 'lista') c.nombre = t.d.nombre; return c; });
+  }
+  function estadoDe(c) {
+    const o = S.ocup[c.id.toUpperCase()], t = S.tab[c.id.toUpperCase()], d = t && t.d;
+    if (o && d && String(d.run) === String(o.run) && (d.estado === 'parado' || d.estado === 'fin')) return { k: 'fin', txt: d.estado === 'parado' ? 'parada' : 'terminó', o };
+    if (o) return o.estado === 'queued' || o.estado === 'waiting' ? { k: 'cola', txt: 'esperando máquina', o } : { k: 'corre', txt: 'corriendo · ' + dura(o.desde), o };
+    if (d && d.login === 'falla') return { k: 'mal', txt: 'no pudo entrar' };
+    if (d && d.freno) return { k: 'mal', txt: 'frenada' };
+    if (d && (d.estado === 'fin' || d.estado === 'parado')) return { k: 'fin', txt: (d.estado === 'parado' ? 'parada ' : 'terminó ') + hace(d.hora) };
+    return { k: 'quieta', txt: 'quieta' };
+  }
+  function barra(nombre, v, ini, cls) {
+    const x = v == null ? 0 : v;
+    return `<div class="barra-p"><div><span>${nombre}</span><b>${v == null ? '—' : v + ' %'}${ini != null && v != null && ini !== v ? ` <small style="display:inline;color:var(--verde)">(+${v - ini})</small>` : ''}</b></div><div class="pista ${cls || ''}"><i style="width:${x}%"></i></div></div>`;
+  }
+  function pintar() {
+    const cs = todasLasCuentas();
+    const corren = cs.filter(c => estadoDe(c).k === 'corre').length, cola = cs.filter(c => estadoDe(c).k === 'cola').length;
+    const maquinas = new Set(Object.values(S.ocup).map(o => o.run + ':' + (o.grupo || []).join(','))).size;
+    $('#estado-linea').textContent = `${repo()} · actualizado ${new Date(S.ultimo).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}`;
+    $('#resumen').innerHTML = `<div class="cifra"><b>${cs.length}</b><span>cuentas</span></div><div class="cifra"><b style="color:var(--verde)">${corren}</b><span>corriendo${cola ? ` · ${cola} esperan` : ''}</span></div><div class="cifra"><b>${maquinas}</b><span>máquinas de 20</span></div>`;
+    $('#lista-cuentas').innerHTML = cs.length ? cs.map(c => {
+      const e = estadoDe(c), t = S.tab[c.id.toUpperCase()], d = (t && t.d) || {};
+      const ini = d.ini || {};
+      return `<article class="cuenta ${S.sel.has(c.id) ? 'elegida' : ''}" data-id="${esc(c.id)}">
+        <div class="cab"><input type="checkbox" class="marca" ${S.sel.has(c.id) ? 'checked' : ''} aria-label="elegir"><div class="avatar">${esc((c.nombre || c.id).trim().charAt(0).toUpperCase())}</div>
+          <div class="quien"><b>${esc(c.nombre)}</b><span>${c.origen === 'lista' ? 'línea ' + esc(c.id) : esc(c.id)}${d.curso ? ' · ' + esc(d.curso) : ''}</span></div>
+          <span class="pill ${e.k}"><span class="punto"></span>${esc(e.txt)}</span></div>
+        ${d.comp != null || d.avg != null ? `<div class="barras">${barra('Realización', d.comp, ini.completion, '')}${barra('Promedio de tests', d.avg, ini.avg, 'prom')}</div>` : ''}
+        <div class="ahora">${e.k === 'corre' && d.ahora ? `🔄 <b>${esc(d.ahora)}</b>` : d.hora ? `Último dato ${hace(d.hora)}` : 'Todavía no corrió con esta versión'}${d.salud != null ? ` · ${d.salud >= 85 ? '💚' : d.salud >= 60 ? '💛' : '❤️‍🩹'} salud ${d.salud}` : ''}${d.tot ? ` · 🕓 ${esc(d.tot)} en ED` : ''}</div>
+        <div class="botones">${e.k === 'corre' || e.k === 'cola' ? '<button class="btn rojo" data-a="parar">⏹ Parar</button><button class="btn" data-a="reiniciar">🔁 Otra vez</button>' : '<button class="btn verde" data-a="correr">▶ Correr</button>'}
+          <button class="btn" data-a="tablero">📊 Tablero</button>${e.o && e.o.url ? `<a class="btn" href="${esc(e.o.url)}" target="_blank" rel="noopener">⚡ Máquina</a>` : ''}</div>
+      </article>`;
+    }).join('') : '<div class="vacio">No hay cuentas todavía.<br>Toca <b>＋ Cuenta</b> o pega tu lista en ⚙ Ajustes.</div>';
+    $('#lista-corridas').innerHTML = S.runs.length ? S.runs.map(r => {
+      const k = r.status !== 'completed' ? (r.status === 'in_progress' ? 'corre' : 'cola') : r.conclusion === 'success' ? 'fin' : r.conclusion === 'cancelled' ? 'quieta' : 'mal';
+      const t = { corre: 'corriendo', cola: 'en espera', fin: 'terminó', quieta: 'cancelada', mal: r.conclusion || 'falló' }[k];
+      return `<div class="corrida"><div class="quien"><b>${esc((r.display_title || r.name).replace(/^nube · /, ''))}</b><span>${new Date(r.created_at).toLocaleString('es-BO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${dura(r.run_started_at || r.created_at, r.status === 'completed' ? r.updated_at : null)}</span></div>
+        <span class="pill ${k}"><span class="punto"></span>${t}</span>${r.status !== 'completed' ? `<button class="btn chico rojo" data-run="${r.id}">⏹</button>` : ''}<a class="btn chico" href="${esc(r.html_url)}" target="_blank" rel="noopener">↗</a></div>`;
+    }).join('') : '<div class="vacio">Todavía no hay corridas.</div>';
+    $('#seleccion').hidden = !S.sel.size; $('#sel-n').textContent = `${S.sel.size} elegida${S.sel.size === 1 ? '' : 's'}`;
+  }
+
+  // ---------------------------------------------------------------- acciones
+  const ajustes = () => Object.assign({ modo: 'completar', minutos: '330', ritmo: '5', por_maquina: '3' }, S.cfg.ajustes || {});
+  async function correr(ids, txt) {
+    const a = ajustes();
+    const c = await pedirClave(`Correr ${txt}`); if (!c) return;
+    try {
+      await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: ids, modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: String(a.por_maquina) } });
+      aviso(`▶ ¡Listo! ${txt} arranca en unos segundos`); setTimeout(() => refrescar(true), 6000); setTimeout(() => refrescar(true), 20000);
+    } catch (e) { aviso('⚠ No pude lanzar: ' + e.message, 6000); }
+  }
+  async function parar(ids) {
+    const c = await pedirClave(`Parar ${ids.length === 1 ? 'la cuenta ' + ids[0] : ids.length + ' cuentas'}`); if (!c) return;
+    try {
+      for (const id of ids) {
+        const o = S.ocup[String(id).toUpperCase()];
+        if (o && o.grupo && o.grupo.length === 1 && Object.values(S.ocup).filter(x => x.run === o.run).length <= 1) { await gh('POST', `/repos/${repo()}/actions/runs/${o.run}/cancel`); continue; }
+        if (!S.issue) throw new Error('no encuentro el issue del tablero');
+        await gh('POST', `/repos/${repo()}/issues/${S.issue}/comments`, { body: `<!-- orden:parar ${String(id).toUpperCase()} de:panel -->\n⏹ Parar la cuenta ${id} (pedido desde el panel)` });
+      }
+      aviso('⏹ Pedido enviado: para en 1–3 minutos (guarda todo antes)', 5000); setTimeout(() => refrescar(true), 8000);
+    } catch (e) { aviso('⚠ ' + e.message, 6000); }
+  }
+  function tablero(id) {
+    const t = S.tab[String(id).toUpperCase()];
+    const h = hoja(`<h2>📊 ${esc(t ? t.d.nombre : id)}</h2>${t ? `<div class="tablero-html">${t.html || ''}</div><p><a class="btn" href="${esc(t.url)}" target="_blank" rel="noopener">Abrir en GitHub ↗</a></p>` : '<p class="nota">Esta cuenta todavía no tiene tablero (aparece cuando corre con la v21.16).</p>'}`);
+    $('.cerrar-hoja').onclick = cerrarHoja; return h;
+  }
+  function formAgregar() {
+    const h = hoja(`<h2>＋ Agregar cuenta</h2><form id="f-ag" autocomplete="off">
+      <label>Usuario de ED <input name="u" required autocapitalize="off" spellcheck="false"></label>
+      <label>Contraseña de ED <input name="p" type="password" required autocomplete="off"></label>
+      <label>Nombre (lo que se ve en el tablero) <input name="n" placeholder="Apodo o nombre" spellcheck="false"></label>
+      <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" name="ya" checked style="width:auto;margin:0"> Correrla ya</label>
+      <button class="btn grande verde">Agregar</button></form>`);
+    $('.cerrar-hoja').onclick = cerrarHoja;
+    $('#f-ag', h).onsubmit = async ev => {
+      ev.preventDefault(); const f = ev.target;
+      const linea = [f.u.value.trim(), f.p.value.trim(), f.n.value.trim().replace(/\s+/g, ' ')].filter(Boolean).join(' ');
+      if (/\s/.test(f.u.value.trim()) || /\s/.test(f.p.value.trim())) return aviso('El usuario y la contraseña no pueden tener espacios');
+      const ya = f.ya.checked; cerrarHoja();
+      const c = await pedirClave('Agregar la cuenta' + (ya ? ' y correrla' : '')); if (!c) return;
+      try {
+        const nueva = S.lista.concat([linea]); await subirLista(nueva); S.lista = nueva; await guardarCaja(c);
+        const n = cuentasDeLista(S.lista).slice(-1)[0].n;
+        aviso(`✓ Cuenta agregada (línea ${n})`);
+        if (ya) { const a = ajustes(); await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: n, modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: '1' } }); aviso(`▶ La cuenta ${n} arranca ya, en su propia máquina`); }
+        pintar(); setTimeout(() => refrescar(true), 8000);
+      } catch (e) { aviso('⚠ ' + e.message, 6000); }
+    };
+  }
+
+  // ---------------------------------------------------------------- arranque y eventos
+  async function entrar(clave) {
+    const o = JSON.parse(await Cripto.descifrar(S.cfg.caja, clave));
+    S.token = o.token; S.lista = o.lista || [];
+    try { const r = await gh('GET', `/repos/${repo()}`); S.rama = r.default_branch || 'main'; } catch (e) { if (e.status === 401) throw new Error('El token ya no sirve (¿venció?). Bórralo en ⚙ y configúralo de nuevo.'); }
+    vista('v-app'); pintar(); refrescar();
+    clearInterval(S.reloj); S.reloj = setInterval(() => { if (!document.hidden) refrescar(true); }, 20000);
+    const acc = qs.get('accion'); if (acc === 'todas') setTimeout(() => $('#b-todas').click(), 400);
+  }
+  function bloquear() { S.token = null; S.lista = []; clearInterval(S.reloj); vista('v-abrir'); $('#abrir-repo').textContent = S.cfg.repo || ''; }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!S.cfg.caja) vista('v-setup'); else bloquear();
+    $('#f-setup').onsubmit = async ev => {
+      ev.preventDefault(); const f = ev.target, e = $('#e-setup'); e.textContent = '';
+      if (f.c1.value !== f.c2.value) return void (e.textContent = 'Las claves no son iguales');
+      S.token = f.token.value.trim(); S.cfg.repo = f.repo.value.trim().replace(/^https:\/\/github\.com\//, '').replace(/\/$/, '');
+      S.lista = f.lista.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      try { const r = await gh('GET', `/repos/${S.cfg.repo}`); if (!r.permissions || !r.permissions.push) { /* fine-grained: no siempre trae permissions */ } }
+      catch (err) { return void (e.textContent = 'GitHub no acepta ese token para ese repo: ' + err.message); }
+      const clave = f.c1.value; await guardarCaja(clave); f.reset();
+      try { await entrar(clave); aviso('✓ Listo: el panel quedó guardado (cifrado) en este teléfono'); } catch (err) { bloquear(); aviso('⚠ ' + err.message, 6000); }
+    };
+    $('#f-abrir').onsubmit = async ev => { ev.preventDefault(); const f = ev.target; $('#e-abrir').textContent = '';
+      try { await entrar(f.clave.value); f.reset(); } catch (e) { $('#e-abrir').textContent = e.message && !/operation|decrypt/i.test(e.message) ? e.message : 'Clave incorrecta'; } };
+    $('#b-cerrar').onclick = bloquear; $('#b-refrescar').onclick = () => refrescar();
+    $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('activo', x === b)); $$('.pestana').forEach(p => { p.hidden = p.id !== b.dataset.t; });
+      if (b.dataset.t === 't-ajustes') { const a = ajustes(), f = $('#f-ajustes'); for (const k of ['modo', 'minutos', 'ritmo', 'por_maquina']) f[k].value = a[k]; $('#f-lista').lista.value = S.lista.join('\n'); } });
+    $('#b-todas').onclick = () => correr('todas', `TODAS las cuentas (${todasLasCuentas().length})`);
+    $('#b-agregar').onclick = formAgregar;
+    $('#lista-cuentas').onclick = ev => {
+      const art = ev.target.closest('.cuenta'); if (!art) return; const id = art.dataset.id;
+      if (ev.target.classList.contains('marca')) { if (ev.target.checked) S.sel.add(id); else S.sel.delete(id); pintar(); return; }
+      const a = ev.target.closest('[data-a]'); if (!a) return;
+      if (a.dataset.a === 'correr') correr(id, 'la cuenta ' + id);
+      if (a.dataset.a === 'parar') parar([id]);
+      if (a.dataset.a === 'reiniciar') correr(id, 'otra vez la cuenta ' + id + ' (la que corre se para sola y entra la nueva)');
+      if (a.dataset.a === 'tablero') tablero(id);
+    };
+    $('#lista-corridas').onclick = async ev => { const b = ev.target.closest('[data-run]'); if (!b) return; const c = await pedirClave('Cancelar esa corrida entera'); if (!c) return;
+      try { await gh('POST', `/repos/${repo()}/actions/runs/${b.dataset.run}/cancel`); aviso('⏹ Corrida cancelada'); setTimeout(() => refrescar(true), 5000); } catch (e) { aviso('⚠ ' + e.message); } };
+    $('#b-correr-sel').onclick = () => { const ids = [...S.sel]; S.sel.clear(); correr(ids.join(','), `${ids.length} cuenta(s): ${ids.join(', ')}`); };
+    $('#b-parar-sel').onclick = () => { const ids = [...S.sel]; S.sel.clear(); parar(ids); };
+    $('#b-sel-x').onclick = () => { S.sel.clear(); pintar(); };
+    $('#f-ajustes').onsubmit = ev => { ev.preventDefault(); const f = ev.target; S.cfg.ajustes = { modo: f.modo.value, minutos: f.minutos.value, ritmo: f.ritmo.value, por_maquina: f.por_maquina.value }; escribir(S.cfg); aviso('✓ Guardado'); };
+    $('#f-lista').onsubmit = async ev => { ev.preventDefault(); const nueva = ev.target.lista.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const c = await pedirClave('Subir la lista a GitHub (ED_CUENTAS)'); if (!c) return;
+      try { await subirLista(nueva); S.lista = nueva; await guardarCaja(c); aviso(`✓ ED_CUENTAS actualizado (${cuentasDeLista(nueva).length} cuentas)`); pintar(); } catch (e) { aviso('⚠ ' + e.message, 6000); } };
+    $('#b-cambiar-clave').onclick = async () => { const c = await pedirClave('Primero tu clave actual'); if (!c) return;
+      const h = hoja('<h2>Clave nueva</h2><form id="f-cc"><label>Nueva <input name="a" type="password" minlength="6" required></label><label>Repite <input name="b" type="password" minlength="6" required></label><button class="btn grande verde">Cambiar</button></form>');
+      $('.cerrar-hoja').onclick = cerrarHoja;
+      $('#f-cc', h).onsubmit = async ev => { ev.preventDefault(); const f = ev.target; if (f.a.value !== f.b.value) return aviso('No son iguales'); await guardarCaja(f.a.value); cerrarHoja(); aviso('✓ Clave cambiada'); }; };
+    $('#b-olvidar').onclick = async () => { if (!confirm('¿Borrar el token y la lista de este teléfono? (en GitHub no se borra nada)')) return; localStorage.removeItem(K); location.reload(); };
+    $('#hoja').onclick = ev => { if (ev.target.id === 'hoja') cerrarHoja(); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) S.oculto = Date.now(); else if (S.token && S.oculto && Date.now() - S.oculto > 15 * 60000) bloquear(); });
+  });
+})();

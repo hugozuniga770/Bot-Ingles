@@ -78,6 +78,11 @@ class MainEngine {
         return { did: 'aviso_test_sin_enviar', boton: saliendo ? 'Continue' : 'Cancel' };
       }
     }
+    // NUEVO v21.16: la guía de ED ("Got it!" / "Don't show again") tapa la página y los arrastres no caen (utils/guia.js)
+    await Guia.cerrar();
+    await Guia.popup();   // NUEVO v21.16 (idea 13): ventana desconocida → dump una vez + OK/Cerrar
+    // NUEVO v21.16 (idea 12): en el REPASO del final, el doble de paciencia para cargar
+    if (TestSweep.enRepaso() && !(CFG.paciencia >= 2.5)) CFG.paciencia = 2.5;
     if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
       const sw = await TestSweep.pageStep();   // NUEVO v20.8: barrido (Home y páginas intermedias)
       return sw || { did: 'not_in_lesson' };
@@ -95,9 +100,12 @@ class MainEngine {
       const salir = async () => {
         const sg = NavigationManager.screenSig();
         await NavigationManager.goNext();
-        if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; } }
+        if (NavigationManager.screenSig() === sg && TestSweep.active()) { const a = await TestSweep.avanzar(); if (a) { log('➡️ Test ya hecho y Next no avanza → paso a', a); return a; }
+          const f = await TestSweep.finDeUnidad('test ya hecho'); if (f) return f; }   // NUEVO v21.16: último test de la unidad
         return null;
       };
+      // NUEVO v21.16 — modo EXPLORAR: solo se recorre y se cataloga; los tests no se empiezan
+      if (TestSweep.explorando()) { Catalogo.ver('test_start', null); const a = await salir(); return Object.assign({ did: 'explorar_salta_test', key }, a ? { avance: a } : {}); }
       if (TestSweep.rendido()) {
         log('⏭️ Ya me rendí con este test en esta corrida → no lo repito:', key);
         const a = await salir();
@@ -252,11 +260,15 @@ class MainEngine {
         }
         // NUEVO v21.13: tablero (paso sin tareas: "visto", u "ok" si el solver confirmó que ED lo marcó)
         Tablero.anotar(res.marcado ? 'ok' : 'visto', { kind });
+        Catalogo.ver(kind, null);   // NUEVO v21.16
       }
       await NavigationManager.goNext();
       return res;
     }
-    if (t.done) { Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' }; }
+    if (t.done) {
+      if (TestSweep.explorando()) Catalogo.ver(MainEngine.detectKind(), t.n);   // NUEVO v21.16: modo explorar → catalogar también lo hecho
+      Tablero.anotar('ok', { tarea: t.n }); await NavigationManager.goNext(); return { did: 'task_already_done_next' };
+    }
 
     // ENRUTAMIENTO DE EJERCICIOS (tarea pendiente)
     let kind = MainEngine.detectKind();
@@ -269,14 +281,20 @@ class MainEngine {
     }
     // NUEVO v21.11 — REGLA 4 de Hugo: si esta tarea ya falló 2 veces en esta corrida (1 si es de las caras/imposibles:
     // speaking, memoria, Explore...), no se vuelve a intentar: ya está en el reporte.
+    Catalogo.ver(kind, t.n);   // NUEVO v21.16: catálogo del nivel (tipo de pantalla; su dump la 1.ª vez)
     const lugar = Corrida.lugar(t), previos = Corrida.fallos(lugar);
-    if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2)) {
+    if (previos >= (NO_RETRY_KINDS.has(kind) ? 1 : 2) + (TestSweep.enRepaso() && previos < 3 ? 1 : 0)) {   // AJUSTADA v21.16: + 1 en el repaso
       log('⏭️ Ya falló ' + previos + ' vez/veces en esta corrida → no lo repito:', lugar);
       Tablero.anotar('saltado', { tarea: t.n, kind });
       await NavigationManager.goNext();
       return { did: 'saltado_ya_fallo', kind, veces: previos };
     }
+    // NUEVO v21.16 — CATÁLOGO: si aquí (este curso, esta lección/paso/tarea) lo que marcó fue una acción del Explorador
+    // en otra cuenta o corrida → esa primero
+    { const at = await Catalogo.usarAtajo(t.n, kind);
+      if (at && at.marcado) { Tablero.anotar('ok', { tarea: t.n, kind }); await sleep(400); await NavigationManager.goNext(); return Object.assign(at, { kind, taskMarked: true }); } }
     Reporter.marcarAntes();   // NUEVO v21.11: estado ANTES de actuar (sale en el reporte si falla)
+    const t0Tarea = Date.now();   // NUEVO v21.16: tiempo por tipo de ejercicio (catálogo)
     const res = Object.assign({}, await MainEngine.runKind(kind), { kind });
 
     // NUEVO: los ejercicios de habla/audio necesitan tiempo hasta que ED los marque como hechos
@@ -292,10 +310,16 @@ class MainEngine {
         try { res.retry = await MainEngine.runKind(kind); } catch (e) { res.retryError = e.message; } finally { CFG.practiceOneAction = prev; }
         done = await waitFor(() => NavigationManager.taskDone(t.n), 2500, 250);
       }
+      // NUEVO v21.16 — EXPLORADOR (pedido de Hugo): si sigue sin marcar, prueba de todo, saca fotos y aprende qué la marca
+      if (!done && Explorador.puede(kind, t.n)) {
+        try { res.explorador = await Explorador.explorar(t.n, kind); } catch (e) { res.explorador = { error: e.message }; }
+        done = !!(res.explorador && res.explorador.marcado) || !!(await waitFor(() => NavigationManager.taskDone(t.n), 1000, 250));
+      }
       res.taskMarked = !!done;
       if (!done && kind !== 'media') Reporter.capture(kind === 'mcq_default' ? 'tipo_desconocido' : 'tarea_no_marcada', res);
       if (!done) Corrida.fallo(lugar);   // NUEVO v21.11 (regla 4)
       Tablero.anotar(done ? 'ok' : 'falla', { tarea: t.n, kind });   // NUEVO v21.13
+      Catalogo.resultado(t.n, kind, res, !!done, Date.now() - t0Tarea);   // NUEVO v21.16: catálogo del nivel (cómo se marcó / por qué no)
     }
 
     await sleep(400);   // AJUSTADA v20.7: era 800

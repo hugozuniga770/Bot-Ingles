@@ -1,5 +1,45 @@
 # Changelog
 
+## v21.16 — 6 zips del 02/11 (v21.15), dumps de Hugo del 03/11 y sus pedidos (explorador, panel del teléfono, 40 cuentas)
+- **Causa encontrada de casi todo lo que le faltaba a Nore: la GUÍA de ED** (globito de driver.js "Got it!" / "Don't
+  show again", en 20 de sus reportes). Mientras está abierta, driver.js deja la página sin clics: ninguna ficha caía
+  ("moves: 10", las 6 fichas en el banco), ni la tabla True/False, ni el ordenar de los tests "Let's review" (84 %,
+  75 %…). Hugo la tenía cerrada en su PC. **Probado con las librerías REALES** (dragula + driver.js, `tools/prueba-fiel`):
+  v21.15 da EXACTAMENTE el reporte #123 de ED y v21.16 cierra la guía y marca. `utils/guia.js` (cada paso).
+- **Explore de gramática con AUDIO** (15 en 6 cuentas + 13 de Nore): ahora espera que cargue, play verificado y deja
+  sonar hasta que ED marca (Hugo: "esperar a que cargue y tocar play"). `exploreGramaticaAudio`.
+- **Personalized writing** (5 cuentas): ED escucha el TECLADO; ahora se teclea una letra (en la nube con el teclado
+  real de Chrome, `utils/manos.js`). Hugo: "a 'was' añádele 'wasa' y sale completo". `writingAriellaTeclado`.
+- **Watch again con imágenes** (Maria, Luis, Thiago): ED trae los íconos ✓/✗ escondidos en cada opción y el bot creía
+  que ya estaba contestada (marked 0). Ahora solo cuentan los que se ven y se toca primero la correcta. `mcqImagenesIconosOcultos`.
+- **DnD verificado**: tras cada arrastre se comprueba que la ficha cayó; si no: cerrar guía → soltar el arrastre pegado →
+  mouse real (nube) → soltar en la caja visible; tras 2 fichas que no caen, no insiste (`dnd_no_cae`). En tests, el
+  replay de DnD se verifica hueco por hueco (`replay_incompleto` con quería/hay) — Nore "The Tour Group" 90 %.
+- **Fin de unidad** (25 atascos falsos): test de la última lección ya hecho o puntaje 100 % → Home y la siguiente
+  unidad. **Review en la última pregunta** (Roy, Mateo): si Next no avanza, el review terminó → al test.
+- **EXPLORADOR** (pedido de Hugo): si una tarea no se marca tras el solver y su reintento, prueba de todo (play,
+  teclear, arrastrar cada ficha, cada opción/botón/ícono), saca fotos y APRENDE qué la marcó (`ed:aprendido:v1`,
+  compartido entre cuentas por el banco). Nunca en tests. `core/explorador.js`, `exploradorAprende/UsaAprendido`.
+- **CATÁLOGO POR NIVEL** (Hugo: "que se guarde por nivel"): cada lección/paso/tarea del curso → tipo, cómo se marcó o
+  por qué falló, y un dump de ejemplo de cada tipo de pantalla. Viaja en el banco del curso; si ahí marcó una acción
+  del Explorador, la próxima vez se hace primero. Modo **explorar** (recorre TODAS las unidades y cataloga, sin tests).
+- **Varios cursos** en el carrusel del Home (Roy/Mateo: Beginners 1 y 2): al terminar uno pasa al siguiente con la flecha.
+- **Fotos** con cada reporte + los 30 s anteriores (3 capturas) en el zip (`fotos/`).
+- **Fiabilidad** (ideas 1–15 de Hugo): repaso final de lo que falló con más paciencia; ventana desconocida → dump + OK;
+  aviso si ED cambió una pantalla; vigía (6 min sin señales → Home); pantalla en blanco/sin internet → Home; freno con
+  >45 fallos en una hora; login con reintentos 5/15/45 s; memoria cada 3 min; prueba diaria (`canario.yml`, apagada).
+- **Diagnóstico** (ideas 16–28): fallos agrupados con "🆕 nuevo / ya pasaba", salud 0–100, minutos por unidad, pantallas
+  nuevas, versión, historial por cuenta (empezó en X % → terminó en Y %), `resumen-para-ia.txt`, `diagnostico.json`.
+- **Nube sin cola** (Hugo: "hasta 40 cuentas de una sola vez … añadir una y otra sin esperar"): 3 cuentas por máquina
+  (`cloud/lote.js`; 40 cuentas = 14 de las 20 máquinas gratis), sin fila global, una cuenta pedida otra vez reemplaza a
+  la que corre (nunca dos sesiones), parar UNA cuenta sin tocar las demás. `ED_CUENTAS` sigue igual (+ opcional
+  `ED_CUENTA_<APODO>`).
+- **PANEL DEL TELÉFONO** (`panel/`, GitHub Pages): correr todas / una / varias, ＋ agregar cuenta y correrla ya, ⏹ parar,
+  🔁 otra vez, tablero y corridas; token y lista cifrados con TU clave en el teléfono; pide la clave en cada acción.
+  Probado con teléfono emulado y GitHub falsa (`tools/panel-prueba`), secret abierto por libsodium.
+- Solo en simulación: lo de ED (pantallas con el HTML real; la guía y el DnD también con las librerías reales). El panel
+  y la nube nueva, contra copias falsas de GitHub/ED; falta la primera corrida real.
+
 ## v21.15 — las 6 corridas del 02/11 (Maria, Nore, Chapaquin, Roy, Mateo, Thiago; v21.14)
 Subieron todos (p. ej. Thiago 3 → 74 %, Mateo 60 → 90 %, Roy 51 → 90 % y 82 → 100 %), pero faltaron muchas actividades.
 - **Causa principal: recargar la página dentro de las lecciones** (cada 40 min, "♻️ Recargo la pestaña"). Después ED

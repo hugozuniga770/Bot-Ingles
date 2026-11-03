@@ -34,6 +34,10 @@ src/                      código fuente (NO hay import/export; build.js los peg
   utils/                  dom (q, qa, qv, vis, txt, norm, pick/exacto), drag, press, reporter (dump completo), fake-mic...
   utils/corrida.js        Corrida: lo que ya falló en ESTA corrida (regla 4: 2 fallos y no se reintenta) (v21.11)
   utils/tablero.js        Tablero: qué hizo el bot paso por paso (ok/falla/saltado + test) para el tablero en vivo (v21.13)
+  utils/guia.js           Guia: cierra la guía de ED ("Got it!", driver.js) que tapa la página; ventanas desconocidas (v21.16)
+  utils/manos.js          Manos: teclado/mouse reales en la nube (window.__edReal) y teclado simulado completo (v21.16)
+  core/explorador.js      Explorador: si una tarea no se marca, prueba de todo y aprende qué la marcó; diagnóstico de atascos (v21.16)
+  core/catalogo.js        Catalogo: lo que el bot sabe de CADA nivel (lugares, tipos de pantalla, dumps) — viaja en el banco (v21.16)
   exercises/              un archivo por tipo de ejercicio (class XSolver { static ... })
   exercises/index.js      mixStatics(...) une todos los solvers en PracticeSolver
   tests/test-manager.js   tests: puntaje, review, cosecha de respuestas, reintento (replay)
@@ -43,6 +47,11 @@ cloud/runner.js           robot de la nube (Playwright): login, inyecta el bot, 
 cloud/cuentas.js          lee las cuentas del secret ED_CUENTAS y elige cuáles correr
 cloud/tablero.js          dibuja el tablero (unidades desplegables) y lo publica en el issue del repo (v21.13)
 cloud/banco.js            banco de respuestas por curso, compartido entre cuentas (caché privada; job juntar) (v21.13)
+cloud/lote.js             varias cuentas en la misma máquina (3 por defecto) + parar una sola (órdenes en el issue) (v21.16)
+cloud/diagnostico.js      fallos agrupados (nuevo/conocido), salud 0–100, minutos por unidad, texto para la IA (v21.16)
+panel/                    PANEL DEL TELÉFONO (GitHub Pages, workflow panel.yml): correr/parar/agregar cuentas (v21.16)
+tools/prueba-fiel/        HTML real + dragula y driver.js REALES (lo que usa ED): viejo vs nuevo (v21.16)
+tools/panel-prueba/       el panel en un teléfono emulado contra una GitHub falsa (v21.16)
 .github/workflows/        verificar.yml (build + pruebas en cada push) · nube.yml (correr el bot)
 tools/regresion.js        ~80 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
 tools/probar-banco-tablero.js  prueba el banco por curso y el dibujo del tablero (también en `npm test`)

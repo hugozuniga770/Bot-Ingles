@@ -248,13 +248,19 @@ class TestManager {
     }
     if (saved) StorageManager.addKnown(key);
     else Reporter.capture('cosecha_vacia', { idx });   // NUEVO v20.8
+    const sig0 = NavigationManager.screenSig();
     await NavigationManager.goNext();
     await sleep(1500);
 
     // ¿Terminó el review? (ya no hay pestañas tras esperar un poco y el contador estaba en la última)
     const stillReview = await waitFor(() => this.hasReviewTabs(), 2500, 300);
     const looksLast = !c || c.i >= c.n;
-    if (!stillReview && looksLast && CFG.retakeAfterReview) await this.reopenAfterReview(key);   // AJUSTADA v20.1
+    // NUEVO v21.16 — Roy y Mateo (U14 L5 "Be: Tag Questions", la ÚLTIMA lección): en la última pregunta del review, Next
+    // no lleva a ningún lado → el bot cosechaba la 5/5 seis veces (~40 s) hasta el atasco. Si Next no cambió nada en la
+    // última pregunta, el review terminó igual → volver al test.
+    const atorado = stillReview && looksLast && NavigationManager.screenSig() === sig0;
+    if (atorado) log('📖 Última pregunta del review y Next no avanza → el review terminó, vuelvo al test');
+    if ((!stillReview || atorado) && looksLast && CFG.retakeAfterReview) await this.reopenAfterReview(key);   // AJUSTADA v20.1
     return { harvested: true, idx, saved };
   }
 
@@ -374,7 +380,8 @@ class TestManager {
     else if (PracticeSolver.isSequenceScreen()) { if (scr.seq && scr.seq.length) out.seq = await PracticeSolver.placeSequence(scr.seq); }
     else if (PracticeSolver.isDragAndDrop()) out.dnd = await PracticeSolver.solveDragAndDrop(false, scr.dnd && scr.dnd.length ? scr.dnd : null);
     // NUEVO v20.8: anotar en el reporte lo que no salió completo (o una pregunta que el bot no sabe contestar)
-    const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total);
+    const incompleto = (out.drop && out.drop.ok < out.drop.total) || (out.seq && !out.seq.ok) || (out.lddl && out.lddl.ok < out.lddl.total) ||
+      (out.dnd && out.dnd.total != null && out.dnd.ok < out.dnd.total);   // AJUSTADA v21.16: + DnD verificado
     const nada = !['mcq', 'fitb', 'dnd', 'drop', 'seq', 'lddl', 'lmcq'].some(k => out[k]);
     if (incompleto) Reporter.capture('replay_incompleto', { out, cosechado: scr });   // AJUSTADA v20.9: + lo que se guardó
     else if (nada) Reporter.capture('replay_sin_accion', { cosechado: Object.keys(scr) });

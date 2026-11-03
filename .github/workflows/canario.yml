@@ -1,0 +1,26 @@
+# =====================================================================
+#  canario.yml — PRUEBA DIARIA (idea 4 de Hugo, NUEVO v21.16): una cuenta trabaja 20 minutos para confirmar que el
+#  bot sigue funcionando con ED (login, Home, una lección). El resultado sale en el tablero y en el zip de esa cuenta.
+#  Viene APAGADA: para que corra sola todos los días a las 6:00 de Bolivia, quita el # de las 2 líneas de "schedule".
+#  También se lanza a mano: Actions → canario → Run workflow (o desde el panel del teléfono).
+# =====================================================================
+name: canario
+on:
+  workflow_dispatch:
+    inputs:
+      cuenta:
+        description: 'Qué cuenta hace la prueba (número de línea de ED_CUENTAS o apodo)'
+        default: '1'
+  # schedule:
+  #   - cron: '0 10 * * *'
+permissions:
+  actions: write
+jobs:
+  lanzar:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Lanzar la nube con una cuenta, 20 minutos
+        run: gh workflow run nube.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f cuentas="${CUENTA}" -f minutos=20 -f modo=completar -f por_maquina=1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CUENTA: ${{ github.event.inputs.cuenta || '1' }}

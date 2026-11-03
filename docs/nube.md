@@ -67,8 +67,24 @@ tests con esas respuestas y no necesitan cosechar. El banco se junta al final de
 cuentas que corren al mismo tiempo no se pasan respuestas entre sí; la ejecución siguiente ya las tiene todas.
 En el registro: `📚 Banco de "UPB Beginners 2": N tests con respuestas · esta cuenta tenía X, ahora Y`.
 
-## 4. Más cuentas a la vez
+## 4. Más cuentas a la vez (AJUSTADA v21.16: sin cola)
 Agrega líneas a `ED_CUENTAS` y lanza con `todas` (o los números que quieras). Ya no hay que tocar el workflow.
+- **3 cuentas por máquina** (`por_maquina`, 1 a 4): `cloud/lote.js` arranca un Chrome por cuenta, 20 s de diferencia.
+  GitHub gratis da **20 máquinas a la vez** → con 3 por máquina, hasta 60 cuentas al mismo tiempo (40 = 14 máquinas).
+- **Sin fila**: cada corrida es independiente. Lanzar una cuenta más (p. ej. desde el panel) NO espera a las otras.
+- **La misma cuenta dos veces**: la corrida nueva le pide a la vieja que la suelte (orden en el issue del tablero) y
+  entra cuando quedó libre (máx. 6 min). Nunca hay dos sesiones de la misma cuenta.
+- **Parar UNA cuenta** (sin tocar a las de su máquina): comentario `<!-- orden:parar N de:panel -->` en el issue del
+  tablero (el panel lo hace solo); `lote.js` lo mira cada 2 min y esa cuenta guarda todo y termina.
+- Opcional: un secret por cuenta `ED_CUENTA_<APODO>` (una línea) y lanzar por apodo.
+- Zips: uno por cuenta (`cuenta-N`), como siempre. Nuevo en cada zip: `fotos/` (cada reporte + los 30 s anteriores),
+  `diagnostico.json`, `resumen-para-ia.txt`, `catalogo.json`, `aprendido.json`.
+
+## 4b. Panel del teléfono (NUEVO v21.16)
+Ver `panel/LEEME.md`: Settings → Pages → Source: GitHub Actions (una vez) → https://hugozuniga770.github.io/Bot-Ingles/.
+Correr todas / una / varias, agregar cuenta y correrla ya, parar, otra vez, tablero y corridas; pide tu clave en
+cada acción. Modo **explorar**: recorre TODAS las unidades y arma el catálogo del nivel (sin tests).
+Prueba diaria opcional: `canario.yml` (quita los `#` del `schedule`).
 
 ## 5. Que se relance solo
 En `nube.yml`, quita los `#` de `schedule` / `cron` (cada 6 h). Ojo: corre aunque no lo mires.

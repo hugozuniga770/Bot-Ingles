@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- PRUEBA FIEL (v21.16): el HTML REAL de los reportes de Nore con las librerías REALES que usa ED:
+     dragula 3.7.3 (arrastre, "ed-bag") y driver.js 1.3.1 (la guía "Got it!" / "Don't show again").
+     ?caso=reverse | clasif     ·     #sinGuia = sin la guía. Lo usa tools/prueba-fiel/probar.js -->
+<html><head><meta charset="utf-8"><title>prueba fiel</title>
+<link rel="stylesheet" href="dragula.min.css"><link rel="stylesheet" href="driver.css">
+<style>
+  body { font-family: sans-serif; margin: 0 }
+  .learning__main { padding: 10px }
+  .prMT_T2T__main, .prCl__main { display: flex; gap: 30px }
+  .prMT_T2T__answersWrapper { width: 520px }
+  .prMT_T2T__answersRow { display: flex; flex-direction: row-reverse; border-bottom: 1px dashed #aaa; padding: 6px }
+  .prMT_T2T__answersTextW { width: 260px } .prMT_T2T__regContainer { width: 220px }
+  .dndZone { min-height: 44px; border: 1px solid #ccc }
+  .prMT_T2T__wordsBankWrapper { width: 270px } .prMT_T2T__wordsBankWrapper .dndZone, .prCl__container .dndZone { min-height: 400px }
+  .prCl__container { width: 300px }
+  .dnditem { border: 1px solid #888; padding: 10px; margin: 4px; background: #fff }
+  .mCSB_scrollTools { display: none }
+  .learning__allToolsW { position: fixed; bottom: 0; left: 0; right: 0; height: 46px; background: #eee }
+</style></head>
+<body>
+<div class="learning__main learning__W learning__main--laFrame">
+  <div class="learning__dropDownList_unitName">Unit 10: Personality Types</div>
+  <div class="learning__dropDownListTitleW--lessons" id="leccion"></div><div class="learning__dropDownListTitleW--steps" id="paso"></div>
+  <div class="learning__tasksNav" id="tareas"></div><span id="contador"></span>
+  <div class="learning__practiceArea rightDiv" id="practica"></div>
+</div>
+<div class="learning__allToolsW"><div class="learning__allToolsVRBW"><span class="learning__allToolsVRButton">View Resource</span></div><a class="tasksBtnext learning__nextItemLink">Next</a></div>
+<script src="casos.js"></script><script src="dragula.min.js"></script><script src="driver.js.iife.js"></script>
+<script>
+  const caso = window.CASOS[new URLSearchParams(location.search).get('caso') || 'reverse'];
+  document.getElementById('leccion').textContent = caso.leccion;
+  document.getElementById('paso').textContent = caso.paso;
+  document.getElementById('tareas').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<a class="learning__tasksNav_task${n === caso.tarea ? ' learning__tasksNav_task--current' : ''}">${n}</a>`).join('');
+  document.getElementById('contador').textContent = caso.tarea + ' / 6';
+  document.getElementById('practica').innerHTML = caso.html;
+  // ED marca la tarea cuando una ficha cae en un hueco (no en el banco)
+  window.__marcadas = 0;
+  dragula([...document.querySelectorAll('.dndZone')], { revertOnSpill: false }).on('drop', (el, target) => {
+    if (target.getAttribute('dg_name') !== 'TTpTablePlaceHolder') { document.querySelector('.learning__tasksNav_task--current').classList.add('learning__tasksNav_task--done'); window.__marcadas++; }
+  });
+  // la guía de ED, como en los reportes de Nore: "Got it!" + "Don't show again"
+  if (location.hash !== '#sinGuia') {
+    const d = window.driver.js.driver({ showButtons: ['next'], nextBtnText: 'Got it!', doneBtnText: 'Got it!',
+      onPopoverRender: p => p.footer.insertAdjacentHTML('afterbegin', '<input type="checkbox" name="dontShowAgainCbx" id="dontShowAgainCbx"><label for="dontShowAgainCbx" id="dontShowAgainLbl">Don\'t show again</label>') });
+    d.highlight({ element: '.learning__allToolsVRButton', popover: { title: 'View Resource', description: 'Click here to read or listen again.', showButtons: ['next'] } });
+  }
+</script>
+</body></html>

@@ -27,7 +27,8 @@ class DnDSolver {
     if (!m || !m.dests.length) return { did: 'dnd_no_model' };
     const { bank, dests } = m;
     const tn = NavigationManager.curTask()?.n;
-    let moves = 0;
+    let moves = 0, fallidos = 0;
+    const metodos = {};
     const initial = bankItems(bank).length;
     const bucket = initial > dests.length && dests.every(d => d.getBoundingClientRect().height > 120);
     for (let g = 0; g < Math.max(initial, dests.length) + 4; g++) {
@@ -37,11 +38,44 @@ class DnDSolver {
       if (bucket) dst = dests[g % dests.length];
       else dst = dests.find(d => !q('.dnditem', d));
       if (!dst) break;
-      await drag(items[0], dst); moves++;
+      // AJUSTADA v21.16: arrastre VERIFICADO (antes: drag() y a ciegas → "moves: 10" sin que cayera ninguna ficha)
+      const como = await this.arrastrarVerificado(items[0], dst, bank, tn); moves++;
+      if (como) metodos[como] = (metodos[como] || 0) + 1;
+      else if (++fallidos >= 2) return { did: 'dnd_no_cae', moves, metodos };   // no insistir 10 veces (la geometría va en el dump del reporte)
       if (stopWhenDone && tn && NavigationManager.taskDone(tn)) break;
-      if (moves === 1 && await practiceEnough(tn)) return { did: 'dnd_one_action', moves };   // NUEVO v20.7
+      if (moves === 1 && await practiceEnough(tn)) return Object.assign({ did: 'dnd_one_action', moves }, metodos.normal === moves ? {} : { metodos });   // NUEVO v20.7
     }
-    return { did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves };
+    return Object.assign({ did: bucket ? 'dnd_bucket_solved' : 'dnd_solved', moves }, metodos.normal === moves ? {} : { metodos });
+  }
+
+  // ---------------------------------------------------------------
+  // NUEVO v21.16 — ARRASTRE VERIFICADO
+  // Corrida de Nore (02/11, "Career Advisor" · Listen again 1/6, 2/6, 3/6 y otras 4): "moves: 10" y ED sin marcar.
+  // En el dump, las 6 fichas seguían en el banco (solo reordenadas) y había un espejo de arrastre pegado: ninguna
+  // ficha CAYÓ en su hueco. Causa: la guía de ED ("Got it!") tapaba la página (utils/guia.js). Ahora, tras cada
+  // arrastre se comprueba que la ficha salió del banco / entró al hueco / ED marcó la tarea; si no:
+  //   1) ¿guía abierta? → cerrarla y repetir   2) soltar un arrastre pegado
+  //   3) mouse REAL (nube)   4) soltar en el centro de la caja visible ("Drag Here")
+  // Devuelve cómo cayó ('normal', 'tras_guia', 'mouse_real', 'caja') o null.
+  // ---------------------------------------------------------------
+  static async arrastrarVerificado(it, dst, bank, tn) {
+    const n0 = bankItems(bank).length, z0 = qa('.dnditem', dst).length;
+    const llego = () => !it.isConnected || !bank.contains(it) || bankItems(bank).length < n0 || qa('.dnditem', dst).length > z0 || !!(tn && NavigationManager.taskDone(tn));
+    await drag(it, dst);
+    if (llego()) return 'normal';
+    if (Guia.abierta()) { await Guia.cerrar(); await drag(it, dst); if (llego()) return 'tras_guia'; }
+    this.soltarPegado();
+    if (Manos.hay()) { await Manos.arrastrar(it, dst); if (await waitFor(llego, 1200, 200)) return 'mouse_real'; this.soltarPegado(); }
+    const caja = dst.closest('.prMT_T2T__regContainer, .prCl__col, ed-la-dndzone');
+    if (caja && caja !== dst && caja.getBoundingClientRect().height > dst.getBoundingClientRect().height + 4) { await drag(it, caja); if (llego()) return 'caja'; this.soltarPegado(); }
+    return null;
+  }
+
+  // si quedó un arrastre a medias (espejo .gu-mirror de dragula pegado al mouse), soltarlo
+  static soltarPegado() {
+    if (!q('.gu-mirror') && !q('.gu-transit')) return false;
+    for (const t of ['pointerup', 'mouseup']) { try { document.documentElement.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: 0, clientY: 0, button: 0, buttons: 0 })); } catch (e) {} }
+    return true;
   }
 
   // ---------------------------------------------------------------
@@ -79,6 +113,21 @@ class DnDSolver {
         if (it) { await revealInBox(dst); await revealInBox(it); await drag(it, dst); moves++; }
       }
     }
-    return { did: 'dnd_replay', moves };
+    // NUEVO v21.16 — Nore, "The Tour Group" · Let's review: 90 % con "dnd_replay moves 6" y nada en el reporte para saber
+    // qué pregunta falló. Ahora se VERIFICA qué quedó en cada hueco; si no coincide con lo cosechado → replay_incompleto
+    // (con el dump completo y la lista hueco → quería / hay).
+    const mf = testDndModel() || m, labs = mf.dests.map(zoneLabel);
+    const usar = new Set(labs).size === labs.length && new Set(mapping.map(x => x.label)).size === mapping.length;
+    let ok = 0, total = 0; const mal = [];
+    for (let i = 0; i < mf.dests.length; i++) {
+      const entry = (usar ? mapping.find(x => x.label && x.label === labs[i]) : null) || mapping[i];
+      if (!entry) continue;
+      const wants = (entry.texts && entry.texts.length ? entry.texts : [entry.text]).filter(Boolean);
+      if (!wants.length) continue;
+      total++;
+      const hay = qa('.dnditem', mf.dests[i]).map(e => norm(txt(e)));
+      if (wants.every(w => hay.includes(norm(w)))) ok++; else mal.push({ hueco: i + 1, quiere: wants.slice(0, 3), hay: hay.slice(0, 3) });
+    }
+    return Object.assign({ did: 'dnd_replay', moves }, total ? { ok, total } : {}, mal.length ? { mal: mal.slice(0, 6) } : {});
   }
 }

@@ -1,31 +1,31 @@
 {
   "mcq": {
     "kind": "mcq",
-    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0},\"taskMarked\":false}",
-    "trace": "click prMCQ__answerLabel:A | click prMCQ__answerLabel:A | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0},\"explorador\":{\"marcado\":false,\"firma\":\"mcq|practice|\",\"pruebas\":[{\"accion\":\"clic: label.prMCQ__answerLabel \\\"A\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: label.prMCQ__answerLabel \\\"B\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false}],\"segundos\":5},\"taskMarked\":false}",
+    "trace": "click prMCQ__answerLabel:A | click prMCQ__answerLabel:A | click prMCQ__answerLabel:A | click prMCQ__answerLabel:B | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "dnd": {
     "kind": "dnd",
-    "r": "{\"did\":\"dnd_solved\",\"moves\":7,\"kind\":\"dnd\",\"retry\":{\"did\":\"dnd_solved\",\"moves\":7},\"taskMarked\":false}",
-    "trace": "pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"dnd_no_cae\",\"moves\":2,\"metodos\":{},\"kind\":\"dnd\",\"retry\":{\"did\":\"dnd_no_cae\",\"moves\":2,\"metodos\":{}},\"explorador\":{\"marcado\":false,\"firma\":\"dnd|practice|dndZone\",\"pruebas\":[{\"accion\":\"arrastrar: span.dnditem \\\"uno\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"uno\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"uno\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"dos\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"dos\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"dos\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"tres\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"tres\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false},{\"accion\":\"arrastrar: span.dnditem \\\"tres\\\" → span.dndZone\",\"como\":\"ok\",\"cambio\":false,\"marco\":false}],\"segundos\":31},\"taskMarked\":false}",
+    "trace": "pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:dos | pointerup dndZone: | pointerdown dnditem:dos | pointerup dndZone: | pointerdown dnditem:dos | pointerup dndZone: | pointerdown dnditem:tres | pointerup dndZone: | pointerdown dnditem:tres | pointerup dndZone: | pointerdown dnditem:tres | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "seq": {
     "kind": "sequence",
-    "r": "{\"did\":\"sequence_unverified\",\"kind\":\"sequence\",\"retry\":{\"did\":\"sequence_unverified\"},\"taskMarked\":false}",
+    "r": "{\"did\":\"sequence_unverified\",\"kind\":\"sequence\",\"retry\":{\"did\":\"sequence_unverified\"},\"explorador\":{\"marcado\":false,\"firma\":\"sequence|practice|dndZone\",\"pruebas\":[],\"segundos\":0},\"taskMarked\":false}",
     "trace": "pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | pointerdown dnditem:1 | pointerup dndZone:2 | pointerdown dnditem:2 | pointerup dndZone:1 | pointerdown dnditem:1 | pointerup dnditem:2 | pointerdown dnditem:2 | pointerup dnditem:1 | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "fitb": {
     "kind": "fitb",
-    "r": "{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500,\"kind\":\"fitb\",\"retry\":{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500},\"taskMarked\":false}",
-    "trace": "click DDLOptions__selected: | click DDLOptions__listItem:x | click DDLOptions__selected: | click DDLOptions__listItem:x | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500,\"kind\":\"fitb\",\"retry\":{\"did\":\"fitb_solved\",\"n\":1,\"waitDone\":3500},\"explorador\":{\"marcado\":false,\"firma\":\"fitb|practice|\",\"pruebas\":[{\"accion\":\"clic: span.DDLOptions__selected\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: li.DDLOptions__listItem \\\"x\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: li.DDLOptions__listItem \\\"y\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false}],\"segundos\":7},\"taskMarked\":false}",
+    "trace": "click DDLOptions__selected: | click DDLOptions__listItem:x | click DDLOptions__selected: | click DDLOptions__listItem:x | click DDLOptions__selected: | click DDLOptions__listItem:x | click DDLOptions__listItem:y | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "text": {
     "kind": "text",
-    "r": "{\"did\":\"text_solved\",\"n\":1,\"editados\":0,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500},\"taskMarked\":false}",
+    "r": "{\"did\":\"text_solved\",\"n\":1,\"editados\":0,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500,\"como\":[\"simulado\"]},\"explorador\":{\"marcado\":false,\"firma\":\"text|practice|\",\"pruebas\":[{\"accion\":\"teclear: input.\",\"como\":\"simulado\",\"cambio\":true,\"marco\":false}],\"segundos\":2},\"taskMarked\":false}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -37,7 +37,7 @@
   },
   "select": {
     "kind": "select_text",
-    "r": "{\"did\":\"select_text_solved\",\"selectedCount\":0,\"kind\":\"select_text\",\"retry\":{\"did\":\"select_text_solved\",\"selectedCount\":0},\"taskMarked\":false}",
+    "r": "{\"did\":\"select_text_solved\",\"selectedCount\":0,\"kind\":\"select_text\",\"retry\":{\"did\":\"select_text_solved\",\"selectedCount\":0},\"explorador\":{\"marcado\":false,\"firma\":\"select_text|practice|\",\"pruebas\":[],\"segundos\":0},\"taskMarked\":false}",
     "trace": "click st learning__selectTxt_st:frase uno | click st learning__selectTxt_st:frase uno | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -67,7 +67,7 @@
   },
   "replay": {
     "kind": "test_question",
-    "r": "{\"did\":\"test_replay\",\"idx\":\"2/3\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3}}",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"2/3\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3,\"ok\":0,\"total\":3,\"mal\":[{\"hueco\":1,\"quiere\":[\"tres\"],\"hay\":[]},{\"hueco\":2,\"quiere\":[\"uno\"],\"hay\":[]},{\"hueco\":3,\"quiere\":[\"dos\"],\"hay\":[]}]}}",
     "trace": "pointerdown dnditem:tres | pointerup dndZone: | pointerdown dnditem:uno | pointerup dndZone: | pointerdown dnditem:dos | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 1||Step 4: Test\":{\"2\":{\"dnd\":[{\"label\":\"x\",\"texts\":[\"tres\"],\"text\":\"tres\"},{\"label\":\"x\",\"texts\":[\"uno\"],\"text\":\"uno\"},{\"label\":\"x\",\"texts\":[\"dos\"],\"text\":\"dos\"}]}}}"
   },
@@ -97,7 +97,7 @@
   },
   "replayClassif": {
     "kind": "test_question",
-    "r": "{\"did\":\"test_replay\",\"idx\":\"5/6\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3}}",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"5/6\",\"dnd\":{\"did\":\"dnd_replay\",\"moves\":3,\"ok\":0,\"total\":2,\"mal\":[{\"hueco\":1,\"quiere\":[\"Volunteer vacations help.\",\"Ulithi has turtles.\"],\"hay\":[]},{\"hueco\":2,\"quiere\":[\"You must snorkel.\"],\"hay\":[]}]}}",
     "trace": "pointerdown dnditem draggable:Volunteer vacat | pointerup dndZone: | pointerdown dnditem draggable:Ulithi has turt | pointerup dndZone: | pointerdown dnditem draggable:You must snorke | pointerup dndZone: | click tasksBtnext learning__submitTestLink:Submit",
     "ls": "{\"Lesson 2: The Experience of a Lifetime||Step 5: Repasemos\":{\"5\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Volunteer vacations help.\",\"Ulithi has turtles.\"],\"text\":\"Volunteer vacations help.\"},{\"label\":\"\",\"texts\":[\"You must snorkel.\"],\"text\":\"You must snorkel.\"}]}}}"
   },
@@ -133,8 +133,8 @@
   },
   "practiceDrop": {
     "kind": "droptarget",
-    "r": "{\"did\":\"drop_practice\",\"moves\":1,\"ok\":1,\"total\":1,\"kind\":\"droptarget\",\"retry\":{\"did\":\"drop_nothing_to_do\"},\"taskMarked\":false}",
-    "trace": "pointerdown draggable wordBankTile:feel | pointerup TTpanswerDiv droptarget: | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"drop_practice\",\"moves\":1,\"ok\":1,\"total\":1,\"kind\":\"droptarget\",\"retry\":{\"did\":\"drop_nothing_to_do\"},\"explorador\":{\"marcado\":false,\"firma\":\"droptarget|practice|droptarget\",\"pruebas\":[{\"accion\":\"clic: a.layout__mediaPlayPause\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: span.TTpanswerDiv \\\"feel\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false}],\"segundos\":5},\"taskMarked\":false}",
+    "trace": "pointerdown draggable wordBankTile:feel | pointerup TTpanswerDiv droptarget: | click layout__mediaPlayPause layout__mediaPlayPause--play: | click TTpanswerDiv droptarget:feel | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "practiceSeq": {
@@ -223,8 +223,8 @@
   },
   "mcqImagenes": {
     "kind": "mcq",
-    "r": "{\"did\":\"mcq_solved\",\"marked\":0,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":0,\"fromKnown\":0},\"taskMarked\":false}",
-    "trace": "click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":0,\"fromKnown\":0,\"kind\":\"mcq\",\"retry\":{\"did\":\"mcq_solved\",\"marked\":0,\"fromKnown\":0},\"explorador\":{\"marcado\":false,\"firma\":\"mcq||prMCQ__main.prMCQ__main--ansImages\",\"pruebas\":[{\"accion\":\"clic: div.prMCQ__answersW\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.prMCQ__answers\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.multiRadioWrapper\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.checkAnswerIcon\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: img.prMCQ__answerImage\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.prMCQ__answers\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.multiRadioWrapper\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: img.prMCQ__answerImage\",\"como\":\"clic\",\"cambio\":false,\"marco\":false}],\"segundos\":18},\"taskMarked\":false}",
+    "trace": "click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answerImage: | pointerdown prMCQ__answerImage: | pointerup prMCQ__answerImage: | click multiRadioWrapper: | pointerdown multiRadioWrapper: | pointerup multiRadioWrapper: | click prMCQ__answers: | pointerdown prMCQ__answers: | pointerup prMCQ__answers: | click prMCQ__answersW: | click prMCQ__answers: | click multiRadioWrapper: | click checkAnswerIcon: | click prMCQ__answerImage: | click prMCQ__answers: | click multiRadioWrapper: | click prMCQ__answerImage: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "myProgressLeer": {
@@ -277,8 +277,8 @@
   },
   "completarAlterna": {
     "kind": "test_start",
-    "r": "{\"did\":\"sweep_home\"}",
-    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click learning__dropDownList_item:3. DramaIn Prog | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click A:Home",
+    "r": "{\"did\":\"test_ya_terminado\",\"key\":\"Lesson 5: Friends||Step 3: Test\",\"pct\":null,\"avance\":\"home\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click learning__dropDownList_item:3. DramaIn Prog | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click learning__dropDownList_item:3. DramaIn Prog | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 4: Famil | click learning__dropDownList_item:5. FriendsCompl | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home",
     "ls": null
   },
   "replayLegacyDDLNouns": {
@@ -289,8 +289,8 @@
   },
   "reporteDump": {
     "kind": "mcq_default",
-    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"taskMarked\":false}",
-    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"explorador\":{\"marcado\":false,\"firma\":\"mcq_default|read again|\",\"pruebas\":[{\"accion\":\"clic: button.hotspot__btn \\\"Here\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: button.hotspot__btn \\\"There\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":false}],\"segundos\":5},\"taskMarked\":false}",
+    "trace": "click hotspot__btn:Here | click hotspot__btn:There | click tasksBtnext learning__nextItemLink:Next",
     "ls": null,
     "v": {
       "motivo": "tipo_desconocido",
@@ -307,6 +307,7 @@
       "antes": 2,
       "resultado": [
         "did",
+        "explorador",
         "kind",
         "marked",
         "retry",
@@ -322,8 +323,8 @@
   },
   "memoryCorto": {
     "kind": "memory",
-    "r": "{\"did\":\"memory_tried\",\"pares\":0,\"intentos\":6,\"forma\":\"IW\",\"kind\":\"memory\",\"taskMarked\":false}",
-    "trace": "click memoG__cardIW:amenity | click memoG__cardIW:apartment | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:apartment | click memoG__cardIW: | click memoG__cardIW:apartment | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click tasksBtnext learning__nextItemLink:Next",
+    "r": "{\"did\":\"memory_tried\",\"pares\":0,\"intentos\":6,\"forma\":\"IW\",\"kind\":\"memory\",\"explorador\":{\"marcado\":false,\"firma\":\"memory|practicing vocabulary|memoG__card.memoG__cardIW.memoG__cardSideFront.memoG__wrapper\",\"pruebas\":[{\"accion\":\"clic: a.layout__mediaPlayPause\",\"como\":\"clic\",\"cambio\":false,\"marco\":false},{\"accion\":\"clic: div.memoG__card \\\"amenity\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW \\\"amenity\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront \\\"amenity\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card \\\"apartment\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW \\\"apartment\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront \\\"apartment\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card \\\"dorm\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW \\\"dorm\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront \\\"dorm\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card \\\"tenant\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW \\\"tenant\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront \\\"tenant\\\"\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardIW\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__cardSideFront\",\"como\":\"clic\",\"cambio\":true,\"marco\":false},{\"accion\":\"clic: div.memoG__card\",\"como\":\"clic\",\"cambio\":true,\"marco\":false}],\"segundos\":61},\"taskMarked\":false}",
+    "trace": "click memoG__cardIW:amenity | click memoG__cardIW:apartment | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click memoG__cardIW:apartment | click memoG__cardIW: | click memoG__cardIW:apartment | click memoG__cardIW: | click memoG__cardIW:amenity | click memoG__cardIW: | click layout__mediaPlayPause: | click memoG__card memoG__card--word:amenity | click memoG__cardIW:amenity | click memoG__cardSideFront:amenity | click memoG__card memoG__card--word:apartment | click memoG__cardIW:apartment | click memoG__cardSideFront:apartment | click memoG__card memoG__card--word:dorm | click memoG__cardIW:dorm | click memoG__cardSideFront:dorm | click memoG__card memoG__card--word:tenant | click memoG__cardIW:tenant | click memoG__cardSideFront:tenant | click memoG__card memoG__card--image: | click memoG__cardIW: | click memoG__cardSideFront: | click memoG__card memoG__card--image: | click memoG__cardIW: | click memoG__cardSideFront: | click memoG__card memoG__card--image: | click memoG__cardIW: | click memoG__cardSideFront: | click memoG__card memoG__card--image: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null,
     "v": {
       "ultima": "tarea_no_marcada",
@@ -415,7 +416,7 @@
   },
   "writingCorregir": {
     "kind": "text",
-    "r": "{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"taskMarked\":true}",
+    "r": "{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500,\"como\":[\"simulado\"],\"kind\":\"text\",\"taskMarked\":true}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
@@ -438,9 +439,9 @@
     "ls": null
   },
   "exploreAudioTarde": {
-    "kind": "mcq_default",
-    "r": "{\"did\":\"media_played\",\"waitDone\":4000,\"kind\":\"media\"}",
-    "trace": "click layout__mediaPlayPause layout__mediaPlayPause--play: | click layout__mediaPlayPause layout__mediaPlayPause--play: | click tasksBtnext learning__nextItemLink:Next",
+    "kind": "explore",
+    "r": "{\"did\":\"explore\",\"intentos\":[\"audio_cargado\",\"sin_tarea\"],\"marcado\":false,\"waitDone\":3000,\"kind\":\"explore\"}",
+    "trace": "click layout__mediaPlayPause layout__mediaPlayPause--play: | pointerdown layout__mediaPlayPause layout__mediaPlayPause--play: | pointerup layout__mediaPlayPause layout__mediaPlayPause--play: | click tasksBtnext learning__nextItemLink:Next",
     "ls": null
   },
   "textoEnTestNoToca": {
@@ -474,7 +475,7 @@
   },
   "tableroFalla": {
     "kind": "text",
-    "r": "{\"did\":\"text_solved\",\"n\":1,\"editados\":0,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500},\"taskMarked\":false}",
+    "r": "{\"did\":\"text_solved\",\"n\":1,\"editados\":0,\"long\":false,\"waitDone\":3500,\"kind\":\"text\",\"retry\":{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500,\"como\":[\"simulado\"]},\"explorador\":{\"marcado\":false,\"firma\":\"text|practice|\",\"pruebas\":[{\"accion\":\"teclear: input.\",\"como\":\"simulado\",\"cambio\":true,\"marco\":false}],\"segundos\":2},\"taskMarked\":false}",
     "trace": "click tasksBtnext learning__nextItemLink:Next",
     "ls": null,
     "v": {
@@ -573,6 +574,174 @@
     "r": "{\"did\":\"completar_fin\",\"widgets\":{\"completion\":100,\"avg\":100,\"curso\":null}}",
     "trace": "",
     "ls": null
+  },
+  "dndReverseGuia": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\",\"taskMarked\":true}",
+    "trace": "click INPUT: | click driver-popover-next-btn:Got it! | pointerdown dnditem draggable:personality typ | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "guia": false,
+      "enBanco": 5
+    }
+  },
+  "clasificacionGuia": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\",\"taskMarked\":true}",
+    "trace": "click INPUT: | click driver-popover-next-btn:Got it! | pointerdown dnditem draggable:Bob invented th | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "guia": false,
+      "enBanco": 5
+    }
+  },
+  "dndReverseSinGuia": {
+    "kind": "dnd",
+    "r": "{\"did\":\"dnd_one_action\",\"moves\":1,\"kind\":\"dnd\",\"taskMarked\":true}",
+    "trace": "pointerdown dnditem draggable:personality typ | pointerup dndZone: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "writingAriellaTeclado": {
+    "kind": "text",
+    "r": "{\"did\":\"text_solved\",\"n\":0,\"editados\":1,\"long\":false,\"waitDone\":3500,\"como\":[\"simulado\"],\"kind\":\"text\",\"taskMarked\":true}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": "wasa,too,didn't,be,getting,to come"
+  },
+  "exploreGramaticaAudio": {
+    "kind": "explore",
+    "r": "{\"did\":\"explore\",\"intentos\":[\"audio_cargado\",\"play:layout__mediaPlayPause\"],\"marcado\":true,\"waitDone\":3000,\"kind\":\"explore\",\"taskMarked\":true}",
+    "trace": "click layout__mediaPlayPause layout__mediaPlayPause--play CTrackerPlayBtnD: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "mcqImagenesIconosOcultos": {
+    "kind": "mcq",
+    "r": "{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":0,\"kind\":\"mcq\",\"taskMarked\":true}",
+    "trace": "click prMCQ__answerImage: | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": "multiRadioWrapper | multiRadioWrapper | multiRadioWrapper correct checked | multiRadioWrapper"
+  },
+  "finDeUnidadTestHecho": {
+    "kind": "test_start",
+    "r": "{\"did\":\"test_ya_terminado\",\"key\":\"Lesson 5: Friends||Step 3: Test\",\"pct\":null,\"avance\":\"home\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home | click tasksBtnext learning__nextItemLink:Next | click A:Home",
+    "ls": null,
+    "v": {
+      "unitsDone": [
+        12
+      ],
+      "phase": "home",
+      "reportes": []
+    }
+  },
+  "finDeUnidadPuntaje100": {
+    "kind": "test_score",
+    "r": "{\"did\":\"test_passed_100\",\"pct\":100}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--steps:Step 3: Test | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 5: Frien | click A:Home | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "unitsDone": [
+        12
+      ],
+      "phase": "in_unit"
+    }
+  },
+  "otroCursoCarrusel": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"otro_curso\",\"de\":\"UPB Beginners 1\",\"a\":\"UPB Beginners 2\"}",
+    "trace": "click carousel-control-next:",
+    "ls": null,
+    "v": {
+      "active": true,
+      "mode": "completar",
+      "cursoObjetivo": "UPB Beginners 2",
+      "cursosHechos": [
+        "UPB Beginners 1"
+      ],
+      "unitsDone": []
+    }
+  },
+  "exploradorAprende": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"explorador\":{\"marcado\":true,\"firma\":\"mcq_default|practice|\",\"pruebas\":[{\"accion\":\"clic: span.rareW__icono \\\"o\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":true}],\"segundos\":0,\"accion\":\"clic: span.rareW__icono \\\"o\\\"\"},\"taskMarked\":true}",
+    "trace": "click rareW__icono:o | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": [
+      "clic div.answersWrapper > div.rareW > span.rareW__icono #0 ×1"
+    ]
+  },
+  "exploradorUsaAprendido": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"explorador\":{\"marcado\":true,\"firma\":\"mcq_default|practice|\",\"pruebas\":[{\"accion\":\"APRENDIDO clic: span.rareW__icono\",\"marco\":true}],\"segundos\":0,\"accion\":\"clic: span.rareW__icono\",\"deAprendido\":true},\"taskMarked\":true}",
+    "trace": "click rareW__icono:o | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "reviewUltimaSinSalida": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":6,\"saved\":7}",
+    "trace": "click A:Respuesta corre | pointerdown doc | pointerup doc | click tasksBtnext learning__nextItemLink:Next | click A:Respuesta corre | pointerdown doc | pointerup doc | click tasksBtnext learning__nextItemLink:Next",
+    "ls": "{\"Lesson 3: The Party||Step 5: Repasemos\":{\"6\":{\"dnd\":[{\"label\":\"\",\"texts\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\"],\"text\":\"Dalia asks Gabrielle why she's not ready to go to the party.\"},{\"label\":\"\",\"texts\":[\"Gabrielle tells Dalia she's not going to the party.\"],\"text\":\"Gabrielle tells Dalia she's not going to the party.\"},{\"label\":\"\",\"texts\":[\"Dalia tries to convince Gabrielle to come with her.\"],\"text\":\"Dalia tries to convince Gabrielle to come with her.\"},{\"label\":\"\",\"texts\":[\"Gabrielle finally agrees and goes to get ready.\"],\"text\":\"Gabrielle finally agrees and goes to get ready.\"},{\"label\":\"\",\"texts\":[\"Gabrielle and Dalia enter the party.\"],\"text\":\"Gabrielle and Dalia enter the party.\"},{\"label\":\"\",\"texts\":[\"Gabrielle joins the party.\"],\"text\":\"Gabrielle joins the party.\"}],\"seq\":[\"Dalia asks Gabrielle why she's not ready to go to the party.\",\"Gabrielle tells Dalia she's not going to the party.\",\"Dalia tries to convince Gabrielle to come with her.\",\"Gabrielle finally agrees and goes to get ready.\",\"Gabrielle and Dalia enter the party.\",\"Gabrielle joins the party.\"]}}}",
+    "v": "replay"
+  },
+  "catalogoGuarda": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"explorador\":{\"marcado\":true,\"firma\":\"mcq_default|practice|\",\"pruebas\":[{\"accion\":\"clic: span.rareW__icono \\\"o\\\"\",\"como\":\"clic\",\"cambio\":false,\"marco\":true}],\"segundos\":0,\"accion\":\"clic: span.rareW__icono \\\"o\\\"\"},\"taskMarked\":true}",
+    "trace": "click rareW__icono:o | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": [
+      {
+        "curso": "UPB Intermediate 1",
+        "lugares": [
+          "U3|Lesson 2: Shopping|Step 2: Practice|T1 → ok explorador"
+        ],
+        "tipos": 1,
+        "conEjemplo": 1
+      }
+    ]
+  },
+  "catalogoAtajo": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"catalogo_atajo\",\"accion\":\"clic: span.rareW__icono\",\"marcado\":true,\"kind\":\"mcq_default\",\"taskMarked\":true}",
+    "trace": "click rareW__icono:o | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null
+  },
+  "explorarHomeTodas": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"completar_abre_unidad\",\"unidad\":1}",
+    "trace": "click home__unit:Completed!1Buyi | click home__courseListItemLink:1. Directions t",
+    "ls": null
+  },
+  "explorarSaltaTest": {
+    "kind": "test_start",
+    "r": "{\"did\":\"explorar_salta_test\",\"key\":\"Lesson 3: Drama||Step 3: Test\"}",
+    "trace": "click tasksBtnext learning__nextItemLink:Next | click learning__dropDownListTitleW learning__dropDownListTitleW--lessons:Lesson 3: Drama | click learning__dropDownList_item:4. FamilyIn Pro",
+    "ls": null
+  },
+  "repasoFinal": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"repaso\",\"unidades\":[2]}",
+    "trace": "",
+    "ls": null,
+    "v": {
+      "repaso": true,
+      "repasoHecho": true,
+      "unitsDone": [
+        1
+      ]
+    }
+  },
+  "popupDesconocido": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"checkboxes_solved\",\"marked\":0,\"kind\":\"mcq_default\",\"retry\":{\"did\":\"checkboxes_solved\",\"marked\":0},\"explorador\":{\"marcado\":false,\"firma\":\"mcq_default|practice|\",\"pruebas\":[],\"segundos\":0},\"taskMarked\":false}",
+    "trace": "click nuevoAviso__ok:OK | click tasksBtnext learning__nextItemLink:Next",
+    "ls": null,
+    "v": {
+      "sigue": false,
+      "reportes": [
+        "popup_desconocido",
+        "tipo_desconocido"
+      ]
+    }
   },
   "scoreGiveUp": {
     "kind": "test_score",

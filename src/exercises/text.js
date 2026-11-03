@@ -34,13 +34,27 @@ class TextSolver {
     // letra cualquiera en el primero y ya". Se agrega una letra al 1.º y se verifica; si no, al siguiente (hasta 5).
     // OJO: SOLO en prácticas. En un TEST los campos llenos son respuestas (del replay): tocarlas bajaría la nota.
     let editados = 0;
+    const como = [];
     if (!n && !TestManager.inTest()) {
-      for (const t of this.textInputs().slice(0, 5)) {
-        setNative(t, (t.value || '') + 's'); editados++;
+      // AJUSTADA v21.16 — con "editados: 5" ED seguía sin marcar (Maria, Luis, Thiago, Nore ×2): el valor se ponía de
+      // golpe. Hugo: "'was' ahí añádele 'wasa' y ya sale completo" → ahora se TECLEA una letra (teclado real en la
+      // nube, simulado completo en la PC) y el campo pierde el foco. Primero los campos del lado de la práctica.
+      const lado = qav('.writingEditPracticeWrapper input[type="text"], .writingEditPracticeWrapper textarea');
+      const campos = (lado.length ? lado : this.textInputs()).slice(0, 5);
+      for (const t of campos) {
+        const forma = await this.editarCampo(t); editados++; como.push(forma || 'nada');
         await sleep(250);
         if (!tn || await waitFor(() => NavigationManager.taskDone(tn), 2000, 250)) break;
       }
     }
-    return { did: 'text_solved', n, editados, long: isLong, waitDone: 3500 };
+    return Object.assign({ did: 'text_solved', n, editados, long: isLong, waitDone: 3500 }, como.length ? { como } : {});
+  }
+
+  // NUEVO v21.16 — tecleo de UNA letra al final del campo, como una persona (ver utils/manos.js)
+  static async editarCampo(t) {
+    const forma = await Manos.teclear(t, 'a');
+    if (!forma) setNative(t, (t.value || '') + 'a');   // último recurso: lo de antes
+    Manos.soltarFoco(t);
+    return forma;
   }
 }
