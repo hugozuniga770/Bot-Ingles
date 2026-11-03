@@ -467,6 +467,8 @@ class TestSweep {
         if (!mapa.unidades.length) Reporter.capture('my_progress_sin_unidades');
       }
       location.href = homeUrl; await sleep(4000);
+      // NUEVO v21.18 (idea 76): modo AUDITORÍA → solo leer My Progress de la cuenta (la tabla sale en el tablero) y terminar
+      if (s.auditoria) { const s3 = this.get(); s3.active = false; s3.fin = new Date().toISOString(); this.set(s3); log('📋 Auditoría lista: My Progress leído'); window.__ed.stop(); return { did: 'auditoria_fin' }; }
       return { did: 'mapa_leido', tests_bajos: (s.objetivos || []).length };
     }
     if (/#\/home/i.test(location.href) || qv('.home__unitW')) {

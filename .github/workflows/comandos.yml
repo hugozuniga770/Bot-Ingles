@@ -1,0 +1,40 @@
+# =====================================================================
+#  comandos.yml — manejar el bot ESCRIBIENDO en el issue del tablero (idea 74, NUEVO v21.18)
+#  Solo funcionan los comentarios del DUEÑO del repo (tú). Escribe en el issue "📊 Tablero del bot":
+#     /correr 2,4        → lanza esas cuentas (también: /correr todas)
+#     /parar 3           → para esa cuenta (las demás de su máquina siguen)
+#     /explorar 1        → recorre todo el nivel de esa cuenta y lo cataloga (sin tests)
+#     /auditoria todas   → solo lee My Progress de esas cuentas y actualiza el tablero
+#  Sirve desde la app de GitHub en el teléfono si no tienes el panel a mano.
+# =====================================================================
+name: comandos
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  actions: write
+  issues: write
+jobs:
+  comando:
+    if: github.event.comment.user.login == github.repository_owner && startsWith(github.event.comment.body, '/')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Hacer lo que dice el comentario
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CUERPO: ${{ github.event.comment.body }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -e
+          L="$(printf '%s' "$CUERPO" | head -n1 | tr -d '\r')"
+          CMD="$(printf '%s' "$L" | awk '{print $1}')"; ARG="$(printf '%s' "$L" | awk '{print $2}')"
+          if ! printf '%s' "$ARG" | grep -Eq '^[A-Za-z0-9_,]+$'; then gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "🤖 No entendí \`$L\`. Ejemplos: \`/correr 2,4\` · \`/parar 3\` · \`/explorar 1\` · \`/auditoria todas\`"; exit 0; fi
+          case "$CMD" in
+            /correr)    gh workflow run nube.yml --repo "$GITHUB_REPOSITORY" -f cuentas="$ARG" -f modo=completar; R="▶ Lanzadas: $ARG" ;;
+            /explorar)  gh workflow run nube.yml --repo "$GITHUB_REPOSITORY" -f cuentas="$ARG" -f modo=explorar -f por_maquina=1; R="🔭 Explorando: $ARG" ;;
+            /auditoria) gh workflow run nube.yml --repo "$GITHUB_REPOSITORY" -f cuentas="$ARG" -f modo=auditoria -f minutos=20; R="📋 Auditoría: $ARG" ;;
+            /parar)     for id in $(printf '%s' "$ARG" | tr ',' ' '); do gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "<!-- orden:parar $(printf '%s' "$id" | tr a-z A-Z) de:issue -->
+          ⏹ Parar la cuenta $id"; done; R="⏹ Pedido de parar: $ARG (en 1–3 min)" ;;
+            *) R="🤖 Comando desconocido: \`$CMD\`. Usa /correr, /parar, /explorar o /auditoria" ;;
+          esac
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "$R"

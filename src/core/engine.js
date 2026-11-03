@@ -81,6 +81,10 @@ class MainEngine {
     // NUEVO v21.16: la guía de ED ("Got it!" / "Don't show again") tapa la página y los arrastres no caen (utils/guia.js)
     await Guia.cerrar();
     await Guia.popup();   // NUEVO v21.16 (idea 13): ventana desconocida → dump una vez + OK/Cerrar
+    // NUEVO v21.18 (idea 27): ED en MANTENIMIENTO → esperar sin anotar fallos
+    if (/under maintenance|en mantenimiento|scheduled maintenance|temporarily unavailable|servicio no disponible/i.test(((document.body && document.body.innerText) || '').slice(0, 3000))) {
+      log('🛠️ ED está en mantenimiento → espero 5 min sin anotar fallos'); await sleep(300000); return { did: 'ed_en_mantenimiento' };
+    }
     // NUEVO v21.16 (idea 12): en el REPASO del final, el doble de paciencia para cargar
     if (TestSweep.enRepaso() && !(CFG.paciencia >= 2.5)) CFG.paciencia = 2.5;
     if (!/learningArea/i.test(location.href) && !q('.learning__dropDownListTitleW--steps')) {
@@ -278,7 +282,10 @@ class MainEngine {
     // "Wrong Color" se tomó como 'mcq_default' y en la radiografía de 1 s después ya era 'writing').
     // AJUSTADA v21.12 (Hugo: "dales más tiempo para que carguen"): si hay un video, tarjetas o imágenes cargando, hasta 25 s
     if (kind === 'mcq_default') {
-      const cargando = !!q('.learning__RAMediaResourceW, .learning__resourcesArea video, .learning__vocabularyCards, .prMCQ__answerImage, .memoG__card, .speakingInteract');
+      // AJUSTADA v21.18 (ideas 13–14): si el CATÁLOGO del nivel ya sabe qué ejercicio hay en este lugar, se le da
+      // tiempo a que cargue ESE (hasta 25 s) aunque todavía no se vea nada
+      const sabido = Catalogo.kindSabido(t.n);
+      const cargando = !!sabido || !!q('.learning__RAMediaResourceW, .learning__resourcesArea video, .learning__vocabularyCards, .prMCQ__answerImage, .memoG__card, .speakingInteract');
       const k2 = await waitFor(() => { const k = MainEngine.detectKind(); return k !== 'mcq_default' ? k : null; }, cargando ? 25000 : 4000, 300); if (k2) kind = k2;
     }
     // NUEVO v21.11 — REGLA 4 de Hugo: si esta tarea ya falló 2 veces en esta corrida (1 si es de las caras/imposibles:

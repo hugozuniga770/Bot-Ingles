@@ -52,7 +52,7 @@ cloud/diagnostico.js      fallos agrupados (nuevo/conocido), salud 0–100, minu
 panel/                    PANEL DEL TELÉFONO (GitHub Pages, workflow panel.yml): correr/parar/agregar cuentas (v21.16)
 tools/prueba-fiel/        HTML real + dragula y driver.js REALES (lo que usa ED): viejo vs nuevo (v21.16)
 tools/panel-prueba/       el panel en un teléfono emulado contra una GitHub falsa (v21.16)
-.github/workflows/        verificar.yml (build + pruebas en cada push) · nube.yml (correr el bot)
+.github/workflows/        verificar.yml (build + pruebas + panel en cada push) · nube.yml (correr el bot) · comandos.yml (/correr /parar en el issue, v21.18)
 tools/regresion.js        ~80 pantallas falsas (jsdom) → snapshot del comportamiento. `npm test`
 tools/probar-banco-tablero.js  prueba el banco por curso y el dibujo del tablero (también en `npm test`)
 tools/regresion-chrome.js  las mismas pantallas en Chrome real (Playwright), para cuando npm no tiene internet

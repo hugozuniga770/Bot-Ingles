@@ -108,6 +108,15 @@ async function ordenes() {
     await sleep(10000); n++;
     if (n % 12 === 0) await ordenes();   // cada 2 min
   }
+  // NUEVO v21.18 (idea 28): las cuentas a las que se les ACABÓ EL TIEMPO (no terminaron, no se pararon, sin freno) → seguir.txt;
+  // el workflow las relanza solas (hasta 3 veces seguidas) para que terminen el curso sin que tengas que hacer nada
+  try {
+    const fs = require('fs'), seguir = [];
+    for (const id of ids) { const f = path.join(RAIZ, 'salida', id, 'fin.json'); if (!fs.existsSync(f)) continue; const x = JSON.parse(fs.readFileSync(f, 'utf8'));
+      if (!x.termino && !x.parado && !x.freno && !x.claveMala && (x.minutos || 0) >= Math.min(300, (+process.env.MINUTOS || 330) - 15)) seguir.push(id); }
+    fs.writeFileSync(path.join(RAIZ, 'seguir.txt'), seguir.join(','));
+    if (seguir.length) log('⏭️ Se les acabó el tiempo sin terminar → se relanzan solas:', seguir.join(', '));
+  } catch (e) {}
   const bien = [...hijos.values()].filter(h => h.codigo === 0 || h.parada).length;
   log(`Listo: ${bien} de ${ids.length} cuenta(s) terminaron bien.`);
   if (!bien) process.exit(1);

@@ -1,5 +1,25 @@
 # Changelog
 
+## v21.18 — la lista de 100 mejoras (sin APIs) de Claude, menos seguridad (82–88) y menos "para que te sirva a ti"
+Hugo: "solo lo de seguridad no lo apliques, lo demás perfecto" y "no hagas lo de aprendizaje". Sin zips nuevos: nada de
+esto nace de un fallo visto en ED; es fiabilidad, nube y panel. **Probado en simulación** (108 pantallas, GitHub/ED falsas).
+- **Bot:** ED en **mantenimiento** → espera 5 min sin anotar fallos (`mantenimiento`) · si el **catálogo** del nivel ya
+  sabe qué ejercicio hay en ese lugar, le da hasta 25 s para cargar aunque todavía no se vea · modo **auditoría**
+  (solo lee My Progress, publica el tablero y termina; `auditoriaFin`).
+- **Nube:** **usuario/contraseña equivocados** → mensaje claro en el tablero y no insiste (ED podría bloquear) ·
+  **captcha** → esa cuenta se frena · cada cuenta deja `fin.json` y la que se quedó **sin tiempo a medias se relanza
+  sola** (hasta 3 vueltas; input `cadena`) al final del job, con su memoria ya guardada · **comandos en el issue**
+  (`/correr 3`, `/parar 3`, `/explorar 3`, `/auditoria 3`; solo el dueño del repo, `comandos.yml`).
+- **Panel:** buscar, filtros con contador (corriendo / les falta / 100/100 / problemas) y orden · botón **⋯** por cuenta:
+  arreglar lo que falta, solo tests < 100, explorar el nivel, solo revisar, **historial** (gráfico en el teléfono),
+  ritmo y minutos propios, quitar de la lista (queda `borrada`, nadie cambia de número) · **Deshacer** 5–6 s en "Correr
+  todas" y en quitar · la lista se **revisa** antes de subir (duplicados, falta contraseña; sin mostrar contraseñas) y
+  "＋ Cuenta" no duplica a una persona · funciona **sin internet** (`sw.js`, solo los archivos del panel) · número de
+  cuentas corriendo en el **ícono** · **vibración** distinta (terminó / se trabó / 100-100) · **tirar hacia abajo**
+  para actualizar · **ayuda** y bienvenida la primera vez.
+- **Pruebas:** `verificar.yml` ahora también corre el panel en un iPhone emulado (claro y oscuro) en cada push.
+- No aplicado a pedido de Hugo: seguridad (82–88) y la página de estudio (fichas/quiz/audio).
+
 ## v21.17 — zips del 03/11 con v21.16 (Caro, Helena, Melgarejo) + las mejoras propuestas
 Resultado de la v21.16: **Caro 76 → 100 % y 84 → 100 % en 1 h 47 min**; Helena y Melgarejo sin un solo fallo del bot
 (salud 100/100) hasta que se cancelaron para meter más cuentas. Lo único que quedaba:

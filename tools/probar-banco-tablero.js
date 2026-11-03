@@ -103,3 +103,4 @@ console.log('✓ banco de respuestas y tablero: OK');
   assert.ok(/UN DUMP POR GRUPO/.test(D.paraIA({ nombre: 'X', curso: 'C', version: '21.16', grupos: g, reportes: reps, salud: 73, widgets: {} })));
   console.log('✓ diagnóstico (agrupar, nuevo/conocido, salud, tiempos, pantallas nuevas, texto para la IA): OK');
 }
+

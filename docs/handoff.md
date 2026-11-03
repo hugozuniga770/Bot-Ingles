@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.17, 03/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.18, 03/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -35,6 +35,7 @@ Watch again (íconos escondidos); fin de unidad; Explorador que aprende; catálo
 | v21.13 | Tablero en vivo con checks (issue del repo, un cuadro por cuenta con nombre; unidades desplegables) y banco de respuestas por curso compartido entre cuentas; reporte con número fijo | Ideas de Hugo (02/11): ver avance unidad por unidad y no cosechar dos veces lo mismo |
 | v21.14 | Ritmo de persona (pausa entre pasos, input `ritmo`), paciencia 1,5 en todas las esperas, Next 4,5 s, branching 150 s, tope por unidad 90 min, login con más margen; cargador siempre al último commit | Hugo: "mínimo 4 h en la plataforma", "más tiempo a lo frágil", "que el js del README traiga la última versión" |
 | v21.15 | Nunca recargar dentro de las lecciones (Home y volver a entrar), test ya hecho → avanzar, Unit Tests ocultos no cuentan, Time on Task en el tablero, Google Chrome en la nube, reporte completo | 6 zips del 02/11 (v21.14): ~150 atascos tras recargar, 22 en tests ya hechos, 14 Unit Tests inexistentes por cuenta |
+| v21.18 | Mantenimiento, espera según el catálogo, modo auditoría, contraseña mala / captcha, relanzar sola la cuenta sin tiempo, comandos en el issue; panel: buscar/filtros/orden, ⋯ por cuenta (modos, historial, ajustes propios, quitar), deshacer, lista revisada, sin internet, ícono, vibraciones, tirar para actualizar, ayuda; CI del panel | Lista de 100 mejoras de Claude (Hugo: todo menos seguridad 82–88 y menos la página de estudio) |
 | v21.16 | Guía de ED cerrada en cada paso, Explore con audio, writing tecleado (manos reales en la nube), Watch again, DnD verificado, fin de unidad, Explorador + catálogo por nivel + modo explorar, varios cursos, fotos, fiabilidad/diagnóstico, nube sin cola (lote), panel del teléfono | 6 zips del 02/11 (v21.15), 4 dumps + 3 capturas de Hugo (03/11), sus 100 ideas (1–28 hechas o preparadas) |
 
 ## Hipótesis — resueltas con la corrida de Jose (v21.8)
@@ -108,6 +109,7 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 49 | Replay DnD "mal" con fichas bien puestas (Caro #22–25) | a | Verificación con los mismos huecos / banco por dg_name (`replayVerificaMismoBanco`) |
 | 50 | Test con preguntas en otro orden: ficha cosechada no está en el banco (Caro #20, #21) | a | `mappingQueCalza` (`replayPreguntaMovida`) |
 | 51 | Helena echada de ED 2 veces (misma persona, otro número de línea en otra corrida) | a* | Liberar por huella + órdenes con run. *Falta verlo en una corrida real |
+| 52 | Lista de 100 mejoras (v21.18): todo menos seguridad 82–88 y la página de estudio | a* | Ver CHANGELOG v21.18. *Simulación (pantallas `mantenimiento`, `auditoriaFin`; panel en iPhone emulado); falta corrida real |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests
 - Speaking que exige DECIR una opción ("elegir la respuesta hablando"): ED reconoce voz y el micrófono simulado no dice

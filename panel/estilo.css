@@ -172,3 +172,33 @@ body { background: radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, 
 .lista.compacto .anillos { display: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 .anillos { gap: 8px; } .anillo span em { display: block; margin: 0; }
+/* NUEVO v21.18: buscar / filtros / orden */
+.filtros { display: grid; gap: 8px; margin: 4px 0 12px; }
+.filtros input, .filtros select { width: 100%; margin: 0; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.chips::-webkit-scrollbar { display: none; }
+.chips button { flex: none; border: 1px solid var(--borde); background: var(--tarjeta); color: var(--texto); border-radius: 999px; padding: 7px 12px; font: 600 13.5px system-ui, sans-serif; display: inline-flex; gap: 6px; align-items: center; }
+.chips button em { font-style: normal; font-size: 12px; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--fondo); color: var(--suave); }
+.chips button.activo { background: var(--marca); color: #fff; border-color: transparent; }
+.chips button.activo em { background: rgba(255,255,255,.25); color: #fff; }
+/* opciones de una cuenta */
+.acciones-cuenta { display: grid; gap: 8px; margin: 10px 0 6px; }
+.acciones-cuenta .btn { flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; }
+.acciones-cuenta .btn small { font-weight: 500; font-size: 12.5px; opacity: .85; color: inherit; }
+.hoja-caja h3 { margin: 18px 0 8px; font-size: 15px; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+.historial { width: 100%; height: auto; background: var(--fondo); border-radius: 12px; }
+.historial path { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.historial .h-100 { stroke: var(--borde); stroke-dasharray: 4 4; }
+.h-comp { stroke: var(--marca); background: var(--marca); }
+.h-prom { stroke: var(--verde); background: var(--verde); }
+.h-ley { display: flex; gap: 14px; font-size: 12.5px; color: var(--suave); margin-top: 6px; flex-wrap: wrap; }
+.h-ley i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.problemas { padding-left: 18px; } .problemas li { margin: 6px 0; }
+.ayuda-pasos { display: grid; gap: 10px; margin-bottom: 16px; }
+.ayuda-pasos div { display: grid; gap: 2px; background: var(--fondo); border-radius: 12px; padding: 10px 12px; }
+.ayuda-pasos span { color: var(--suave); font-size: 14px; }
+.aviso .btn { margin-left: 8px; background: transparent; color: inherit; border-color: currentColor; }
+/* tirar para actualizar */
+.tirar { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 40; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--tarjeta); color: var(--suave); box-shadow: var(--sombra); font-size: 20px; transition: color .15s; }
+.tirar.listo { color: var(--marca); }

@@ -784,6 +784,13 @@ const FIX = {
   verificacionFinal: { url: 'https://ed.engdis.com/upbstacruz#/home', html: HOME_HTML([[1, 'Buying and Selling', true], [2, 'Healthy Eating', true]], 95, 100),
     ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', phase: 'home', mapaHecho: true, repasoHecho: true, lessonsDone: [], unitsDone: [1, 2], resultados: [], homeUrl: 'https://ed.engdis.com/upbstacruz#/home' }), 'ed:progress:v1': JSON.stringify({ unidades: [{ n: 1, completion: 100, lecciones: [] }, { n: 2, completion: 100, lecciones: [] }] }) },
     verificar: w => { const s = JSON.parse(w.localStorage.getItem('ed:sweep:v1')); return { verificado: s.verificado, mapaHecho: s.mapaHecho, unitsDone: s.unitsDone }; } },
+  // AUDITORÍA (v21.18, idea 33): modo que SOLO lee My Progress y termina (sin tocar ejercicios ni tests)
+  auditoriaFin: { url: 'https://ed.engdis.com/upbstacruz#/MyProgress/Course/523991431/Unit/', html: MP_HTML,
+    ls: { 'ed:sweep:v1': JSON.stringify({ active: true, mode: 'completar', auditoria: true, phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], homeUrl: 'https://ed.engdis.com/upbstacruz#/home' }) },
+    setup: MP_SETUP, verificar: w => { const s = JSON.parse(w.localStorage.getItem('ed:sweep:v1')); return { active: s.active, fin: !!s.fin }; } },
+  // MANTENIMIENTO (v21.18, idea 27): ED avisa que está en mantenimiento → espera, sin reportes de fallo
+  mantenimiento: { html: PRACT_SIN_AUDIO('Lesson 2: Shopping', 'Step 2: Practice') + '<div class="aviso">English Discoveries is under maintenance. Please try again later.</div>',
+    verificar: w => JSON.parse(w.localStorage.getItem('ed:report:v1') || '[]').map(r => r.motivo) },
   scoreGiveUp: { html: NAV.replace('STEP', 'Step 4: Test') + `<div class="TestResults">Your score 40%</div><a class="learning__testReviewLink">Review</a>`, steps: 4 },
 };
 const LS_REPLAY = { 'ed:testKnown:v1': JSON.stringify(['Lesson 1||Step 4: Test']),

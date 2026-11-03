@@ -54,11 +54,14 @@ const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) proce
   await pg.click('#f-setup button[type=submit]'); await pg.waitForSelector('#v-app:not([hidden])', { timeout: 20000 }); await pg.waitForTimeout(3500);
   const guardado = await pg.evaluate(() => localStorage.getItem('edpanel:v1'));
   ok(!/github_pat_PRUEBA|claveA/.test(guardado), 'en el teléfono el token y las contraseñas quedan CIFRADOS');
+  // NUEVO v21.18: la primera vez se abre la ayuda
+  ok(await pg.isVisible('#b-ok-ayuda'), 'la primera vez se abre la ayuda'); await foto('1b-ayuda'); await pg.click('#b-ok-ayuda'); await pg.waitForTimeout(300);
   const tarjetas = await pg.$$eval('.cuenta', as => as.map(a => a.innerText.replace(/\s+/g, ' ')));
   ok(tarjetas.length === 3 && /Nore/.test(tarjetas[0]) && /corriendo/.test(tarjetas[0]) && /93 %/.test(tarjetas[0]) && /Step 7/.test(tarjetas[0]), 'Nore: corriendo, 93 %, por dónde va');
   ok(/Roy/.test(tarjetas[1]) && /terminó/.test(tarjetas[1]), 'Roy: terminó');
   await foto('2-cuentas');
   await pg.click('#b-todas'); await clave();
+  ok(await pg.isVisible('#b-deshacer'), '"Correr todas" se puede deshacer 5 s'); await pg.waitForTimeout(5600);
   const d1 = pedidos.filter(x => /dispatches/.test(x.p)).pop();
   ok(d1 && d1.body.inputs.cuentas === 'todas' && d1.body.ref === 'main', 'Correr todas → workflow nube con cuentas=todas');
   await pg.click('#b-agregar'); await pg.fill('#f-ag [name=u]', 'ana3'); await pg.fill('#f-ag [name=p]', 'claveC'); await pg.fill('#f-ag [name=n]', 'Ana'); await foto('3-agregar');
@@ -71,6 +74,22 @@ const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) proce
   await pg.click('.cuenta[data-id="1"] [data-a=parar]'); await clave();
   const orden = pedidos.filter(x => x.m === 'POST' && /comments/.test(x.p)).pop();
   ok(orden && /^<!-- orden:parar 1 de:panel -->/.test(orden.body.body), 'Parar Nore (comparte máquina con la 3) → orden en el issue, sin cancelar a la otra');
+  // NUEVO v21.18: filtros, buscar, opciones de una cuenta, lista revisada
+  await pg.click('#chips button[data-k=listas]'); await pg.waitForTimeout(200);
+  ok((await pg.$$('.cuenta')).length === 0 && /Ninguna/.test(await pg.innerText('#lista-cuentas')), 'filtro "100/100": ninguna todavía');
+  await pg.click('#chips button[data-k=""]'); await pg.fill('#buscar', 'roy'); await pg.waitForTimeout(200);
+  ok((await pg.$$eval('.cuenta', a => a.map(x => x.dataset.id))).join() === '2', 'buscar "roy" → solo Roy');
+  await pg.fill('#buscar', ''); await pg.selectOption('#orden', 'progreso'); await pg.waitForTimeout(200);
+  ok((await pg.$$eval('.cuenta', a => a.map(x => x.dataset.id)))[0] === '3', 'orden "menos avance primero": la cuenta sin datos arriba');
+  await pg.selectOption('#orden', '');
+  await pg.click('.cuenta[data-id="2"] [data-a=mas]'); await pg.waitForTimeout(300); await foto('3b-opciones');
+  await pg.click('[data-m=auditoria]'); await clave();
+  const d3 = pedidos.filter(x => /dispatches/.test(x.p)).pop();
+  ok(d3 && d3.body.inputs.cuentas === '2' && d3.body.inputs.modo === 'auditoria' && d3.body.inputs.minutos === '20', '⋯ → "Solo revisar" a Roy: modo auditoria, 20 min');
+  await pg.click('.tabs button[data-t=t-ajustes]'); await pg.fill('#f-lista textarea', 'nore1 claveA Nore\nroy2 claveB Roy\nNORE1 otra Nore2\nsolo'); await pg.click('#f-lista button');
+  await pg.waitForTimeout(300); const pr = await pg.innerText('.problemas').catch(() => '');
+  ok(/Línea 3.*línea 1/.test(pr) && /Línea 4: le falta/.test(pr) && !/claveA|otra/.test(pr), 'la lista se revisa antes de subir (duplicado y falta contraseña; sin mostrar contraseñas)');
+  await foto('6-lista-revisada'); await pg.click('[data-r="0"]'); await pg.click('.tabs button[data-t=t-cuentas]'); await pg.waitForTimeout(200);
   await pg.click('.cuenta[data-id="1"] [data-a=tablero]'); await pg.waitForTimeout(400); await foto('4-tablero'); await pg.click('.cerrar-hoja');
   await pg.click('.tabs button[data-t=t-corridas]'); await pg.waitForTimeout(300); await foto('5-corridas');
   ok(pedidos.every(x => x.auth === 'Bearer github_pat_PRUEBA'), 'todo con el token, solo a la API');

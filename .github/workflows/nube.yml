@@ -31,9 +31,9 @@ on:
         description: 'Qué cuentas correr: 1 · 2,3 (líneas de ED_CUENTAS) · NORE (secret ED_CUENTA_NORE) · todas'
         default: 'todas'
       modo:
-        description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · explorar = recorre TODAS las unidades y cataloga el nivel (sin tests) · auto = sigue la lección actual'
+        description: 'completar = todo el curso y luego tests < 100 · barrer = solo tests < 100 · explorar = recorre TODAS las unidades y cataloga el nivel (sin tests) · auditoria = solo lee My Progress · auto = sigue la lección actual'
         type: choice
-        options: [completar, barrer, explorar, auto]
+        options: [completar, barrer, explorar, auditoria, auto]
         default: completar
       minutos:
         description: 'Minutos de trabajo (máx. 330)'
@@ -44,6 +44,9 @@ on:
       por_maquina:
         description: 'Cuentas por máquina (1 a 4). 3 = 40 cuentas en 14 máquinas, todas a la vez'
         default: '3'
+      cadena:
+        description: 'No lo toques: cuántas veces se relanzó sola esta tanda (máx. 3)'
+        default: '0'
   # Para que se relance solo cada 6 h (todas las cuentas), quita el # de las 2 líneas siguientes:
   # schedule:
   #   - cron: '0 */6 * * *'
@@ -54,7 +57,7 @@ on:
 permissions:
   contents: read
   issues: write
-  actions: read
+  actions: write   # AJUSTADA v21.18: read → write (relanzar sola la cuenta a la que se le acabó el tiempo)
 
 jobs:
   preparar:
@@ -276,6 +279,21 @@ jobs:
           path: banco-salida/${{ matrix.grupo.c4 }}/
           retention-days: 1
           if-no-files-found: ignore
+
+      # NUEVO v21.18 (idea 28): la cuenta a la que se le acabaron las 6 h de GitHub sin terminar se relanza sola (máx. 3 veces) — al FINAL del job, cuando su memoria ya quedó guardada
+      - name: Relanzar las que quedaron a medias
+        if: always()
+        continue-on-error: true
+        run: |
+          S="$(cat seguir.txt 2>/dev/null || true)"; C="${CADENA:-0}"
+          if [ -n "$S" ] && [ "$C" -lt 3 ]; then gh workflow run nube.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f cuentas="$S" -f modo="$MODO" -f minutos="$MINUTOS" -f ritmo="$RITMO" -f por_maquina="$PORM" -f cadena="$((C+1))"; echo "Relanzadas: $S (vuelta $((C+1)))"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CADENA: ${{ github.event.inputs.cadena || '0' }}
+          MODO: ${{ github.event.inputs.modo || 'completar' }}
+          MINUTOS: ${{ github.event.inputs.minutos || '330' }}
+          RITMO: ${{ github.event.inputs.ritmo || '5' }}
+          PORM: ${{ github.event.inputs.por_maquina || '3' }}
 
   # NUEVO v21.13: junta los bancos de todas las cuentas (por curso) y los guarda en la caché para la próxima corrida
   juntar:

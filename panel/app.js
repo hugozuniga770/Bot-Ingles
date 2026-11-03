@@ -23,6 +23,15 @@
 
   // ---------------------------------------------------------------- utilidades
   function aviso(t, ms = 3200) { const a = $('#aviso'); a.textContent = t; a.hidden = false; clearTimeout(aviso._t); aviso._t = setTimeout(() => { a.hidden = true; }, ms); }
+  // NUEVO v21.18 (idea 63): aviso con "Deshacer" — lo que cambia algo espera unos segundos antes de hacerse
+  function avisoDeshacer(t, alDeshacer, ms = 6000) {
+    const a = $('#aviso'); a.innerHTML = esc(t) + ' <button class="btn chico" id="b-deshacer">↩ Deshacer</button>'; a.hidden = false; clearTimeout(aviso._t);
+    $('#b-deshacer').onclick = () => { a.hidden = true; alDeshacer(); }; aviso._t = setTimeout(() => { a.hidden = true; }, ms);
+  }
+  const esperarDeshacer = (t, ms = 5000) => new Promise(res => { let no = false; avisoDeshacer(t, () => { no = true; aviso('↩ Cancelado, no se hizo nada'); res(false); }, ms); setTimeout(() => { if (!no) res(true); }, ms); });
+  // NUEVO v21.18 (idea 68): vibración distinta según lo que pasó (sin mirar el teléfono sabes si es bueno o malo)
+  const VIBRA = { fin: [120, 60, 120], mal: [400, 120, 400, 120, 400], cien: [60, 40, 60, 40, 60, 40, 300], toque: [15] };
+  const vibrar = k => { try { navigator.vibrate && navigator.vibrate(VIBRA[k] || VIBRA.toque); } catch (e) {} };
   function vista(id) { $$('.vista').forEach(v => { v.hidden = v.id !== id; }); }
   function hoja(html) { $('#hoja-contenido').innerHTML = html; $('#hoja').hidden = false; return $('#hoja-contenido'); }
   function cerrarHoja() { $('#hoja').hidden = true; $('#hoja-contenido').innerHTML = ''; }
@@ -134,13 +143,43 @@
       if (!antes || antes === e.k || antes !== 'corre') continue;
       const msg = e.k === 'fin' ? `🏁 ${c.nombre} ${e.txt}: ${d.comp ?? '?'} % · ${d.avg ?? '?'} %` : e.k === 'mal' ? `⚠️ ${c.nombre}: ${e.txt}` : null;
       if (!msg) continue;
-      aviso(msg, 6000); try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (er) {}
+      aviso(msg, 6000); vibrar(e.k === 'fin' ? 'fin' : 'mal');   // AJUSTADA v21.18 (idea 68)
       try { if (window.Notification && Notification.permission === 'granted') new Notification('Bot ED', { body: msg, icon: 'icono.svg', tag: 'ed-' + c.id }); } catch (er) {}
     }
   }
+  // NUEVO v21.18 (ideas 51, 52, 59): buscar, filtrar y ordenar (con 40 cuentas hace falta)
+  const datosDe = c => (S.tab[c.id.toUpperCase()] || {}).d || {};
+  const perfecta = d => d.comp === 100 && d.avg === 100;
+  const FILTROS = { '': () => true, corre: (c, e) => e === 'corre' || e === 'cola', faltan: (c, e, d) => !perfecta(d), listas: (c, e, d) => perfecta(d), mal: (c, e, d) => e === 'mal' || (d.salud != null && d.salud < 60) };
+  function filtrar(cs) {
+    const f = S.cfg.filtro || {}, b = String(f.q || '').toLowerCase().trim();
+    let r = cs.filter(c => { const d = datosDe(c);
+      if (b && !`${c.nombre} ${c.id} ${d.curso || ''}`.toLowerCase().includes(b)) return false;
+      return (FILTROS[f.k || ''] || FILTROS[''])(c, estadoDe(c).k, d); });
+    const avance = c => { const d = datosDe(c); return d.comp == null ? -1 : (d.comp || 0) + (d.avg || 0); };
+    const rango = c => ({ corre: 0, cola: 1, mal: 2, quieta: 3, fin: 4 }[estadoDe(c).k] ?? 5);
+    const orden = { nombre: (a, x) => a.nombre.localeCompare(x.nombre, 'es'), progreso: (a, x) => avance(a) - avance(x), estado: (a, x) => rango(a) - rango(x) }[f.orden || ''];
+    return orden ? r.slice().sort(orden) : r;
+  }
+  // NUEVO v21.18 (idea 48): historial de avance de cada cuenta, guardado en ESTE teléfono (solo números)
+  function anotarHistorial(cs) {
+    const H = S.cfg.hist = S.cfg.hist || {}; let cambio = false;
+    for (const c of cs) { const d = datosDe(c); if (d.comp == null && d.avg == null) continue;
+      const a = H[c.id] = H[c.id] || [], u = a[a.length - 1];
+      if (!u || u.c !== d.comp || u.a !== d.avg) { a.push({ t: Date.now(), c: d.comp, a: d.avg }); if (a.length > 60) a.splice(0, a.length - 60); cambio = true; } }
+    if (cambio) escribir(S.cfg);
+  }
+  function historial(id) {
+    const a = ((S.cfg.hist || {})[id] || []); if (a.length < 2) return '<p class="nota">Todavía no hay historial: se arma solo cada vez que abres el panel y la cuenta avanza.</p>';
+    const W = 300, Hh = 90, t0 = a[0].t, t1 = a[a.length - 1].t || t0 + 1, X = t => 6 + (W - 12) * (t - t0) / Math.max(1, t1 - t0), Y = v => Hh - 6 - (Hh - 12) * (v || 0) / 100;
+    const linea = k => a.filter(p => p[k] != null).map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p[k]).toFixed(1)}`).join(' ');
+    const f = t => new Date(t).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit' });
+    return `<svg class="historial" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Historial"><line x1="6" x2="${W - 6}" y1="${Y(100)}" y2="${Y(100)}" class="h-100"/><path d="${linea('c')}" class="h-comp"/><path d="${linea('a')}" class="h-prom"/></svg>
+      <div class="h-ley"><span><i class="h-comp"></i>Realización</span><span><i class="h-prom"></i>Promedio</span><span>${f(t0)} → ${f(t1)}</span></div>`;
+  }
   function pintar() {
     const cs = todasLasCuentas();
-    avisos(cs);
+    avisos(cs); anotarHistorial(cs);
     $('#lista-cuentas').classList.toggle('compacto', !!S.cfg.compacto);
     const corren = cs.filter(c => estadoDe(c).k === 'corre').length, cola = cs.filter(c => estadoDe(c).k === 'cola').length;
     const maquinas = new Set(Object.values(S.ocup).map(o => o.run + ':' + (o.grupo || []).join(','))).size;
@@ -151,9 +190,14 @@
     $('#resumen').innerHTML = `<div class="hero-panel"><div class="anillos-hero">${anillo(prom('comp'), 'Realización', null, '', 92)}${anillo(prom('avg'), 'Promedio', null, 'prom', 92)}</div>
       <div class="hero-cifras"><div><b>${cs.length}</b><span>cuentas</span></div><div><b class="v">${corren}</b><span>corriendo${cola ? ` · ${cola} esperan` : ''}</span></div><div><b>${maquinas}<small>/20</small></b><span>máquinas</span></div><div><b class="oro">${listas}</b><span>al 100 %</span></div></div></div>`;
     for (const d of conDatos) { const k = d.cuenta + ':' + d.run; S.festejadas = S.festejadas || new Set(JSON.parse(localStorage.getItem('edpanel:fiesta') || '[]'));
-      if (d.comp === 100 && d.avg === 100 && !S.festejadas.has(k)) { S.festejadas.add(k); try { localStorage.setItem('edpanel:fiesta', JSON.stringify([...S.festejadas].slice(-200))); } catch (e) {} if (S.yaPinto) { confeti(); aviso('🎉 ' + (d.nombre || d.cuenta) + ' llegó a 100 % y 100 %'); } } }
+      if (d.comp === 100 && d.avg === 100 && !S.festejadas.has(k)) { S.festejadas.add(k); try { localStorage.setItem('edpanel:fiesta', JSON.stringify([...S.festejadas].slice(-200))); } catch (e) {} if (S.yaPinto) { confeti(); vibrar('cien'); aviso('🎉 ' + (d.nombre || d.cuenta) + ' llegó a 100 % y 100 %'); } } }
     S.yaPinto = true;
-    $('#lista-cuentas').innerHTML = cs.length ? cs.map(c => {
+    // NUEVO v21.18 (idea 67): el número de cuentas corriendo en el ícono de la app (si el teléfono lo deja)
+    try { if (navigator.setAppBadge) { if (corren) navigator.setAppBadge(corren); else navigator.clearAppBadge(); } } catch (e) {}
+    const f = S.cfg.filtro || {};
+    $$('#chips button').forEach(b => { const n = cs.filter(c => (FILTROS[b.dataset.k] || FILTROS[''])(c, estadoDe(c).k, datosDe(c))).length; b.classList.toggle('activo', (f.k || '') === b.dataset.k); b.querySelector('em').textContent = n; });
+    const vis = filtrar(cs);
+    $('#lista-cuentas').innerHTML = !cs.length ? '<div class="vacio">No hay cuentas todavía.<br>Toca <b>＋ Cuenta</b> o pega tu lista en ⚙ Ajustes.</div>' : !vis.length ? '<div class="vacio">Ninguna cuenta con ese filtro.</div>' : vis.map(c => {
       const e = estadoDe(c), t = S.tab[c.id.toUpperCase()], d = (t && t.d) || {};
       const ini = d.ini || {};
       return `<article class="cuenta est-${e.k} ${S.sel.has(c.id) ? 'elegida' : ''} ${d.comp === 100 && d.avg === 100 ? 'perfecta' : ''}" data-id="${esc(c.id)}">
@@ -163,9 +207,9 @@
         ${d.comp != null || d.avg != null ? `<div class="anillos">${anillo(d.comp, 'Realización', ini.completion, '')}${anillo(d.avg, 'Promedio', ini.avg, 'prom')}<div class="datos-c">${d.salud != null ? `<div><span>Salud</span><b>${d.salud >= 85 ? '💚' : d.salud >= 60 ? '💛' : '❤️‍🩹'} ${d.salud}</b></div>` : ''}${d.tot ? `<div><span>En ED</span><b>🕓 ${esc(d.tot)}</b></div>` : ''}${d.min != null ? `<div><span>Esta corrida</span><b>⏱ ${Math.floor(d.min / 60)} h ${d.min % 60} m</b></div>` : ''}</div></div>` : ''}
         <div class="ahora">${e.k === 'corre' && d.ahora ? `🔄 <b>${esc(d.ahora)}</b>` : d.hora ? `Último dato ${hace(d.hora)}` : 'Todavía no corrió con esta versión'}${d.comp == null && d.salud != null ? ` · salud ${d.salud}` : ''}</div>
         <div class="botones">${e.k === 'corre' || e.k === 'cola' ? '<button class="btn rojo" data-a="parar">⏹ Parar</button><button class="btn" data-a="reiniciar">🔁 Otra vez</button>' : '<button class="btn verde" data-a="correr">▶ Correr</button>'}
-          <button class="btn" data-a="tablero">📊 Tablero</button>${e.o && e.o.url ? `<a class="btn" href="${esc(e.o.url)}" target="_blank" rel="noopener">⚡ Máquina</a>` : ''}</div>
+          <button class="btn" data-a="tablero">📊 Tablero</button><button class="btn" data-a="mas" aria-label="Más opciones">⋯</button>${e.o && e.o.url ? `<a class="btn" href="${esc(e.o.url)}" target="_blank" rel="noopener">⚡ Máquina</a>` : ''}</div>
       </article>`;
-    }).join('') : '<div class="vacio">No hay cuentas todavía.<br>Toca <b>＋ Cuenta</b> o pega tu lista en ⚙ Ajustes.</div>';
+    }).join('');
     $('#lista-corridas').innerHTML = S.runs.length ? S.runs.map(r => {
       const k = r.status !== 'completed' ? (r.status === 'in_progress' ? 'corre' : 'cola') : r.conclusion === 'success' ? 'fin' : r.conclusion === 'cancelled' ? 'quieta' : 'mal';
       const t = { corre: 'corriendo', cola: 'en espera', fin: 'terminó', quieta: 'cancelada', mal: r.conclusion || 'falló' }[k];
@@ -177,9 +221,10 @@
 
   // ---------------------------------------------------------------- acciones
   const ajustes = () => Object.assign({ modo: 'completar', minutos: '330', ritmo: '5', por_maquina: '3' }, S.cfg.ajustes || {});
-  async function correr(ids, txt) {
-    const a = ajustes();
+  async function correr(ids, txt, extra) {
+    const a = Object.assign(ajustes(), extra || {});   // AJUSTADA v21.18 (ideas 55–58): modo/minutos propios por botón o por cuenta
     const c = await pedirClave(`Correr ${txt}`); if (!c) return;
+    if (ids === 'todas' && !(await esperarDeshacer(`▶ Lanzando TODAS las cuentas en 5 s…`))) return;   // NUEVO v21.18 (idea 63)
     try {
       await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: ids, modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: String(a.por_maquina) } });
       aviso(`▶ ¡Listo! ${txt} arranca en unos segundos`); setTimeout(() => refrescar(true), 6000); setTimeout(() => refrescar(true), 20000);
@@ -202,6 +247,69 @@
     const h = hoja(`<h2>📊 ${esc(t ? t.d.nombre : id)}</h2>${t ? `<div class="tablero-html">${t.html || ''}</div><p><a class="btn" href="${esc(t.url)}" target="_blank" rel="noopener">Abrir en GitHub ↗</a></p>` : '<p class="nota">Esta cuenta todavía no tiene tablero (aparece cuando corre con la v21.16).</p>'}`);
     $('.cerrar-hoja').onclick = cerrarHoja; return h;
   }
+  // NUEVO v21.18 (ideas 55–58): opciones de UNA cuenta — arreglar lo que falta, solo tests, explorar, revisar, historial
+  function mas(id) {
+    const c = todasLasCuentas().find(x => x.id === id) || { id, nombre: id }, d = datosDe(c), pc = ((S.cfg.porCuenta || {})[id]) || {};
+    const h = hoja(`<h2>${esc(c.nombre)}</h2><p class="nota">${d.curso ? esc(d.curso) + ' · ' : ''}${d.comp != null ? `Realización ${d.comp} % · Promedio ${d.avg ?? '—'} %` : 'Sin datos todavía'}</p>
+      <div class="acciones-cuenta">
+        <button class="btn grande verde" data-m="completar" data-min="330">🧩 Arreglar lo que falta<small>prácticas pendientes y después los tests &lt; 100</small></button>
+        <button class="btn grande" data-m="barrer" data-min="330">🎯 Solo tests &lt; 100<small>no toca las prácticas</small></button>
+        <button class="btn grande" data-m="explorar" data-min="330">🧭 Explorar el nivel<small>recorre todas las unidades y las cataloga (sin tests)</small></button>
+        <button class="btn grande" data-m="auditoria" data-min="20">📋 Solo revisar<small>lee My Progress, actualiza el tablero y termina (~10 min)</small></button>
+      </div>
+      <h3>Historial</h3>${historial(id)}
+      <h3>Para esta cuenta</h3><form id="f-pc" class="dos"><label>Ritmo (s) <input name="ritmo" type="number" min="0" max="30" value="${esc(pc.ritmo || '')}" placeholder="${esc(ajustes().ritmo)}"></label><label>Minutos <input name="minutos" type="number" min="5" max="330" value="${esc(pc.minutos || '')}" placeholder="${esc(ajustes().minutos)}"></label><button class="btn" style="grid-column:1/-1">Guardar para ${esc(c.nombre)}</button></form>
+      ${c.origen === 'lista' ? '<button class="btn rojo" data-quitar="1" style="margin-top:14px">🗑 Quitar de la lista</button>' : ''}`);
+    $('.cerrar-hoja').onclick = cerrarHoja;
+    $('#f-pc', h).onsubmit = ev => { ev.preventDefault(); const f = ev.target; S.cfg.porCuenta = S.cfg.porCuenta || {}; S.cfg.porCuenta[id] = { ritmo: f.ritmo.value, minutos: f.minutos.value }; escribir(S.cfg); aviso('✓ Guardado para ' + c.nombre); };
+    h.onclick = ev => {
+      const b = ev.target.closest('[data-m]');
+      if (b) { cerrarHoja(); const x = Object.assign({ modo: b.dataset.m, minutos: b.dataset.min }, extraDe(id)); if (b.dataset.m === 'auditoria') x.minutos = '20';
+        correr(id, `${c.nombre}: ${b.firstChild.textContent.trim()}`, x); }
+      if (ev.target.closest('[data-quitar]')) { cerrarHoja(); quitar(id, c.nombre); }
+    };
+  }
+  const extraDe = id => { const pc = (S.cfg.porCuenta || {})[id] || {}, x = {}; if (pc.ritmo) x.ritmo = pc.ritmo; if (pc.minutos) x.minutos = pc.minutos; return x; };
+  async function quitar(id, nombre) {
+    const c = await pedirClave(`Quitar a ${nombre} de ED_CUENTAS`); if (!c) return;
+    if (!(await esperarDeshacer(`🗑 Quito a ${nombre} en 6 s…`, 6000))) return;
+    const lineas = S.lista.slice(); let k = 0;
+    const i = lineas.findIndex(l => { const t = l.trim(); if (!t || t.startsWith('#')) return false; k++; return String(k) === String(id); });
+    if (i < 0) return aviso('No encontré esa línea');
+    lineas[i] = 'borrada';   // la línea queda → las demás conservan su número
+    try { await subirLista(lineas); S.lista = lineas; await guardarCaja(c); aviso(`✓ ${nombre} quitada (las demás conservan su número)`); pintar(); } catch (e) { aviso('⚠ ' + e.message, 6000); }
+  }
+  // NUEVO v21.18 (idea 30): revisar la lista ANTES de subirla (sin mostrar contraseñas)
+  function revisarLista(lista) {
+    const prob = [], vistos = {}; let n = 0;
+    for (const l of lista) { const t = l.trim(); if (!t || t.startsWith('#')) continue; n++; const p = t.split(/[\s:,;]+/).filter(Boolean);
+      if (p[0] === 'borrada') continue;
+      if (p.length < 2) { prob.push(`Línea ${n}: le falta la contraseña (o el usuario)`); continue; }
+      const u = p[0].toLowerCase(); if (vistos[u]) prob.push(`Línea ${n} (${esc(p.slice(2).join(' ') || p[0])}): el mismo usuario que la línea ${vistos[u]}`); else vistos[u] = n; }
+    return prob;
+  }
+  function confirmar(titulo, items, boton) {
+    return new Promise(res => { const h = hoja(`<h2>${titulo}</h2><ul class="problemas">${items.map(i => `<li>${i}</li>`).join('')}</ul><div class="fila-botones"><button class="btn grande" data-r="0">Corregir</button><button class="btn grande rojo" data-r="1">${boton}</button></div>`);
+      $('.cerrar-hoja').onclick = () => { cerrarHoja(); res(false); }; h.onclick = ev => { const b = ev.target.closest('[data-r]'); if (b) { cerrarHoja(); res(b.dataset.r === '1'); } }; });
+  }
+  // NUEVO v21.18 (ideas 96–98): ayuda y primera vez
+  function ayuda(primera) {
+    const h = hoja(`<h2>${primera ? '👋 ¡Bienvenido al panel!' : '❓ Cómo se usa'}</h2>
+      <div class="ayuda-pasos">
+        <div><b>▶ Correr</b><span>Arranca esa cuenta YA, en su propia máquina (no espera cola). Si ya corría, la nueva la reemplaza para completar lo que falte.</span></div>
+        <div><b>⏹ Parar</b><span>La para en 1–3 minutos, guardando todo. Las otras cuentas de su máquina siguen.</span></div>
+        <div><b>⋯ Más</b><span>Arreglar lo que falta · solo tests &lt; 100 · explorar el nivel · solo revisar · historial · ritmo propio · quitarla.</span></div>
+        <div><b>＋ Cuenta</b><span>Agrega una persona y la corre al toque, sin cancelar lo que ya corre.</span></div>
+        <div><b>🔎 Filtros</b><span>Busca por nombre o curso; toca “Les falta” para ver solo las que no están en 100/100.</span></div>
+        <div><b>⇣ Tirar hacia abajo</b><span>Actualiza. Solo se actualiza cada 20 s mientras lo miras.</span></div>
+        <div><b>💚 Salud</b><span>Qué tan bien le va al bot en esa cuenta (100 = nada falló). ❤️‍🩹 = hay que mirar el tablero.</span></div>
+        <div><b>🔔 Avisos</b><span>En ⚙ Ajustes: el teléfono vibra distinto si una cuenta termina (2 toques), se traba (3 largos) o llega a 100/100 (fiesta).</span></div>
+        <div><b>📲 Como app</b><span>En el navegador: Compartir → “Agregar a inicio”. Así abre en pantalla completa y funciona aunque se corte el internet (muestra el panel; los datos llegan al volver).</span></div>
+        <div><b>💬 Sin el panel</b><span>En el issue del tablero puedes escribir <code>/correr 3</code>, <code>/parar 3</code>, <code>/explorar 3</code> o <code>/auditoria 3</code>.</span></div>
+      </div><button class="btn grande verde" id="b-ok-ayuda">Entendido</button>`);
+    const fin = () => { cerrarHoja(); if (primera) { S.cfg.visto = 1; escribir(S.cfg); } };
+    $('.cerrar-hoja').onclick = fin; $('#b-ok-ayuda', h).onclick = fin;
+  }
   function formAgregar() {
     const h = hoja(`<h2>＋ Agregar cuenta</h2><form id="f-ag" autocomplete="off">
       <label>Usuario de ED <input name="u" required autocapitalize="off" spellcheck="false"></label>
@@ -214,13 +322,16 @@
       ev.preventDefault(); const f = ev.target;
       const linea = [f.u.value.trim(), f.p.value.trim(), f.n.value.trim().replace(/\s+/g, ' ')].filter(Boolean).join(' ');
       if (/\s/.test(f.u.value.trim()) || /\s/.test(f.p.value.trim())) return aviso('El usuario y la contraseña no pueden tener espacios');
+      // NUEVO v21.18 (idea 30): ¿esa persona ya está en la lista? → no se duplica (se corre la que ya está)
+      const dup = cuentasDeLista(S.lista).find(x => x.user.toLowerCase() === f.u.value.trim().toLowerCase());
+      if (dup) { cerrarHoja(); aviso(`Ese usuario ya está (línea ${dup.n}, ${dup.nombre}) → toca ▶ en su tarjeta`, 6000); return; }
       const ya = f.ya.checked; cerrarHoja();
       const c = await pedirClave('Agregar la cuenta' + (ya ? ' y correrla' : '')); if (!c) return;
       try {
         const nueva = S.lista.concat([linea]); await subirLista(nueva); S.lista = nueva; await guardarCaja(c);
         const n = cuentasDeLista(S.lista).slice(-1)[0].n;
         aviso(`✓ Cuenta agregada (línea ${n})`);
-        if (ya) { const a = ajustes(); await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: n, modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: '1' } }); aviso(`▶ La cuenta ${n} arranca ya, en su propia máquina`); }
+        if (ya) { const a = ajustes(); vibrar(); await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: n, modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: '1' } }); aviso(`▶ La cuenta ${n} arranca ya, en su propia máquina`); }
         pintar(); setTimeout(() => refrescar(true), 8000);
       } catch (e) { aviso('⚠ ' + e.message, 6000); }
     };
@@ -234,6 +345,7 @@
     vista('v-app'); pintar(); refrescar();
     clearInterval(S.reloj); S.reloj = setInterval(() => { if (!document.hidden) refrescar(true); }, 20000);
     const acc = qs.get('accion'); if (acc === 'todas') setTimeout(() => $('#b-todas').click(), 400);
+    if (!S.cfg.visto) setTimeout(() => ayuda(true), 600);   // NUEVO v21.18 (idea 97)
   }
   function bloquear() { S.token = null; S.lista = []; clearInterval(S.reloj); vista('v-abrir'); $('#abrir-repo').textContent = S.cfg.repo || ''; }
 
@@ -267,9 +379,10 @@
       const art = ev.target.closest('.cuenta'); if (!art) return; const id = art.dataset.id;
       if (ev.target.classList.contains('marca')) { if (ev.target.checked) S.sel.add(id); else S.sel.delete(id); pintar(); return; }
       const a = ev.target.closest('[data-a]'); if (!a) return;
-      if (a.dataset.a === 'correr') correr(id, 'la cuenta ' + id);
+      if (a.dataset.a === 'correr') correr(id, 'la cuenta ' + id, extraDe(id));
+      if (a.dataset.a === 'mas') mas(id);
       if (a.dataset.a === 'parar') parar([id]);
-      if (a.dataset.a === 'reiniciar') correr(id, 'otra vez la cuenta ' + id + ' (la que corre se para sola y entra la nueva)');
+      if (a.dataset.a === 'reiniciar') correr(id, 'otra vez la cuenta ' + id + ' (la que corre se para sola y entra la nueva)', extraDe(id));
       if (a.dataset.a === 'tablero') tablero(id);
     };
     $('#lista-corridas').onclick = async ev => { const b = ev.target.closest('[data-run]'); if (!b) return; const c = await pedirClave('Cancelar esa corrida entera'); if (!c) return;
@@ -279,6 +392,7 @@
     $('#b-sel-x').onclick = () => { S.sel.clear(); pintar(); };
     $('#f-ajustes').onsubmit = ev => { ev.preventDefault(); const f = ev.target; S.cfg.ajustes = { modo: f.modo.value, minutos: f.minutos.value, ritmo: f.ritmo.value, por_maquina: f.por_maquina.value }; escribir(S.cfg); aviso('✓ Guardado'); };
     $('#f-lista').onsubmit = async ev => { ev.preventDefault(); const nueva = ev.target.lista.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const prob = revisarLista(nueva); if (prob.length && !(await confirmar('⚠ Revisa la lista', prob, 'Subir igual'))) return;   // NUEVO v21.18 (idea 30)
       const c = await pedirClave('Subir la lista a GitHub (ED_CUENTAS)'); if (!c) return;
       try { await subirLista(nueva); S.lista = nueva; await guardarCaja(c); aviso(`✓ ED_CUENTAS actualizado (${cuentasDeLista(nueva).length} cuentas)`); pintar(); } catch (e) { aviso('⚠ ' + e.message, 6000); } };
     $('#b-cambiar-clave').onclick = async () => { const c = await pedirClave('Primero tu clave actual'); if (!c) return;
@@ -287,6 +401,22 @@
       $('#f-cc', h).onsubmit = async ev => { ev.preventDefault(); const f = ev.target; if (f.a.value !== f.b.value) return aviso('No son iguales'); await guardarCaja(f.a.value); cerrarHoja(); aviso('✓ Clave cambiada'); }; };
     $('#b-olvidar').onclick = async () => { if (!confirm('¿Borrar el token y la lista de este teléfono? (en GitHub no se borra nada)')) return; localStorage.removeItem(K); location.reload(); };
     $('#hoja').onclick = ev => { if (ev.target.id === 'hoja') cerrarHoja(); };
+    // NUEVO v21.18: buscar / filtros / orden / ayuda
+    const fl = () => (S.cfg.filtro = S.cfg.filtro || {});
+    $('#buscar').value = (S.cfg.filtro || {}).q || ''; $('#orden').value = (S.cfg.filtro || {}).orden || '';
+    $('#buscar').oninput = ev => { fl().q = ev.target.value; escribir(S.cfg); pintar(); };
+    $('#orden').onchange = ev => { fl().orden = ev.target.value; escribir(S.cfg); pintar(); };
+    $('#chips').onclick = ev => { const b = ev.target.closest('button'); if (!b) return; fl().k = b.dataset.k; escribir(S.cfg); vibrar(); pintar(); };
+    $('#b-ayuda').onclick = () => ayuda(false);
+    // NUEVO v21.18 (idea 70): tirar hacia abajo para actualizar
+    const ind = $('#tirar'); let y0 = null;
+    document.addEventListener('touchstart', e => { y0 = S.token && window.scrollY <= 0 && $('#hoja').hidden && !$('#v-app').hidden ? e.touches[0].clientY : null; }, { passive: true });
+    document.addEventListener('touchmove', e => { if (y0 == null) return; const dy = e.touches[0].clientY - y0; if (dy <= 0) return; ind.hidden = false; ind.style.transform = `translate(-50%, ${Math.min(dy / 2, 80)}px) rotate(${dy * 2}deg)`; ind.classList.toggle('listo', dy > 140); }, { passive: true });
+    document.addEventListener('touchend', () => { if (y0 == null) return; const listo = ind.classList.contains('listo'); ind.hidden = true; ind.style.transform = ''; ind.classList.remove('listo'); y0 = null; if (listo) { vibrar(); refrescar(); } });
+    // NUEVO v21.18 (idea 66): funciona sin internet (el panel abre igual; los datos llegan al volver)
+    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+    window.addEventListener('offline', () => aviso('📴 Sin internet: te muestro lo último que vi', 5000));
+    window.addEventListener('online', () => { aviso('📶 Volvió el internet'); refrescar(true); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) S.oculto = Date.now(); else if (S.token && S.oculto && Date.now() - S.oculto > 15 * 60000) bloquear(); });
   });
 })();

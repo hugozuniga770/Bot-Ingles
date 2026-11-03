@@ -776,6 +776,23 @@
       "unitsDone": []
     }
   },
+  "auditoriaFin": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"auditoria_fin\"}",
+    "trace": "click myProgress__unitHeaderIW:Unit 1Couples10 | click myProgress__unitHeaderIW:Unit 2Sport And",
+    "ls": null,
+    "v": {
+      "active": false,
+      "fin": true
+    }
+  },
+  "mantenimiento": {
+    "kind": "mcq_default",
+    "r": "{\"did\":\"ed_en_mantenimiento\"}",
+    "trace": "",
+    "ls": null,
+    "v": []
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 2 reintentos. Revísalo y vuelve a __ed.auto().\"",

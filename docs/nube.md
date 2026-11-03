@@ -32,6 +32,11 @@ GitHub → **Actions → nube → Run workflow**:
   Lo que no logra queda en el reporte y sigue con lo siguiente.
 - `barrer`: solo busca y rehace tests < 100, lección por lección y unidad por unidad.
 - `auto`: entra a la lección donde ibas (botón del Home) y sigue.
+- `explorar` (v21.16): recorre TODAS las unidades y cataloga el nivel (sin tests).
+- `auditoria` (NUEVO v21.18): solo lee My Progress, actualiza el tablero y termina (~10 min). Para ver cómo está una cuenta.
+- **cadena** (NUEVO v21.18): no lo toques. Si a una cuenta se le acaban las 6 h de GitHub sin terminar, la nube la
+  relanza sola (hasta 3 vueltas) y este número cuenta las vueltas. Las que terminan, se paran, tienen la contraseña
+  mala o un captcha NO se relanzan.
 - **ritmo** (NUEVO v21.14): segundos, en promedio, entre un paso y otro (pausa al azar de la mitad a 1,5 veces).
   `5` (por defecto) es ritmo de persona: un curso grande lleva ~4 h. Más alto = más lento; `0` = lo más rápido.
   El tablero muestra cuánto tiempo lleva en la plataforma.
@@ -85,6 +90,8 @@ Ver `panel/LEEME.md`: Settings → Pages → Source: GitHub Actions (una vez) �
 Correr todas / una / varias, agregar cuenta y correrla ya, parar, otra vez, tablero y corridas; pide tu clave en
 cada acción. Modo **explorar**: recorre TODAS las unidades y arma el catálogo del nivel (sin tests).
 Prueba diaria opcional: `canario.yml` (quita los `#` del `schedule`).
+**Sin el panel** (NUEVO v21.18): en el issue "📊 Tablero del bot" escribe un comentario `/correr 3`, `/correr 1,2`,
+`/parar 3`, `/explorar 3` o `/auditoria 3` (solo funciona si lo escribes tú, el dueño del repo). Te responde ahí mismo.
 
 ## 5. Que se relance solo
 En `nube.yml`, quita los `#` de `schedule` / `cron` (cada 6 h). Ojo: corre aunque no lo mires.

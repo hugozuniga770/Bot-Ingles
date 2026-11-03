@@ -11,3 +11,14 @@ jobs:
       - run: node build.js --check
       - run: npm install --no-audit --no-fund
       - run: npm test
+  # NUEVO v21.18 (idea 100): el PANEL DEL TELÉFONO se prueba solo en cada push (iPhone emulado contra una GitHub falsa)
+  panel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund --no-save playwright@1.47.2 && npx playwright install --with-deps chromium
+      - run: python3 -m pip install --break-system-packages pynacl
+      - run: node tools/panel-prueba/probar.js
+      - run: ESQUEMA=dark node tools/panel-prueba/probar.js

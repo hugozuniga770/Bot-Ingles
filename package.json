@@ -1,6 +1,6 @@
 {
   "name": "bot-ingles",
-  "version": "21.17.0",
+  "version": "21.18.0",
   "private": true,
   "description": "ED-Autopilot: bot de consola para English Discoveries (UPB Santa Cruz)",
   "scripts": {

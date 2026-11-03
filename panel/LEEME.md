@@ -1,4 +1,4 @@
-# 📱 Panel del bot (desde el teléfono) — v21.16
+# 📱 Panel del bot (desde el teléfono) — v21.18
 
 Correr, parar, agregar cuentas y ver cómo va cada una, desde el celular. Es una página quieta: no hay servidor
 propio; habla directo con GitHub usando **tu** token, que queda **cifrado con tu clave** en tu teléfono.
@@ -25,6 +25,10 @@ propio; habla directo con GitHub usando **tu** token, que queda **cifrado con tu
 - **🔁 Otra vez**: lanza la cuenta de nuevo; la corrida nueva le pide a la vieja que la deje y entra (nunca dos
   sesiones de la misma cuenta a la vez).
 - **📊 Tablero**: unidad por unidad, paso por paso (lo mismo que el issue del tablero).
+- **⋯** (NUEVO v21.18): arreglar lo que falta · solo tests < 100 · explorar el nivel · solo revisar (~10 min) ·
+  historial de esa cuenta · ritmo y minutos propios · quitarla de la lista (con ↩ Deshacer).
+- **🔎 Buscar / filtros / orden** (NUEVO v21.18): toca "Les falta" para ver solo las que no están en 100/100.
+- **Tirar hacia abajo** actualiza · **?** abre la ayuda · sin internet el panel abre igual (los datos llegan al volver).
 - **⚡ Corridas**: todas las corridas, con ⏹ para cancelar una entera.
 - Todo lo que cambia algo **pide tu clave** otra vez. Se bloquea solo si lo dejas 15 min en segundo plano.
 

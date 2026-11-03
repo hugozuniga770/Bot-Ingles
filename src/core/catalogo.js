@@ -75,6 +75,10 @@ class Catalogo {
       this.guardar(t);
     } catch (e) {}
   }
+  // NUEVO v21.18: qué tipo de ejercicio vio el catálogo en este lugar (otra corrida u otra cuenta del nivel)
+  static kindSabido(tn) {
+    try { const lu = (this.todo()[this.curso()] || { lugares: {} }).lugares[this.lugar(tn)]; return lu && lu.kind && !/^(mcq_default|test_start)$/.test(lu.kind) ? lu.kind : null; } catch (e) { return null; }
+  }
   // ¿en este lugar lo que marcó la tarea fue una acción del Explorador? → se prueba primero
   static atajo(tn) {
     try { const lu = (this.todo()[this.curso()] || { lugares: {} }).lugares[this.lugar(tn)]; return lu && lu.estado === 'ok' && lu.como && lu.como.tipo === 'explorador' && lu.como.aprendido ? lu.como.aprendido : null; } catch (e) { return null; }

@@ -108,10 +108,10 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         localStorage.setItem('ed:running:v1', '1');
         localStorage.setItem('ed:ritmo:v1', ritmo);   // NUEVO v21.14
         // Una vez por ejecución (no en cada página): arrancar el modo pedido desde el Home
-        if ((modo === 'barrer' || modo === 'completar' || modo === 'explorar') && !sessionStorage.getItem('ed:nube:arrancado')) {   // AJUSTADA v21.16: + explorar
+        if ((modo === 'barrer' || modo === 'completar' || modo === 'explorar' || modo === 'auditoria') && !sessionStorage.getItem('ed:nube:arrancado')) {   // AJUSTADA v21.16: + explorar (v21.18: + auditoria)
           sessionStorage.setItem('ed:nube:arrancado', '1');
           // AJUSTADA v21.11: + inicio (identifica la corrida: los fallos y reintentos se cuentan por corrida)
-          localStorage.setItem('ed:sweep:v1', JSON.stringify({ active: true, mode: modo === 'barrer' ? 'tests' : 'completar', explorar: modo === 'explorar', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], inicio: new Date().toISOString() }));
+          localStorage.setItem('ed:sweep:v1', JSON.stringify({ active: true, mode: modo === 'barrer' ? 'tests' : 'completar', explorar: modo === 'explorar', auditoria: modo === 'auditoria', phase: 'home', lessonsDone: [], unitsDone: [], resultados: [], inicio: new Date().toISOString() }));
         }
       }
     } catch (e) {}
@@ -156,7 +156,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   const PUB = new Publicador({ token: process.env.GH_TOKEN, repo: process.env.GITHUB_REPOSITORY, issue: process.env.TABLERO_ISSUE, cuenta: CUENTA });
   let loginEstado = 'esperando', loginMsg = '', curso = null, banco = null, ultimoTab = {};
   // NUEVO v21.16 — vigías (ideas 7, 8, 9, 14, 17): señal de vida del bot, pantallas en blanco, fallos por hora, mini-película
-  let ultimoLogBot = Date.now(), blancas = 0, wInicio = null, frenoMotivo = null, ritmoRapido = false;
+  let ultimoLogBot = Date.now(), blancas = 0, wInicio = null, frenoMotivo = null, ritmoRapido = false, claveMala = false, termino = false;
   const fallosHora = [];   // [hora, n.º de reportes]
   const anillo = [];       // las últimas 3 capturas (cada 10 s) → con cada reporte, lo que pasó en los 30 s anteriores
   const irHome = async () => { try { const h = await page.evaluate(() => { try { return (JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null') || {}).homeUrl || null; } catch (e) { return null; } }).catch(() => null);
@@ -198,6 +198,8 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
     if (!dentro) {
       const msg = await page.locator('.siteLogin__messageText:visible, .confirmPopup__main:visible').allInnerTexts().catch(() => []);
       loginMsg = msg.join(' | ').replace(/\s+/g, ' ').trim().slice(0, 120);
+      // NUEVO v21.18 (idea 29): contraseña o usuario equivocados → mensaje claro y NO se insiste (ED podría bloquear la cuenta)
+      if (/incorrect|invalid|inv[aá]lid|incorrect[oa]|wrong|equivocad|no coincide/i.test(loginMsg)) { loginMsg = '🔑 usuario o contraseña equivocados (revisa esta línea de ED_CUENTAS) · ' + loginMsg; claveMala = true; }
       log('❌ No pude iniciar sesión.', loginMsg || '(sin mensaje)'); await foto('login-fallido'); return false;
     }
     log('✅ Sesión iniciada →', page.url().replace(/\?.*/, ''));
@@ -235,7 +237,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         if (tt && (+tt.h || 0) >= (+process.env.HORAS_MINIMAS || 4)) { ritmoRapido = true; await page.evaluate(() => localStorage.setItem('ed:ritmo:v1', '1')); log(`⚡ Ya hay ${tt.h} h ${tt.m} min en ED (mínimo 4 h) → ritmo rápido`); } } catch (e) {} }   // NUEVO v21.13: tablero en vivo cada ~3 min (AJUSTADA v21.16: TABLERO_CADA)
       // ¿el bot terminó (modo completar/barrer desactivado)? → cerrar antes
       const fin = await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('ed:sweep:v1') || 'null'); return !!(s && s.fin && !s.active); } catch (e) { return false; } }).catch(() => false);
-      if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); break; }
+      if (fin && MODO !== 'auto') { log('🏁 El bot terminó todo lo que pudo'); termino = true; break; }
       if (page.isClosed()) { page = await ctx.newPage(); enganchar(page); await login(); continue; }
       // AJUSTADA v21.6: ED también puede mostrar "Tu sesión no está más activa en tu dispositivo" (pasa si la cuenta
       // se abre en otro lugar o vence la sesión). Antes el robot solo reaccionaba a la página de login.
@@ -246,6 +248,7 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         sesionesCaidas++;
         if (sesionesCaidas > 6) { log('❌ ED cerró la sesión demasiadas veces → termino para no insistir'); break; }
         await login();
+        if (claveMala) { log('❌ Usuario o contraseña equivocados → no insisto'); break; }   // NUEVO v21.18 (idea 29)
       }
       if (n % 60 === 0) await foto('ultima');   // cada ~10 min
       if (n % 18 === 0) await guardar();   // AJUSTADA v21.16 (idea 7): la memoria se guarda cada ~3 min (antes 10)
@@ -255,6 +258,8 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
         const est = await page.evaluate(() => ({ t: ((document.body && document.body.innerText) || '').trim().length, r: +(localStorage.getItem('ed:report:num:v1') || 0) })).catch(() => null);
         // idea 8 y 6: pantalla en blanco / página de error de Chrome (se cortó internet) ~1,5 min → recargar el Home
         if (!est || est.t < 30 || /^(chrome-error|about:blank)/.test(page.url())) { if (++blancas >= 3) { blancas = 0; log('🩹 Pantalla en blanco o sin internet hace ~1,5 min → vuelvo a cargar el Home'); await foto('pantalla-en-blanco'); await irHome(); } } else blancas = 0;
+        // NUEVO v21.18 (idea 34): ED pide CAPTCHA → esta cuenta se frena (un robot no debe resolverlo)
+        if (await page.locator('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], .g-recaptcha, .h-captcha').count().catch(() => 0)) { frenoMotivo = 'ED pidió un captcha'; log('🛑 ED pide un CAPTCHA → freno esta cuenta (entra tú una vez a mano)'); await foto('captcha'); break; }
         // idea 14: el bot no da señales hace 6 min → recargar el Home (él retoma solo donde iba)
         if (Date.now() - ultimoLogBot > 6 * 60000) { ultimoLogBot = Date.now(); log('🩹 Vigía: el bot no da señales hace 6 min → vuelvo a cargar el Home'); await foto('bot-sin-senales'); await irHome(); }
         // idea 9: demasiados fallos en una hora (algo cambió en ED o se rompió) → freno esta cuenta para no hacer daño
@@ -267,6 +272,8 @@ if (!USER || !PASS) { console.error(`No hay usuario/contraseña para la cuenta $
   await guardar(); await foto('final');
   await resumen();
   await guardar();   // AJUSTADA v21.16: el historial de la cuenta (idea 28) se escribe en resumen() → guardarlo
+  // NUEVO v21.18 (idea 28): ¿terminó o se le acabó el tiempo? (cloud/lote.js relanza sola la cuenta que quedó a medias)
+  try { fs.writeFileSync(path.join(OUT, 'fin.json'), JSON.stringify({ termino, parado: pararYa, freno: frenoMotivo, claveMala, minutos: Math.round((Date.now() - t0) / 60000) })); } catch (e) {}
   await browser.close();
 
   // Resumen en la página de la ejecución (GitHub → Actions → la ejecución): porcentajes + reporte completo
