@@ -85,6 +85,19 @@ Agrega líneas a `ED_CUENTAS` y lanza con `todas` (o los números que quieras). 
 - Zips: uno por cuenta (`cuenta-N`), como siempre. Nuevo en cada zip: `fotos/` (cada reporte + los 30 s anteriores),
   `diagnostico.json`, `resumen-para-ia.txt`, `catalogo.json`, `aprendido.json`.
 
+## 3d. Baúl: lo aprendido vive en tu proyecto (NUEVO v21.19)
+El banco de cada curso (respuestas de tests, catálogo de ejercicios, lo que aprendió el Explorador — nada de cada persona)
+se guarda al final de cada corrida en la rama **`datos`** del repo, en `baul.bin`, **cifrado** con el secret
+`ED_BAUL_LLAVE`. Ese secret lo crea solo el panel del teléfono la primera vez que lo abres (32 bytes al azar). Sin él,
+el banco vive solo en la caché (GitHub la borra si pasan 7 días sin correr). **No borres `ED_BAUL_LLAVE` ni la rama
+`datos`.** La rama tiene siempre un único commit (el repo no crece).
+
+## 3e. Archivo de cuentas (NUEVO v21.19)
+En `ED_CUENTAS`, una línea que empieza con `archivada` (p. ej. `archivada usuario contraseña Nombre`) conserva su número
+y su contraseña, pero **`todas` no la corre** (pedida por su número, sí). `borrada` = solo guarda el lugar. No borres
+líneas a mano: las de abajo cambiarían de número. Si igual cambias el secret en GitHub, pega la misma lista en el panel.
+Cada corrida quita del tablero los cuadros de cuentas archivadas, borradas o cuya línea ahora es otra persona.
+
 ## 4b. Panel del teléfono (NUEVO v21.16)
 Ver `panel/LEEME.md`: Settings → Pages → Source: GitHub Actions (una vez) → https://hugozuniga770.github.io/Bot-Ingles/.
 Correr todas / una / varias, agregar cuenta y correrla ya, parar, otra vez, tablero y corridas; pide tu clave en

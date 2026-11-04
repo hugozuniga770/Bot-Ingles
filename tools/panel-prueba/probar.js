@@ -12,6 +12,7 @@ const kp = JSON.parse(execFileSync('python3', ['-c', 'from nacl.public import Pr
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64');
 const ahora = new Date().toISOString(), hace = m => new Date(Date.now() - m * 60000).toISOString();
 const pedidos = [];
+let ecHora = hace(30), baulPuesto = null;   // NUEVO v21.19: hora del secret ED_CUENTAS y llave del baúl en la GitHub falsa
 const comentarios = [
   { id: 1, html_url: 'https://github.com/x/y/issues/7#c1', body: '<!-- tablero-cuenta-1 -->\n## 👤 Nore (cuenta 1) — UPB High Intermediate 2\n<!-- estado:corriendo run:55 cuenta:1 -->\n<!-- datos:' + b64({ cuenta: '1', nombre: 'Nore', curso: 'UPB High Intermediate 2', comp: 93, avg: 98, ini: { completion: 81, avg: 93 }, estado: 'corriendo', run: '55', login: 'ok', ahora: 'U10 · L4 · Step 7: Personalized writing 1/2', min: 74, salud: 88, hora: hace(2), tot: '11 h 34 min' }) + ' -->', body_html: '<h2>👤 Nore (cuenta 1)</h2><table><tr><th>1 · Login</th><th>U1</th></tr><tr><td>✅</td><td>✅ 5/5</td></tr></table>' },
   { id: 2, html_url: 'https://github.com/x/y/issues/7#c2', body: '<!-- datos:' + b64({ cuenta: '2', nombre: 'Roy', curso: 'UPB Beginners 1', comp: 98, avg: 100, ini: { completion: 90, avg: 100 }, estado: 'fin', run: '54', login: 'ok', min: 330, salud: 95, hora: hace(95) }) + ' -->', body_html: '<p>Roy</p>' }];
@@ -33,9 +34,13 @@ const srv = http.createServer((req, res) => {
     if (p === '/issues/7/comments' && req.method === 'POST') return R({ id: 3 });
     if (p === '/actions/workflows/nube.yml/runs') return R({ workflow_runs: [{ id: 55, name: 'nube', display_title: 'nube · todas · completar', status: 'in_progress', created_at: hace(80), run_started_at: hace(80), html_url: 'https://github.com/x/y/actions/runs/55' }, { id: 54, name: 'nube', display_title: 'nube · 2 · completar', status: 'completed', conclusion: 'success', created_at: hace(500), run_started_at: hace(500), updated_at: hace(95), html_url: 'https://github.com/x/y/actions/runs/54' }] });
     if (p === '/actions/runs/55/jobs') return R({ jobs: [{ name: 'preparar', status: 'completed' }, { name: 'correr 1,3', status: 'in_progress', started_at: hace(78), html_url: 'https://github.com/x/y/actions/runs/55/job/9' }] });
-    if (p === '/actions/secrets') return R({ secrets: [{ name: 'ED_CUENTAS' }] });
+    if (p === '/actions/secrets') return R({ secrets: [{ name: 'ED_CUENTAS', updated_at: ecHora }].concat(baulPuesto ? [{ name: 'ED_BAUL_LLAVE', updated_at: ahora }] : []) });
+    if (p === '/actions/secrets/ED_CUENTAS' && req.method === 'GET') return R({ name: 'ED_CUENTAS', updated_at: ecHora });
+    if (p === '/actions/secrets/ED_BAUL_LLAVE' && req.method === 'GET') { if (!baulPuesto) { res.statusCode = 404; return R({ message: 'Not Found' }); } return R({ name: 'ED_BAUL_LLAVE' }); }
+    if (p === '/actions/secrets/ED_BAUL_LLAVE' && req.method === 'PUT') { baulPuesto = JSON.parse(body).encrypted_value; res.statusCode = 201; return R({}); }
+    if (/^\/issues\/comments\/\d+$/.test(p) && req.method === 'DELETE') { const id = +p.split('/').pop(); const i = comentarios.findIndex(c => c.id === id); if (i >= 0) comentarios.splice(i, 1); res.statusCode = 204; return res.end(); }
     if (p === '/actions/secrets/public-key') return R({ key_id: 'k1', key: kp.pk });
-    if (p === '/actions/secrets/ED_CUENTAS' && req.method === 'PUT') { res.statusCode = 201; return R({}); }
+    if (p === '/actions/secrets/ED_CUENTAS' && req.method === 'PUT') { ecHora = new Date().toISOString(); res.statusCode = 201; return R({}); }
     if (p === '/actions/workflows/nube.yml/dispatches') { res.statusCode = 204; return res.end(); }
     if (/\/actions\/runs\/\d+\/cancel/.test(p)) { res.statusCode = 202; return R({}); }
     res.statusCode = 404; R({ message: 'no existe en la API falsa: ' + p });
@@ -44,7 +49,9 @@ const srv = http.createServer((req, res) => {
 const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) process.exitCode = 1; };
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext(Object.assign({}, devices['iPhone 13'], { locale: 'es-BO', colorScheme: process.env.ESQUEMA || 'light' }));
-  const pg = await ctx.newPage(); const errores = []; pg.on('pageerror', e => errores.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
+  const pg = await ctx.newPage(); const errores = []; pg.on('pageerror', e => errores.push(e.message)); pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errores.push(m.text()); });
+  // AJUSTADA v21.19: un 404 solo es error si NO es la pregunta "¿ya existe la llave del baúl?" (la primera vez, no existe)
+  pg.on('response', r => { if (r.status() >= 400 && !/ED_BAUL_LLAVE/.test(r.url())) errores.push(r.status() + ' ' + r.url()); });
   const foto = async n => { if (FOTOS) { fs.mkdirSync(FOTOS, { recursive: true }); await pg.screenshot({ path: path.join(FOTOS, n + '.png'), fullPage: false }); } };
   const clave = async () => { await pg.waitForSelector('#f-clave'); await pg.fill('#f-clave input', 'mi-clave-123'); await pg.click('#f-clave button'); await pg.waitForTimeout(1500); };
   await pg.goto(`http://localhost:${PUERTO}/panel/index.html?api=http://localhost:${PUERTO}`);
@@ -94,6 +101,40 @@ const ok = (c, t) => { console.log((c ? '  ✓ ' : '  ✗ ') + t); if (!c) proce
   await pg.click('.tabs button[data-t=t-corridas]'); await pg.waitForTimeout(300); await foto('5-corridas');
   ok(pedidos.every(x => x.auth === 'Bearer github_pat_PRUEBA'), 'todo con el token, solo a la API');
   ok(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));
+  // ---------- NUEVO v21.19 ----------
+  const abrir = v => execFileSync('python3', ['-c', `from nacl.public import PrivateKey,SealedBox;import base64;print(SealedBox(PrivateKey(base64.b64decode("${kp.sk}"))).decrypt(base64.b64decode("${v}")).decode())`]).toString().trim();
+  const ultimaLista = () => abrir(pedidos.filter(x => x.m === 'PUT' && /ED_CUENTAS/.test(x.p)).pop().body.encrypted_value);
+  ok(baulPuesto && Buffer.from(abrir(baulPuesto), 'base64').length === 32, 'la llave del baúl se creó sola (32 bytes al azar, cifrada para GitHub)');
+  const fs16 = await pg.$$eval('input, select, textarea', es => es.filter(e => e.offsetParent !== null || e.closest('#v-app')).map(e => parseFloat(getComputedStyle(e).fontSize)));
+  ok(fs16.length && fs16.every(x => x >= 16), 'todos los campos con letra de 16 px o más (el iPhone no hace zoom al escribir)');
+  await pg.click('.tabs button[data-t=t-cuentas]'); await pg.waitForTimeout(200);
+  // archivar a Roy
+  await pg.click('.cuenta[data-id="2"] [data-a=mas]'); await pg.waitForTimeout(300); await foto('7-opciones-archivar');
+  await pg.click('[data-archivar]'); await clave(); await pg.waitForTimeout(5800);
+  ok(ultimaLista() === 'nore1 claveA Nore\narchivada roy2 claveB Roy\nana3 claveC Ana', 'Archivar a Roy: su línea queda "archivada" con su contraseña y su número');
+  ok(pedidos.some(x => x.m === 'DELETE' && x.p.endsWith('/issues/comments/2')), 'el cuadro de Roy sale del tablero');
+  await pg.waitForTimeout(3500);
+  ok(!(await pg.$('#lista-cuentas .cuenta[data-id="2"]')), 'Roy ya no está en la pantalla principal');
+  ok(/Correr todas\s*2/.test(await pg.innerText('#b-todas')), '"Correr todas" cuenta 2 (no la archivada)');
+  await pg.click('.tabs button[data-t=t-archivo]'); await pg.waitForTimeout(300); await foto('8-archivo');
+  ok(/Roy/.test(await pg.innerText('#lista-archivo')) && /98 %/.test(await pg.innerText('#lista-archivo')) && (await pg.innerText('#archivo-n')) === '1', 'Roy está en el 📦 Archivo con sus últimos porcentajes');
+  await pg.click('#lista-archivo .cuenta[data-id="2"] [data-r=correr]'); await clave(); await pg.waitForTimeout(800);
+  ok(ultimaLista() === 'nore1 claveA Nore\nroy2 claveB Roy\nana3 claveC Ana', '♻ Volver: la línea de Roy vuelve igual');
+  const d4 = pedidos.filter(x => /dispatches/.test(x.p)).pop();
+  ok(d4 && d4.body.inputs.cuentas === '2' && d4.body.inputs.por_maquina === '1', '▶ Volver y correr: Roy arranca en su máquina');
+  // la lista cambió a mano en GitHub
+  ecHora = new Date(Date.now() + 60000).toISOString(); await pg.click('#b-refrescar'); await pg.waitForTimeout(1500);
+  await pg.click('.tabs button[data-t=t-cuentas]'); await pg.waitForTimeout(200);
+  ok(await pg.isVisible('#deriva'), 'si ED_CUENTAS cambió a mano en GitHub, el panel avisa'); await foto('9-cambio-a-mano');
+  await pg.click('#b-agregar'); await pg.fill('#f-ag [name=u]', 'roy2'); await pg.fill('#f-ag [name=p]', 'claveNueva'); await pg.click('#f-ag button'); await pg.waitForTimeout(300);
+  ok(/Esa persona ya está: línea 2/.test(await pg.innerText('#hoja-contenido')), 'agregar a alguien que ya está → ofrece actualizar SU línea');
+  await pg.click('[data-r="1"]'); await pg.waitForTimeout(300);
+  ok(/cambió sin el panel/.test(await pg.innerText('#hoja-contenido')), 'antes de subir, avisa que se pisaría el cambio hecho a mano');
+  await pg.click('[data-r="1"]'); await clave(); await pg.waitForTimeout(800);
+  ok(ultimaLista() === 'nore1 claveA Nore\nroy2 claveNueva Roy\nana3 claveC Ana', 'la contraseña nueva queda en la MISMA línea (no se duplica)');
+  ok(!(await pg.isVisible('#deriva')), 'después de subir, el aviso se va');
+  await pg.goto(`http://localhost:${PUERTO}/panel/index.html?api=http://localhost:${PUERTO}`); await pg.waitForTimeout(600); await foto('0-entrar');
+  ok(!errores.length, 'sin errores en la página (v21.19)' + (errores.length ? ': ' + errores.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(process.exitCode ? '✗ panel con fallas' : '✓ panel del teléfono: OK');
 })();

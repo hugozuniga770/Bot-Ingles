@@ -104,3 +104,49 @@ console.log('✓ banco de respuestas y tablero: OK');
   console.log('✓ diagnóstico (agrupar, nuevo/conocido, salud, tiempos, pantallas nuevas, texto para la IA): OK');
 }
 
+
+// ---------- CUENTAS: borradas y archivadas (NUEVO v21.19) ----------
+// Hugo (04/11): "cuando corría nuevos usuarios salían fallidos, no encontrados". Con líneas "borrada", v21.18 elegía por
+// CUÁNTAS cuentas había: "todas" corría las borradas y la cuenta nueva del final "no existía".
+{
+  const C = require('../cloud/cuentas');
+  const cs = C.leerCuentas('ana1 c1 Ana\nborrada\nbeto2 c2 Beto\narchivada carla3 c3 Carla\nborrada\ndani4 c4 Dani Nueva');
+  assert.deepStrictEqual(cs.map(c => c.n), [1, 3, 4, 6]);
+  assert.strictEqual(cs.find(c => c.n === 4).archivada, true); assert.strictEqual(cs.find(c => c.n === 4).user, 'carla3');
+  assert.deepStrictEqual(C.elegir(cs, 'todas'), [1, 3, 6], 'todas = las activas (sin borradas ni archivadas)');
+  assert.deepStrictEqual(C.elegir(cs, '6'), [6], 'la cuenta nueva del final SÍ existe');
+  assert.deepStrictEqual(C.elegir(cs, '4'), [4], 'una archivada, pedida por su número, corre');
+  assert.deepStrictEqual(C.faltantes(cs, '2,6,9'), ['2', '9']);
+  assert.deepStrictEqual(C.elegir(3, 'todas'), [1, 2, 3], 'compatibilidad: un total');
+  console.log('✓ cuentas: borradas no corren, archivadas no entran en "todas", la nueva del final existe: OK');
+}
+// ---------- BAÚL cifrado (NUEVO v21.19) ----------
+{
+  const Bl = require('../cloud/baul'), crypto = require('crypto');
+  const k = crypto.createHash('sha256').update('llave-de-prueba').digest(), obj = { cursos: { x: { curso: 'X', testAns: { a: { 1: { mcq: [{ q: 'q', a: ['r'] }] } } } } } };
+  const buf = Bl.cifrar(obj, k);
+  assert.ok(!buf.toString('latin1').includes('mcq'), 'no se lee sin la llave');
+  assert.deepStrictEqual(Bl.descifrar(buf, k), obj);
+  assert.throws(() => Bl.descifrar(buf, crypto.createHash('sha256').update('otra').digest()));
+  console.log('✓ baúl: cifra, abre con la llave y no con otra: OK');
+}
+// ---------- LIMPIAR EL TABLERO (NUEVO v21.19) ----------
+(async () => {
+  const C = require('../cloud/cuentas');
+  const cs = C.leerCuentas('ana1 c1 Ana\nborrada\narchivada carla3 c3 Carla\nnuevo4 c4 Nuevo');
+  const dat = o => '<!-- datos:' + Buffer.from(JSON.stringify(o)).toString('base64') + ' -->';
+  const viejo = new Date(Date.now() - 3600e3).toISOString();
+  const coms = [{ id: 1, body: dat({ cuenta: '1', huella: C.huellaDe('ana1'), estado: 'fin', hora: viejo }) },
+    { id: 2, body: dat({ cuenta: '2', nombre: 'Borrada', estado: 'fin', hora: viejo }) },
+    { id: 3, body: dat({ cuenta: '3', nombre: 'Carla', huella: C.huellaDe('carla3'), estado: 'fin', hora: viejo }) },
+    { id: 4, body: dat({ cuenta: '4', nombre: 'Otra persona', huella: C.huellaDe('otra'), estado: 'fin', hora: viejo }) },
+    { id: 5, body: dat({ cuenta: '9', estado: 'corriendo', hora: new Date().toISOString() }) },
+    { id: 6, body: '<!-- tablero-cuenta-NORE -->' }, { id: 7, body: 'un comentario cualquiera' }];
+  const borrados = [], fetch0 = global.fetch;
+  global.fetch = async (u, o) => { if (o && o.method === 'DELETE') { borrados.push(+u.split('/').pop()); return { ok: true, status: 204 }; } return { ok: true, json: async () => coms }; };
+  const n = await C.limpiarTablero({ token: 't', repo: 'h/b', issue: 7, cuentas: cs, apodos: ['ROY'], log: () => {} });
+  global.fetch = fetch0;
+  assert.deepStrictEqual(borrados.sort(), [2, 3, 4, 6], 'borrada, archivada, línea con OTRA persona y apodo que ya no existe; nunca la que corre');
+  assert.strictEqual(n, 4);
+  console.log('✓ tablero: se limpian los cuadros de cuentas quitadas/archivadas/cambiadas: OK');
+})();

@@ -49,14 +49,22 @@
   const repo = () => S.cfg.repo;
 
   // ---------------------------------------------------------------- lista ED_CUENTAS (igual que cloud/cuentas.js)
+  // AJUSTADA v21.19 — igual que cloud/cuentas.js: "archivada usuario clave Nombre" sigue en ED_CUENTAS con su número y su
+  // clave ("Correr todas" la salta); "borrada" solo guarda el lugar (así NADIE cambia de número)
+  const partes = l => { let p = String(l).trim().split(/[\s:,;]+/).filter(Boolean), arch = false; if (p[0] && /^archivad[ao]$/i.test(p[0])) { arch = true; p = p.slice(1); } return { arch, user: p[0] || '', pass: p[1] || '', nombre: p.slice(2).join(' ') }; };
+  const componer = x => [x.arch ? 'archivada' : '', x.user, x.pass, x.nombre].filter(Boolean).join(' ');
   function cuentasDeLista(lista) {
-    return lista.map(l => l.trim()).filter(l => l && !l.startsWith('#')).map((l, i) => { const p = l.split(/[\s:,;]+/).filter(Boolean); return { n: String(i + 1), user: p[0] || '', ok: !!(p[0] && p[1]), nombre: p.slice(2).join(' ') || `cuenta ${i + 1}` }; }).filter(c => c.ok);
+    return lista.map(l => l.trim()).filter(l => l && !l.startsWith('#')).map((l, i) => { const p = partes(l); return { n: String(i + 1), user: p.user, ok: !!(p.user && p.pass) && !/^borrad[ao]$/i.test(p.user), nombre: p.nombre || `cuenta ${i + 1}`, archivada: p.arch }; }).filter(c => c.ok);
   }
+  function indiceDe(lista, id) { let k = 0; for (let j = 0; j < lista.length; j++) { const t = String(lista[j]).trim(); if (!t || t.startsWith('#')) continue; k++; if (String(k) === String(id)) return j; } return -1; }
   async function subirLista(lista) {
     const k = await gh('GET', `/repos/${repo()}/actions/secrets/public-key`);
     await gh('PUT', `/repos/${repo()}/actions/secrets/ED_CUENTAS`, { encrypted_value: Cripto.sellar(lista.join('\n'), k.key), key_id: k.key_id });
+    // NUEVO v21.19: la hora en que el PANEL dejó la lista (si GitHub dice otra más nueva, alguien la cambió a mano)
+    try { const x = await gh('GET', `/repos/${repo()}/actions/secrets/ED_CUENTAS`); S.cfg.subido = (x && x.updated_at) || new Date().toISOString(); } catch (e) { S.cfg.subido = new Date().toISOString(); }
+    escribir(S.cfg); S.deriva = false;
   }
-  async function guardarCaja(clave) { S.cfg.caja = await Cripto.cifrar(JSON.stringify({ token: S.token, lista: S.lista }), clave); escribir(S.cfg); }
+  async function guardarCaja(clave) { S.cfg.caja = await Cripto.cifrar(JSON.stringify({ token: S.token, lista: S.lista, archivo: S.archivo || {}, baul: S.baul || null }), clave); escribir(S.cfg); }
 
   // ---------------------------------------------------------------- clave (al abrir y antes de cada acción)
   function pedirClave(motivo) {
@@ -89,11 +97,19 @@
       const tab = {};
       if (S.issue) {
         const cs = await gh('GET', `/repos/${repo()}/issues/${S.issue}/comments?per_page=100`, null, 'application/vnd.github.full+json');
-        for (const c of cs || []) { const m = /<!-- datos:([A-Za-z0-9+/=]+) -->/.exec(c.body || ''); if (!m) continue; const d = b64json(m[1]); if (!d) continue;
-          const id = String(d.cuenta).toUpperCase(); if (!tab[id] || Date.parse(d.hora) > Date.parse(tab[id].d.hora)) tab[id] = { d, html: c.body_html, url: c.html_url }; }
+        S.coms = [];   // NUEVO v21.19: qué comentario es de qué cuenta (para borrarlos al archivar / limpiar)
+        for (const c of cs || []) { const m = /<!-- datos:([A-Za-z0-9+/=]+) -->/.exec(c.body || ''), mk = /<!-- tablero-cuenta-([A-Za-z0-9_]+) -->/.exec(c.body || '');
+          const d = m ? b64json(m[1]) : null; const id = String((d && d.cuenta) || (mk && mk[1]) || '').toUpperCase(); if (!id) continue;
+          S.coms.push({ cid: c.id, id }); if (!d) continue;
+          if (!tab[id] || Date.parse(d.hora) > Date.parse(tab[id].d.hora)) tab[id] = { d, html: c.body_html, url: c.html_url }; }
       }
       S.tab = tab;
-      try { S.secretos = ((await gh('GET', `/repos/${repo()}/actions/secrets?per_page=100`)).secrets || []).map(x => x.name); } catch (e) { S.secretos = []; }
+      try { const ls = (await gh('GET', `/repos/${repo()}/actions/secrets?per_page=100`)).secrets || []; S.secretos = ls.map(x => x.name);
+        // NUEVO v21.19 — Hugo cambió ED_CUENTAS a mano en GitHub y el panel siguió con su copia vieja (GitHub no deja leer
+        // un secret): los números ya no coincidían → "no encontrados". Si GitHub dice que cambió después que el panel, avisar.
+        const ec = ls.find(x => x.name === 'ED_CUENTAS'); S.ecHora = ec && ec.updated_at;
+        S.deriva = !!(S.ecHora && (S.cfg.subido ? Date.parse(S.ecHora) > Date.parse(S.cfg.subido) + 5000 : true));
+      } catch (e) { S.secretos = []; }
       S.ultimo = Date.now(); pintar();
     } catch (e) { if (!silencio) aviso('⚠ ' + e.message); $('#estado-linea').textContent = '⚠ ' + e.message; }
     finally { S.cargando = false; $('#b-refrescar').classList.remove('girando'); }
@@ -102,10 +118,11 @@
   // ---------------------------------------------------------------- dibujar
   function todasLasCuentas() {
     const m = new Map();
-    for (const c of cuentasDeLista(S.lista)) m.set(c.n, { id: c.n, nombre: c.nombre, origen: 'lista' });
+    const L = cuentasDeLista(S.lista), arch = new Set(L.filter(c => c.archivada).map(c => c.n));
+    for (const c of L.filter(c => !c.archivada)) m.set(c.n, { id: c.n, nombre: c.nombre, origen: 'lista' });
     for (const s of S.secretos) { const a = (/^ED_CUENTA_([A-Z0-9_]+)$/.exec(s) || [])[1]; if (a && !m.has(a)) m.set(a, { id: a, nombre: a, origen: 'secret' }); }
-    for (const [id, t] of Object.entries(S.tab)) if (!m.has(id)) m.set(id, { id, nombre: t.d.nombre || id, origen: 'tablero' });
-    for (const id of Object.keys(S.ocup)) if (!/^__/.test(id) && !m.has(id)) m.set(id, { id, nombre: 'cuenta ' + id, origen: 'corriendo' });
+    // AJUSTADA v21.19: el tablero ya NO inventa tarjetas de cuentas que quitaste o archivaste (Hugo: "los registros se mantienen")
+    for (const id of Object.keys(S.ocup)) if (!/^__/.test(id) && !m.has(id) && !arch.has(id)) m.set(id, { id, nombre: 'cuenta ' + id, origen: 'corriendo' });
     return [...m.values()].map(c => { const t = S.tab[c.id.toUpperCase()]; if (t && t.d.nombre && c.origen !== 'lista') c.nombre = t.d.nombre; return c; });
   }
   function estadoDe(c) {
@@ -197,6 +214,12 @@
     const f = S.cfg.filtro || {};
     $$('#chips button').forEach(b => { const n = cs.filter(c => (FILTROS[b.dataset.k] || FILTROS[''])(c, estadoDe(c).k, datosDe(c))).length; b.classList.toggle('activo', (f.k || '') === b.dataset.k); b.querySelector('em').textContent = n; });
     const vis = filtrar(cs);
+    // NUEVO v21.19: aviso de lista cambiada a mano · cuadros viejos en el tablero · archivo · cuántas corre "todas"
+    $('#deriva').hidden = !S.deriva;
+    const activos = new Set(cs.map(c => c.id.toUpperCase())); S.viejos = (S.coms || []).filter(x => !activos.has(x.id));
+    const nv = new Set(S.viejos.map(x => x.id)).size; $('#limpiar').hidden = !nv; $('#limpiar-n').textContent = nv === 1 ? '1 cuenta que ya no está' : nv + ' cuentas que ya no están';
+    $('#b-todas').innerHTML = `▶ Correr todas <small class="cuantas">${cs.filter(c => c.origen !== 'corriendo').length}</small>`;
+    pintarArchivo();
     $('#lista-cuentas').innerHTML = !cs.length ? '<div class="vacio">No hay cuentas todavía.<br>Toca <b>＋ Cuenta</b> o pega tu lista en ⚙ Ajustes.</div>' : !vis.length ? '<div class="vacio">Ninguna cuenta con ese filtro.</div>' : vis.map(c => {
       const e = estadoDe(c), t = S.tab[c.id.toUpperCase()], d = (t && t.d) || {};
       const ini = d.ini || {};
@@ -230,14 +253,22 @@
       aviso(`▶ ¡Listo! ${txt} arranca en unos segundos`); setTimeout(() => refrescar(true), 6000); setTimeout(() => refrescar(true), 20000);
     } catch (e) { aviso('⚠ No pude lanzar: ' + e.message, 6000); }
   }
+  async function ordenParar(id) {
+    if (!S.issue) throw new Error('no encuentro el issue del tablero');
+    await gh('POST', `/repos/${repo()}/issues/${S.issue}/comments`, { body: `<!-- orden:parar ${String(id).toUpperCase()} de:panel -->\n⏹ Parar la cuenta ${id} (pedido desde el panel)` });
+  }
+  // NUEVO v21.19: lanzar sin volver a pedir la clave (quien llama ya la pidió)
+  async function lanzar(ids, extra, porMaq) {
+    const a = Object.assign(ajustes(), extra || {});
+    await gh('POST', `/repos/${repo()}/actions/workflows/nube.yml/dispatches`, { ref: S.rama, inputs: { cuentas: String(ids), modo: a.modo, minutos: String(a.minutos), ritmo: String(a.ritmo), por_maquina: String(porMaq || a.por_maquina) } });
+  }
   async function parar(ids) {
     const c = await pedirClave(`Parar ${ids.length === 1 ? 'la cuenta ' + ids[0] : ids.length + ' cuentas'}`); if (!c) return;
     try {
       for (const id of ids) {
         const o = S.ocup[String(id).toUpperCase()];
         if (o && o.grupo && o.grupo.length === 1 && Object.values(S.ocup).filter(x => x.run === o.run).length <= 1) { await gh('POST', `/repos/${repo()}/actions/runs/${o.run}/cancel`); continue; }
-        if (!S.issue) throw new Error('no encuentro el issue del tablero');
-        await gh('POST', `/repos/${repo()}/issues/${S.issue}/comments`, { body: `<!-- orden:parar ${String(id).toUpperCase()} de:panel -->\n⏹ Parar la cuenta ${id} (pedido desde el panel)` });
+        await ordenParar(id);
       }
       aviso('⏹ Pedido enviado: para en 1–3 minutos (guarda todo antes)', 5000); setTimeout(() => refrescar(true), 8000);
     } catch (e) { aviso('⚠ ' + e.message, 6000); }
@@ -259,25 +290,76 @@
       </div>
       <h3>Historial</h3>${historial(id)}
       <h3>Para esta cuenta</h3><form id="f-pc" class="dos"><label>Ritmo (s) <input name="ritmo" type="number" min="0" max="30" value="${esc(pc.ritmo || '')}" placeholder="${esc(ajustes().ritmo)}"></label><label>Minutos <input name="minutos" type="number" min="5" max="330" value="${esc(pc.minutos || '')}" placeholder="${esc(ajustes().minutos)}"></label><button class="btn" style="grid-column:1/-1">Guardar para ${esc(c.nombre)}</button></form>
-      ${c.origen === 'lista' ? '<button class="btn rojo" data-quitar="1" style="margin-top:14px">🗑 Quitar de la lista</button>' : ''}`);
+      ${c.origen === 'lista' ? '<h3>La cuenta</h3><div class="acciones-cuenta"><button class="btn" data-clave-ed="1">🔑 Cambiar su contraseña de ED</button><button class="btn rojo" data-archivar="1">📦 Archivar<small>sale de aquí y del tablero; su contraseña queda guardada para cuando la necesites</small></button></div>' : ''}`);
     $('.cerrar-hoja').onclick = cerrarHoja;
     $('#f-pc', h).onsubmit = ev => { ev.preventDefault(); const f = ev.target; S.cfg.porCuenta = S.cfg.porCuenta || {}; S.cfg.porCuenta[id] = { ritmo: f.ritmo.value, minutos: f.minutos.value }; escribir(S.cfg); aviso('✓ Guardado para ' + c.nombre); };
     h.onclick = ev => {
       const b = ev.target.closest('[data-m]');
       if (b) { cerrarHoja(); const x = Object.assign({ modo: b.dataset.m, minutos: b.dataset.min }, extraDe(id)); if (b.dataset.m === 'auditoria') x.minutos = '20';
         correr(id, `${c.nombre}: ${b.firstChild.textContent.trim()}`, x); }
-      if (ev.target.closest('[data-quitar]')) { cerrarHoja(); quitar(id, c.nombre); }
+      if (ev.target.closest('[data-archivar]')) { cerrarHoja(); archivar(id, c.nombre); }
+      if (ev.target.closest('[data-clave-ed]')) { cerrarHoja(); claveED(id, c.nombre); }
     };
   }
   const extraDe = id => { const pc = (S.cfg.porCuenta || {})[id] || {}, x = {}; if (pc.ritmo) x.ritmo = pc.ritmo; if (pc.minutos) x.minutos = pc.minutos; return x; };
-  async function quitar(id, nombre) {
-    const c = await pedirClave(`Quitar a ${nombre} de ED_CUENTAS`); if (!c) return;
-    if (!(await esperarDeshacer(`🗑 Quito a ${nombre} en 6 s…`, 6000))) return;
-    const lineas = S.lista.slice(); let k = 0;
-    const i = lineas.findIndex(l => { const t = l.trim(); if (!t || t.startsWith('#')) return false; k++; return String(k) === String(id); });
-    if (i < 0) return aviso('No encontré esa línea');
-    lineas[i] = 'borrada';   // la línea queda → las demás conservan su número
-    try { await subirLista(lineas); S.lista = lineas; await guardarCaja(c); aviso(`✓ ${nombre} quitada (las demás conservan su número)`); pintar(); } catch (e) { aviso('⚠ ' + e.message, 6000); }
+  // ---------------------------------------------------------------- NUEVO v21.19: ARCHIVO de cuentas
+  // Hugo (04/11): "cada usuario pasado por aquí se mantiene en un lugar con su contraseña, para que el siguiente mes pueda
+  // escogerlo directamente ... cuando elimino de mi pantalla principal deben archivarse ... correr todos menos los archivados".
+  async function puedoSubir() {   // si ED_CUENTAS cambió a mano en GitHub, subir desde el panel pisaría ese cambio
+    if (!S.deriva) return true;
+    return confirmar('⚠ La lista de GitHub cambió sin el panel', ['Si sigues, el panel sube SU copia y se pierde lo que cambiaste a mano en GitHub (por ejemplo una contraseña nueva).', 'Mejor: ⚙ Ajustes → pega la lista que tienes en GitHub → Guardar. Después ya puedes archivar o agregar.'], 'Seguir igual');
+  }
+  async function borrarCuadros(id) {
+    let n = 0; for (const x of (S.coms || []).filter(x => x.id === String(id).toUpperCase())) { try { await gh('DELETE', `/repos/${repo()}/issues/comments/${x.cid}`); n++; } catch (e) {} }
+    return n;
+  }
+  async function editarLinea(id, cambio, motivo, deshacer) {   // cambia UNA línea (por su número) y sube la lista → la clave, o null
+    if (!(await puedoSubir())) return null;
+    const c = await pedirClave(motivo); if (!c) return null;
+    if (deshacer && !(await esperarDeshacer(deshacer))) return null;
+    const lineas = S.lista.slice(), i = indiceDe(lineas, id); if (i < 0) { aviso('No encontré esa línea en la lista del panel'); return null; }
+    lineas[i] = cambio(partes(lineas[i]));
+    try { await subirLista(lineas); S.lista = lineas; return c; } catch (e) { aviso('⚠ ' + e.message, 6000); return null; }
+  }
+  async function archivar(id, nombre) {
+    const d = datosDe({ id: String(id) }), corre = !!S.ocup[String(id).toUpperCase()];
+    const c = await editarLinea(id, p => componer(Object.assign(p, { arch: true })), `Archivar a ${nombre}`, `📦 Archivo a ${nombre} en 5 s…`); if (!c) return;
+    S.archivo = S.archivo || {}; S.archivo[id] = { nombre, curso: d.curso || null, comp: d.comp ?? null, avg: d.avg ?? null, tot: d.tot || null, fecha: new Date().toISOString() };
+    await guardarCaja(c);
+    if (corre) { try { await ordenParar(id); } catch (e) {} }
+    const n = await borrarCuadros(id);
+    aviso(`📦 ${nombre} archivada${n ? ' y su cuadro salió del tablero' : ''}. "Correr todas" ya no la corre.`, 5000); vibrar(); pintar(); setTimeout(() => refrescar(true), 3000);
+  }
+  async function restaurar(id, correrYa) {
+    const x = (S.archivo || {})[id] || {}, nombre = x.nombre || ('cuenta ' + id);
+    const c = await editarLinea(id, p => componer(Object.assign(p, { arch: false })), `Volver a la lista: ${nombre}${correrYa ? ' (y correrla)' : ''}`); if (!c) return;
+    delete S.archivo[id]; await guardarCaja(c);
+    aviso(`♻ ${nombre} volvió a la lista (línea ${id})`); vibrar();
+    if (correrYa) { try { await lanzar(id, extraDe(id), '1'); aviso(`▶ ${nombre} arranca ya, en su propia máquina`); } catch (e) { aviso('⚠ ' + e.message, 6000); } }
+    pintar(); setTimeout(() => refrescar(true), 6000);
+  }
+  async function borrarDelTodo(id) {
+    const x = (S.archivo || {})[id] || {}, nombre = x.nombre || ('cuenta ' + id);
+    const c = await editarLinea(id, () => 'borrada', `Borrar a ${nombre} PARA SIEMPRE (usuario y contraseña)`, `🗑 Borro a ${nombre} para siempre en 6 s…`); if (!c) return;
+    delete S.archivo[id]; await guardarCaja(c); await borrarCuadros(id);
+    aviso(`🗑 ${nombre} borrada (las demás conservan su número)`); pintar();
+  }
+  function claveED(id, nombre) {
+    const h = hoja(`<h2>🔑 Contraseña de ED · ${esc(nombre)}</h2><form id="f-ced" autocomplete="off"><label>Contraseña nueva <input name="p" type="password" required autocomplete="off"></label><button class="btn grande verde">Guardar</button><p class="nota">Se cambia solo en su línea de ED_CUENTAS (sigue con el mismo número).</p></form>`);
+    $('.cerrar-hoja').onclick = cerrarHoja;
+    $('#f-ced', h).onsubmit = async ev => { ev.preventDefault(); const np = ev.target.p.value.trim(); if (!np || /\s/.test(np)) return aviso('La contraseña no puede tener espacios'); cerrarHoja();
+      const c = await editarLinea(id, p => componer(Object.assign(p, { pass: np })), `Cambiar la contraseña de ${nombre}`); if (!c) return;
+      await guardarCaja(c); aviso(`🔑 Contraseña de ${nombre} actualizada`); };
+  }
+  function pintarArchivo() {
+    const L = cuentasDeLista(S.lista).filter(c => c.archivada), A = S.archivo || {};
+    $('#archivo-n').textContent = L.length ? L.length : '';
+    $('#lista-archivo').innerHTML = L.length ? L.map(c => { const x = A[c.n] || {};
+      return `<article class="cuenta archivada" data-id="${esc(c.n)}"><div class="cab"><div class="avatar" style="--h:${tono(x.nombre || c.nombre)}">${esc((x.nombre || c.nombre).trim().charAt(0).toUpperCase())}</div>
+        <div class="quien"><b>${esc(x.nombre || c.nombre)}</b><span>línea ${esc(c.n)}${x.curso ? ' · ' + esc(x.curso) : ''}</span></div><span class="pill quieta">📦 ${x.fecha ? new Date(x.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'archivada'}</span></div>
+        ${x.comp != null || x.avg != null ? `<div class="ahora">Cuando se archivó: <b>${x.comp ?? '—'} %</b> realización · <b>${x.avg ?? '—'} %</b> promedio${x.tot ? ' · 🕓 ' + esc(x.tot) : ''}</div>` : ''}
+        <div class="botones"><button class="btn verde" data-r="correr">▶ Volver y correr</button><button class="btn" data-r="volver">♻ Volver</button><button class="btn rojo" data-r="borrar" aria-label="Borrar para siempre">🗑</button></div></article>`; }).join('')
+      : '<div class="vacio">El archivo está vacío.<br>Desde una tarjeta: <b>⋯ → 📦 Archivar</b>. La cuenta sale de la pantalla y del tablero, y su contraseña queda guardada aquí para el mes que viene.</div>';
   }
   // NUEVO v21.18 (idea 30): revisar la lista ANTES de subirla (sin mostrar contraseñas)
   function revisarLista(lista) {
@@ -298,7 +380,9 @@
       <div class="ayuda-pasos">
         <div><b>▶ Correr</b><span>Arranca esa cuenta YA, en su propia máquina (no espera cola). Si ya corría, la nueva la reemplaza para completar lo que falte.</span></div>
         <div><b>⏹ Parar</b><span>La para en 1–3 minutos, guardando todo. Las otras cuentas de su máquina siguen.</span></div>
-        <div><b>⋯ Más</b><span>Arreglar lo que falta · solo tests &lt; 100 · explorar el nivel · solo revisar · historial · ritmo propio · quitarla.</span></div>
+        <div><b>⋯ Más</b><span>Arreglar lo que falta · solo tests &lt; 100 · explorar el nivel · solo revisar · historial · ritmo propio · cambiar su contraseña de ED · archivarla.</span></div>
+        <div><b>📦 Archivo</b><span>Al archivar, la cuenta sale de la pantalla y del tablero, pero su contraseña queda guardada. "Correr todas" no la corre. El mes que viene: ▶ Volver y correr.</span></div>
+        <div><b>⚠ No toques ED_CUENTAS a mano</b><span>Si lo cambias en GitHub, pega la misma lista en ⚙ Ajustes (el panel no puede leer ese secret y te avisa).</span></div>
         <div><b>＋ Cuenta</b><span>Agrega una persona y la corre al toque, sin cancelar lo que ya corre.</span></div>
         <div><b>🔎 Filtros</b><span>Busca por nombre o curso; toca “Les falta” para ver solo las que no están en 100/100.</span></div>
         <div><b>⇣ Tirar hacia abajo</b><span>Actualiza. Solo se actualiza cada 20 s mientras lo miras.</span></div>
@@ -324,8 +408,16 @@
       if (/\s/.test(f.u.value.trim()) || /\s/.test(f.p.value.trim())) return aviso('El usuario y la contraseña no pueden tener espacios');
       // NUEVO v21.18 (idea 30): ¿esa persona ya está en la lista? → no se duplica (se corre la que ya está)
       const dup = cuentasDeLista(S.lista).find(x => x.user.toLowerCase() === f.u.value.trim().toLowerCase());
-      if (dup) { cerrarHoja(); aviso(`Ese usuario ya está (línea ${dup.n}, ${dup.nombre}) → toca ▶ en su tarjeta`, 6000); return; }
-      const ya = f.ya.checked; cerrarHoja();
+      const ya = f.ya.checked, np = f.p.value.trim(), nn = f.n.value.trim().replace(/\s+/g, ' '); cerrarHoja();
+      // AJUSTADA v21.19: si ya está (en la lista o en el ARCHIVO), se actualiza SU línea (misma línea, contraseña nueva)
+      if (dup) {
+        if (!(await confirmar(`Esa persona ya está: línea ${dup.n}`, [`${esc(dup.nombre)}${dup.archivada ? ' — está en el 📦 Archivo' : ''}.`, 'Puedo ponerle la contraseña y el nombre que escribiste (y sacarla del archivo), sin crear otra línea.'], 'Actualizar' + (ya ? ' y correr' : '')))) return;
+        const c = await editarLinea(dup.n, p => componer({ arch: false, user: p.user, pass: np, nombre: nn || p.nombre }), `Actualizar la línea ${dup.n}`); if (!c) return;
+        if (S.archivo) delete S.archivo[dup.n]; await guardarCaja(c); aviso(`✓ Línea ${dup.n} actualizada`);
+        if (ya) { try { vibrar(); await lanzar(dup.n, extraDe(dup.n), '1'); aviso(`▶ La cuenta ${dup.n} arranca ya, en su propia máquina`); } catch (e) { aviso('⚠ ' + e.message, 6000); } }
+        pintar(); setTimeout(() => refrescar(true), 8000); return;
+      }
+      if (!(await puedoSubir())) return;
       const c = await pedirClave('Agregar la cuenta' + (ya ? ' y correrla' : '')); if (!c) return;
       try {
         const nueva = S.lista.concat([linea]); await subirLista(nueva); S.lista = nueva; await guardarCaja(c);
@@ -340,14 +432,25 @@
   // ---------------------------------------------------------------- arranque y eventos
   async function entrar(clave) {
     const o = JSON.parse(await Cripto.descifrar(S.cfg.caja, clave));
-    S.token = o.token; S.lista = o.lista || [];
+    S.token = o.token; S.lista = o.lista || []; S.archivo = o.archivo || {}; S.baul = o.baul || null;
     try { const r = await gh('GET', `/repos/${repo()}`); S.rama = r.default_branch || 'main'; } catch (e) { if (e.status === 401) throw new Error('El token ya no sirve (¿venció?). Bórralo en ⚙ y configúralo de nuevo.'); }
     vista('v-app'); pintar(); refrescar();
+    llaveBaul(clave).catch(() => {});   // NUEVO v21.19
     clearInterval(S.reloj); S.reloj = setInterval(() => { if (!document.hidden) refrescar(true); }, 20000);
     const acc = qs.get('accion'); if (acc === 'todas') setTimeout(() => $('#b-todas').click(), 400);
     if (!S.cfg.visto) setTimeout(() => ayuda(true), 600);   // NUEVO v21.18 (idea 97)
   }
-  function bloquear() { S.token = null; S.lista = []; clearInterval(S.reloj); vista('v-abrir'); $('#abrir-repo').textContent = S.cfg.repo || ''; }
+  // NUEVO v21.19 — la llave del BAÚL (lo aprendido por curso se guarda cifrado en la rama "datos" del repo, cloud/baul.js).
+  // Se crea sola la primera vez, al azar; el panel guarda una copia (cifrada con tu clave) por si el secret se borrara.
+  async function llaveBaul(clave) {
+    try { await gh('GET', `/repos/${repo()}/actions/secrets/ED_BAUL_LLAVE`); return; } catch (e) { if (e.status !== 404) return; }
+    const nueva = !S.baul; const k = S.baul || btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+    const pk = await gh('GET', `/repos/${repo()}/actions/secrets/public-key`);
+    await gh('PUT', `/repos/${repo()}/actions/secrets/ED_BAUL_LLAVE`, { encrypted_value: Cripto.sellar(k, pk.key), key_id: pk.key_id });
+    if (nueva) { S.baul = k; await guardarCaja(clave); }
+    aviso(nueva ? '🧳 Creé la llave del baúl: lo que el bot aprende se guarda cifrado en tu proyecto' : '🧳 Volví a poner la llave del baúl', 6000);
+  }
+  function bloquear() { S.token = null; S.lista = []; S.archivo = {}; S.baul = null; clearInterval(S.reloj); vista('v-abrir'); $('#abrir-repo').textContent = S.cfg.repo || ''; }
 
   document.addEventListener('DOMContentLoaded', () => {
     if (!S.cfg.caja) vista('v-setup'); else bloquear();
@@ -358,6 +461,8 @@
       S.lista = f.lista.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
       try { const r = await gh('GET', `/repos/${S.cfg.repo}`); if (!r.permissions || !r.permissions.push) { /* fine-grained: no siempre trae permissions */ } }
       catch (err) { return void (e.textContent = 'GitHub no acepta ese token para ese repo: ' + err.message); }
+      // NUEVO v21.19: la lista que pegas al configurar ES la de GitHub → desde aquí se nota si alguien la cambia a mano
+      try { const x = await gh('GET', `/repos/${S.cfg.repo}/actions/secrets/ED_CUENTAS`); if (x && x.updated_at) S.cfg.subido = x.updated_at; } catch (err) {}
       const clave = f.c1.value; await guardarCaja(clave); f.reset();
       try { await entrar(clave); aviso('✓ Listo: el panel quedó guardado (cifrado) en este teléfono'); } catch (err) { bloquear(); aviso('⚠ ' + err.message, 6000); }
     };
@@ -373,7 +478,7 @@
       aviso(`⏹ ${n} corrida(s) paradas. Lo hecho en ED queda guardado.`); setTimeout(() => refrescar(true), 6000); };
     $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('activo', x === b)); $$('.pestana').forEach(p => { p.hidden = p.id !== b.dataset.t; });
       if (b.dataset.t === 't-ajustes') { const a = ajustes(), f = $('#f-ajustes'); for (const k of ['modo', 'minutos', 'ritmo', 'por_maquina']) f[k].value = a[k]; $('#f-lista').lista.value = S.lista.join('\n'); } });
-    $('#b-todas').onclick = () => correr('todas', `TODAS las cuentas (${todasLasCuentas().length})`);
+    $('#b-todas').onclick = () => correr('todas', `TODAS las cuentas (${todasLasCuentas().filter(c => c.origen !== 'corriendo').length}; las archivadas no)`);
     $('#b-agregar').onclick = formAgregar;
     $('#lista-cuentas').onclick = ev => {
       const art = ev.target.closest('.cuenta'); if (!art) return; const id = art.dataset.id;
@@ -392,7 +497,12 @@
     $('#b-sel-x').onclick = () => { S.sel.clear(); pintar(); };
     $('#f-ajustes').onsubmit = ev => { ev.preventDefault(); const f = ev.target; S.cfg.ajustes = { modo: f.modo.value, minutos: f.minutos.value, ritmo: f.ritmo.value, por_maquina: f.por_maquina.value }; escribir(S.cfg); aviso('✓ Guardado'); };
     $('#f-lista').onsubmit = async ev => { ev.preventDefault(); const nueva = ev.target.lista.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-      const prob = revisarLista(nueva); if (prob.length && !(await confirmar('⚠ Revisa la lista', prob, 'Subir igual'))) return;   // NUEVO v21.18 (idea 30)
+      const prob = revisarLista(nueva);
+      // NUEVO v21.19: si quitaste líneas a mano, las de abajo cambian de número (el tablero y la memoria quedarían cruzados)
+      const viejaN = new Map(cuentasDeLista(S.lista).map(x => [x.user.toLowerCase(), x.n]));
+      const movidas = cuentasDeLista(nueva).filter(x => viejaN.has(x.user.toLowerCase()) && viejaN.get(x.user.toLowerCase()) !== x.n);
+      if (movidas.length) prob.push(`${movidas.length} cuenta(s) cambian de número (${movidas.slice(0, 4).map(x => `${esc(x.nombre)}: ${viejaN.get(x.user.toLowerCase())} → ${x.n}`).join(', ')}${movidas.length > 4 ? '…' : ''}). Para quitar una sin mover a las demás, usa <b>⋯ → 📦 Archivar</b> en su tarjeta.`);
+      if (prob.length && !(await confirmar('⚠ Revisa la lista', prob, 'Subir igual'))) return;   // NUEVO v21.18 (idea 30)
       const c = await pedirClave('Subir la lista a GitHub (ED_CUENTAS)'); if (!c) return;
       try { await subirLista(nueva); S.lista = nueva; await guardarCaja(c); aviso(`✓ ED_CUENTAS actualizado (${cuentasDeLista(nueva).length} cuentas)`); pintar(); } catch (e) { aviso('⚠ ' + e.message, 6000); } };
     $('#b-cambiar-clave').onclick = async () => { const c = await pedirClave('Primero tu clave actual'); if (!c) return;
@@ -408,6 +518,18 @@
     $('#orden').onchange = ev => { fl().orden = ev.target.value; escribir(S.cfg); pintar(); };
     $('#chips').onclick = ev => { const b = ev.target.closest('button'); if (!b) return; fl().k = b.dataset.k; escribir(S.cfg); vibrar(); pintar(); };
     $('#b-ayuda').onclick = () => ayuda(false);
+    // NUEVO v21.19: 👁 ver la clave mientras la escribes
+    document.addEventListener('click', ev => { const o = ev.target.closest('.ojo'); if (!o) return; const i = o.parentElement.querySelector('input'); i.type = i.type === 'password' ? 'text' : 'password'; o.textContent = i.type === 'password' ? '👁' : '🙈'; i.focus(); });
+    // NUEVO v21.19: lista cambiada a mano, limpiar el tablero, archivo
+    $('#b-deriva-pegar').onclick = () => { $('.tabs button[data-t=t-ajustes]').click(); setTimeout(() => { const t = $('#f-lista textarea'); t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.focus(); }, 250); aviso('Pega aquí lo que tienes en ED_CUENTAS y toca "Guardar y subir"', 6000); };
+    $('#b-deriva-ok').onclick = async () => { if (!(await confirmar('¿Es la misma lista?', ['Toca "Sí" solo si la lista de ⚙ Ajustes es EXACTAMENTE la que tienes en el secret ED_CUENTAS de GitHub (mismas líneas, mismo orden, mismas contraseñas).'], 'Sí, es la misma'))) return;
+      S.cfg.subido = S.ecHora || new Date().toISOString(); escribir(S.cfg); S.deriva = false; pintar(); aviso('✓ Listo'); };
+    $('#b-limpiar').onclick = async () => { const ids = [...new Set((S.viejos || []).map(x => x.id))]; if (!ids.length) return;
+      const c = await pedirClave(`Quitar del tablero ${ids.length} cuenta(s) que ya no están`); if (!c) return;
+      let n = 0; for (const x of S.viejos) { try { await gh('DELETE', `/repos/${repo()}/issues/comments/${x.cid}`); n++; } catch (e) {} }
+      aviso(`🧹 Tablero limpio (${n} cuadro${n === 1 ? '' : 's'} fuera)`); setTimeout(() => refrescar(true), 1500); };
+    $('#lista-archivo').onclick = ev => { const b = ev.target.closest('[data-r]'), art = ev.target.closest('.cuenta'); if (!b || !art) return; const id = art.dataset.id;
+      if (b.dataset.r === 'correr') restaurar(id, true); if (b.dataset.r === 'volver') restaurar(id, false); if (b.dataset.r === 'borrar') borrarDelTodo(id); };
     // NUEVO v21.18 (idea 70): tirar hacia abajo para actualizar
     const ind = $('#tirar'); let y0 = null;
     document.addEventListener('touchstart', e => { y0 = S.token && window.scrollY <= 0 && $('#hoja').hidden && !$('#v-app').hidden ? e.touches[0].clientY : null; }, { passive: true });

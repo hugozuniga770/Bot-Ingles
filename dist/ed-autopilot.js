@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.18  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.19  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.18';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.19';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso

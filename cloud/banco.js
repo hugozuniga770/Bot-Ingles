@@ -5,6 +5,8 @@
    1/2, Advanced 1/2...). Si una cuenta ya cosechó las respuestas de un test, las otras cuentas del MISMO curso no
    necesitan cosechar: entran al test con las respuestas y sacan 100 a la primera.
    - Se guarda en la memoria PRIVADA de GitHub Actions (caché), NUNCA en el repo (el repo es público).
+     AJUSTADA v21.19: y además en el BAÚL (cloud/baul.js): la rama "datos" del repo, CIFRADO con ED_BAUL_LLAVE (la caché
+     sola se borra tras 7 días sin correr; Hugo: "un servicio para mucho tiempo").
    - Un archivo por curso: banco/<curso>.json = { curso, actualizado, answers, testAns, known } (las mismas claves
      que usa el bot: ed:answers:v1, ed:testAns:v2, ed:testKnown:v1).
    - Lo de la cuenta MANDA (es su cosecha más reciente); del banco solo se agrega lo que le falta (tests enteros o

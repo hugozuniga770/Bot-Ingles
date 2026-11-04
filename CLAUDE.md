@@ -48,6 +48,7 @@ cloud/cuentas.js          lee las cuentas del secret ED_CUENTAS y elige cuáles 
 cloud/tablero.js          dibuja el tablero (unidades desplegables) y lo publica en el issue del repo (v21.13)
 cloud/banco.js            banco de respuestas por curso, compartido entre cuentas (caché privada; job juntar) (v21.13)
 cloud/lote.js             varias cuentas en la misma máquina (3 por defecto) + parar una sola (órdenes en el issue) (v21.16)
+cloud/baul.js / baul.sh   BAÚL: el banco por curso cifrado en la rama "datos" del repo (secret ED_BAUL_LLAVE) (v21.19)
 cloud/diagnostico.js      fallos agrupados (nuevo/conocido), salud 0–100, minutos por unidad, texto para la IA (v21.16)
 panel/                    PANEL DEL TELÉFONO (GitHub Pages, workflow panel.yml): correr/parar/agregar cuentas (v21.16)
 tools/prueba-fiel/        HTML real + dragula y driver.js REALES (lo que usa ED): viejo vs nuevo (v21.16)

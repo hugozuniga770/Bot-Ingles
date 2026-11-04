@@ -24,7 +24,11 @@ label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 14px; }
 label small, small { display: block; font-weight: 400; color: var(--suave); font-size: 12.5px; margin-top: 4px; }
 input, select, textarea { width: 100%; margin-top: 6px; padding: 13px 14px; font: inherit; color: var(--texto); background: var(--fondo); border: 1px solid var(--borde); border-radius: 12px; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: var(--marca); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca) 25%, transparent); }
-textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* AJUSTADA v21.19 — Hugo: "cada que escribo se me hace zoom y cuando dejo de escribir sigue el zoom". El iPhone agranda la
+   pantalla al tocar un campo con letra de menos de 16 px (los campos heredaban 14 px de su etiqueta). Con 16 px no hay zoom. */
+input, select, textarea { font-size: 16px !important; font-weight: 400; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--borde); border-radius: 12px;
   background: var(--tarjeta); color: var(--texto); font: 600 15px/1 inherit; font-family: inherit; cursor: pointer; transition: transform .08s ease, opacity .2s; }
@@ -91,7 +95,7 @@ textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-siz
 .corrida { display: flex; gap: 12px; align-items: center; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; box-shadow: var(--sombra); }
 .corrida .quien span { display: block; }
 
-.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--tarjeta) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--borde); }
 .tabs button { border: 0; background: transparent; color: var(--suave); font: 600 12px/1.2 inherit; font-family: inherit; padding: 6px 0; border-radius: 12px; cursor: pointer; }
 .tabs button span { display: block; font-size: 22px; margin-bottom: 2px; }
@@ -202,3 +206,42 @@ body { background: radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, 
 .tirar { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 40; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
   background: var(--tarjeta); color: var(--suave); box-shadow: var(--sombra); font-size: 20px; transition: color .15s; }
 .tirar.listo { color: var(--marca); }
+
+/* ===== NUEVO v21.19 ===== */
+/* pantalla de entrada: logo con halo, aurora de fondo, título con degradado */
+#v-setup, #v-abrir { position: relative; isolation: isolate; }
+#v-setup::before, #v-abrir::before { content: ''; position: fixed; inset: -20vh -20vw auto; height: 75vh; z-index: -1; pointer-events: none;
+  background: radial-gradient(40% 45% at 25% 35%, rgba(99, 102, 241, .34), transparent 70%), radial-gradient(35% 40% at 75% 25%, rgba(219, 39, 119, .26), transparent 70%), radial-gradient(40% 40% at 55% 75%, rgba(34, 211, 238, .18), transparent 70%);
+  filter: blur(20px); animation: aurora 14s ease-in-out infinite alternate; }
+@keyframes aurora { to { transform: translate3d(4vw, 3vh, 0) scale(1.08) rotate(6deg); } }
+.hero { padding: 56px 0 22px; }
+.logo-caja { position: relative; width: 112px; height: 112px; margin: 0 auto 6px; animation: flota 5s ease-in-out infinite; }
+.logo-caja .logo { position: relative; width: 112px; height: 112px; border-radius: 30px; box-shadow: 0 18px 40px -14px rgba(124, 58, 237, .65), 0 2px 6px rgba(0, 0, 0, .12); }
+.halo { position: absolute; inset: -10px; border-radius: 40px; background: conic-gradient(from 0deg, #6366f1, #db2777, #22d3ee, #fbbf24, #6366f1); filter: blur(14px); opacity: .55; animation: giro 8s linear infinite; }
+@keyframes flota { 50% { transform: translateY(-7px); } }
+.hero h1 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; margin-top: 14px; }
+.hero h1 span { background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.saludo { font-size: 17px; margin-top: 2px !important; }
+.repo-chip:not(:empty) { display: inline-block; margin-top: 10px !important; padding: 5px 12px; border-radius: 999px; background: var(--tarjeta); border: 1px solid var(--borde); font-size: 13px; }
+.vidrio { background: color-mix(in srgb, var(--tarjeta) 82%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.con-ojo { position: relative; display: block; } .con-ojo input { padding-right: 52px; }
+.ojo { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); margin-top: 3px; width: 42px; height: 42px; border: 0; background: transparent; font-size: 19px; cursor: pointer; border-radius: 10px; }
+.btn.brillo { background: linear-gradient(90deg, #4f46e5, #7c3aed, #db2777); background-size: 200% 100%; color: #fff; border-color: transparent; animation: brillo 6s ease infinite; box-shadow: 0 10px 24px -12px rgba(124, 58, 237, .8); }
+@keyframes brillo { 50% { background-position: 100% 0; } }
+@media (prefers-reduced-motion: reduce) { #v-setup::before, #v-abrir::before, .logo-caja, .halo, .btn.brillo { animation: none; } }
+/* aviso: lista cambiada a mano */
+.banner { display: grid; gap: 6px; background: var(--ambar-s); color: var(--texto); border: 1px solid color-mix(in srgb, var(--ambar) 45%, transparent); border-radius: 16px; padding: 14px; margin: 6px 0 14px; }
+.banner b { color: var(--ambar); } .banner span { font-size: 14px; color: var(--suave); }
+.banner .fila-botones { margin: 6px 0 0; grid-template-columns: 1fr 1fr; }
+.limpiar { margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--borde); border-radius: 14px; color: var(--suave); font-size: 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+/* archivo */
+.intro-archivo { display: grid; gap: 6px; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 16px; padding: 14px; margin: 10px 0 14px; box-shadow: var(--sombra); }
+.intro-archivo b:first-child { font-size: 18px; } .intro-archivo span { color: var(--suave); font-size: 14px; }
+.cuenta.archivada { opacity: .96; background: linear-gradient(180deg, var(--tarjeta), color-mix(in srgb, var(--tarjeta) 92%, var(--marca))); }
+.cuenta.archivada .avatar { filter: saturate(.55); }
+.tabs button { position: relative; }
+.burbuja { position: absolute; top: 2px; left: calc(50% + 8px); font-style: normal; font-size: 11px; font-weight: 800; min-width: 18px; padding: 1px 5px; border-radius: 999px; background: var(--marca); color: #fff; }
+.burbuja:empty { display: none; }
+.cuantas { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .25); font-size: 13px; font-weight: 800; }
+#f-abrir .error:empty { display: none; }
+@media (prefers-color-scheme: dark) { .ojo { filter: invert(1) brightness(1.2); } }

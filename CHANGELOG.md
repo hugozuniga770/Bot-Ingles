@@ -1,5 +1,30 @@
 # Changelog
 
+## v21.19 — cuentas "fallidas / no encontradas", archivo de cuentas, baúl en el proyecto, zoom del iPhone
+Hugo (04/11): "cambié la clave manualmente en secrets y desde mi teléfono eliminé varias cuentas, y cuando corría nuevos
+usuarios salían fallidos, no encontrados" · "si quito usuarios debe quitarse bien ... los registros se mantienen" ·
+"que se archiven ... correr todos menos los archivados" · "que las respuestas vivan directo en mi proyecto" · zoom al escribir.
+- **Causa de los "no encontrados":** al quitar una cuenta su línea queda `borrada` (para no mover a nadie), pero la nube
+  elegía por CUÁNTAS cuentas válidas había: "todas" corría las líneas borradas (→ fallidas) y la cuenta nueva del final
+  "no existía". Ahora elige por las líneas que existen y dice claro cuáles no (`cloud/cuentas.js`; prueba con v21.18 vs
+  v21.19 en `probar-banco-tablero.js`).
+- **Cambio a mano pisado:** el panel no puede leer ED_CUENTAS; si lo cambiabas en GitHub, la próxima vez que agregabas o
+  quitabas desde el teléfono, el panel subía su copia vieja (se perdía la contraseña nueva, los números no coincidían).
+  Ahora el panel compara la hora del secret y **avisa** ("Pegar la lista" / "Es la misma") antes de pisar nada.
+  Y la contraseña se cambia desde el teléfono: **⋯ → 🔑 Cambiar su contraseña de ED** (o "＋ Cuenta" con el mismo usuario
+  → actualiza SU línea en vez de duplicarla).
+- **📦 Archivo:** ⋯ → Archivar: la línea queda `archivada usuario contraseña Nombre` (mismo número, contraseña guardada),
+  sale de la pantalla y del tablero, y **"Correr todas" la salta**. Pestaña 📦 Archivo: ▶ Volver y correr · ♻ Volver · 🗑.
+  Pedida por su número (`/correr 4`) sí corre.
+- **Tablero limpio:** cada corrida borra del issue los cuadros de cuentas archivadas, borradas, inexistentes o cuya línea
+  ahora es OTRA persona (por la huella); el panel ya no muestra tarjetas fantasma y tiene "🧹 Limpiar".
+- **🧳 Baúl:** el banco por curso (respuestas de tests, catálogo de ejercicios, lo que aprendió el Explorador; nada de
+  cada persona) se guarda también en la rama `datos` del repo, **cifrado** (AES-256-GCM, secret `ED_BAUL_LLAVE`, que el
+  panel crea solo). La caché de GitHub se borra a los 7 días sin uso; el baúl no. Un solo commit (el repo no crece);
+  si dos corridas guardan a la vez, la segunda mezcla y reintenta (probado con dos a la vez).
+- **Panel:** sin zoom al escribir en el iPhone (los campos tenían letra de 14 px; ahora 16 px) · logo nuevo (robot con
+  birrete) y pantalla de entrada con halo y aurora · 👁 para ver la clave · ayuda actualizada.
+
 ## v21.18 — la lista de 100 mejoras (sin APIs) de Claude, menos seguridad (82–88) y menos "para que te sirva a ti"
 Hugo: "solo lo de seguridad no lo apliques, lo demás perfecto" y "no hagas lo de aprendizaje". Sin zips nuevos: nada de
 esto nace de un fallo visto en ED; es fiabilidad, nube y panel. **Probado en simulación** (108 pantallas, GitHub/ED falsas).

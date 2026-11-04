@@ -153,6 +153,12 @@ jobs:
           path: banco
           key: ed-banco-${{ github.run_id }}
           restore-keys: ed-banco-
+      # NUEVO v21.19: y lo del BAÚL del proyecto (rama "datos", cifrado) — dura aunque GitHub borre la caché
+      - name: Abrir el baúl (lo aprendido por curso, guardado en el proyecto)
+        continue-on-error: true
+        run: bash cloud/baul.sh abrir
+        env:
+          ED_BAUL_LLAVE: ${{ secrets.ED_BAUL_LLAVE }}
       - name: Correr el bot (las cuentas de este grupo, a la vez)
         run: node cloud/lote.js
         env:
@@ -300,6 +306,9 @@ jobs:
     needs: [preparar, correr]
     if: always() && needs.preparar.outputs.hay == 'si'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # NUEVO v21.19: guardar el baúl en la rama "datos" (cifrado)
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - name: Banco anterior
@@ -316,6 +325,12 @@ jobs:
           path: artefactos
       - name: Juntar por curso
         run: node cloud/banco.js juntar artefactos banco
+      # NUEVO v21.19 (Hugo: "que vivan directo en mi proyecto ... un servicio para mucho tiempo")
+      - name: Guardar en el baúl del proyecto (rama datos, cifrado)
+        continue-on-error: true
+        run: bash cloud/baul.sh guardar
+        env:
+          ED_BAUL_LLAVE: ${{ secrets.ED_BAUL_LLAVE }}
       - name: Guardar el banco para la próxima corrida
         uses: actions/cache/save@v4
         with:

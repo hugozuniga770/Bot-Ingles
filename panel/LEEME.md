@@ -1,4 +1,4 @@
-# 📱 Panel del bot (desde el teléfono) — v21.18
+# 📱 Panel del bot (desde el teléfono) — v21.19
 
 Correr, parar, agregar cuentas y ver cómo va cada una, desde el celular. Es una página quieta: no hay servidor
 propio; habla directo con GitHub usando **tu** token, que queda **cifrado con tu clave** en tu teléfono.
@@ -27,6 +27,11 @@ propio; habla directo con GitHub usando **tu** token, que queda **cifrado con tu
 - **📊 Tablero**: unidad por unidad, paso por paso (lo mismo que el issue del tablero).
 - **⋯** (NUEVO v21.18): arreglar lo que falta · solo tests < 100 · explorar el nivel · solo revisar (~10 min) ·
   historial de esa cuenta · ritmo y minutos propios · quitarla de la lista (con ↩ Deshacer).
+- **📦 Archivar** (⋯, NUEVO v21.19): la cuenta sale de la pantalla y del tablero; su contraseña queda guardada y
+  "Correr todas" no la corre. Pestaña **📦 Archivo**: ▶ Volver y correr · ♻ Volver · 🗑 borrar para siempre.
+- **🔑 Cambiar su contraseña de ED** (⋯): cambia solo su línea. **No cambies ED_CUENTAS a mano en GitHub**; si lo haces,
+  el panel te avisa y te pide pegar la lista nueva en ⚙ (GitHub no le deja leer el secret).
+- **🧳 Baúl**: la primera vez el panel crea el secret `ED_BAUL_LLAVE` (lo aprendido se guarda cifrado en tu proyecto).
 - **🔎 Buscar / filtros / orden** (NUEVO v21.18): toca "Les falta" para ver solo las que no están en 100/100.
 - **Tirar hacia abajo** actualiza · **?** abre la ayuda · sin internet el panel abre igual (los datos llegan al volver).
 - **⚡ Corridas**: todas las corridas, con ⏹ para cancelar una entera.

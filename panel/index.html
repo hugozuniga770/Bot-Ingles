@@ -23,7 +23,7 @@
 <body>
 <!-- ===== 1. PRIMERA VEZ ===== -->
 <section id="v-setup" class="vista" hidden>
-  <div class="hero"><img src="icono.svg" alt="" class="logo"><h1>Panel del bot</h1><p>Configúralo una sola vez en este teléfono.</p></div>
+  <div class="hero"><div class="logo-caja"><span class="halo"></span><img src="icono.svg" alt="" class="logo"></div><h1>Bot <span>ED</span></h1><p>Configúralo una sola vez en este teléfono.</p></div>
   <form id="f-setup" class="tarjeta" autocomplete="off">
     <label>Token de GitHub <small>(fine-grained, solo para el repo del bot)</small>
       <input name="token" type="password" placeholder="github_pat_…" required autocomplete="off" spellcheck="false"></label>
@@ -46,10 +46,10 @@
 
 <!-- ===== 2. ABRIR CON LA CLAVE ===== -->
 <section id="v-abrir" class="vista" hidden>
-  <div class="hero"><img src="icono.svg" alt="" class="logo"><h1>Panel del bot</h1><p id="abrir-repo"></p></div>
-  <form id="f-abrir" class="tarjeta centro">
-    <label>Clave <input name="clave" type="password" required autocomplete="current-password" inputmode="text"></label>
-    <button class="btn grande" type="submit">Abrir</button>
+  <div class="hero"><div class="logo-caja"><span class="halo"></span><img src="icono.svg" alt="" class="logo"></div><h1>Bot <span>ED</span></h1><p class="saludo">Hola de nuevo 👋</p><p id="abrir-repo" class="repo-chip"></p></div>
+  <form id="f-abrir" class="tarjeta centro vidrio">
+    <label>Tu clave del panel <span class="con-ojo"><input name="clave" type="password" required autocomplete="current-password" enterkeyhint="go"><button type="button" class="ojo" aria-label="Ver la clave">👁</button></span></label>
+    <button class="btn grande brillo" type="submit">🔓 Abrir</button>
     <p class="error" id="e-abrir"></p>
   </form>
 </section>
@@ -63,6 +63,8 @@
 
   <main>
     <div id="t-cuentas" class="pestana">
+      <!-- NUEVO v21.19: la lista de GitHub cambió sin el panel -->
+      <div id="deriva" class="banner" hidden><b>⚠ Cambiaste ED_CUENTAS en GitHub sin el panel</b><span>GitHub no deja leer ese secret, así que la lista del panel puede estar vieja: si los números no coinciden, las cuentas salen "no encontradas" o se pisa tu cambio. Pega aquí la lista que tienes en GitHub.</span><div class="fila-botones"><button class="btn verde" id="b-deriva-pegar">Pegar la lista</button><button class="btn" id="b-deriva-ok">Es la misma</button></div></div>
       <div class="resumen" id="resumen"></div>
       <div class="fila-botones">
         <button class="btn grande verde" id="b-todas">▶ Correr todas</button>
@@ -74,6 +76,12 @@
         <div class="chips" id="chips"><button data-k="">Todas <em></em></button><button data-k="corre">Corriendo <em></em></button><button data-k="faltan">Les falta <em></em></button><button data-k="listas">100/100 <em></em></button><button data-k="mal">Problemas <em></em></button></div>
         <select id="orden" aria-label="Ordenar"><option value="">Orden de la lista</option><option value="nombre">Nombre A–Z</option><option value="progreso">Menos avance primero</option><option value="estado">Corriendo primero</option></select></div>
       <div id="lista-cuentas" class="lista"></div>
+      <div id="limpiar" class="limpiar" hidden>🧹 El tablero todavía muestra <span id="limpiar-n"></span>. <button class="btn chico" id="b-limpiar">Limpiar</button></div>
+    </div>
+    <!-- NUEVO v21.19: ARCHIVO — cuentas guardadas con su contraseña, fuera de la pantalla y de "Correr todas" -->
+    <div id="t-archivo" class="pestana" hidden>
+      <div class="intro-archivo"><b>📦 Archivo</b><span>Las cuentas que archivaste siguen guardadas con su contraseña (en el secret ED_CUENTAS, cifrado). No salen en la pantalla ni en el tablero, y <b>"Correr todas" no las corre</b>. El mes que viene: <b>▶ Volver y correr</b>.</span></div>
+      <div id="lista-archivo" class="lista"></div>
     </div>
     <div id="t-corridas" class="pestana" hidden><button class="btn grande rojo" id="b-parar-todo" style="margin-bottom:14px">⏹ Parar TODO (todas las corridas)</button><div id="lista-corridas" class="lista"></div></div>
     <div id="t-ajustes" class="pestana" hidden>
@@ -87,7 +95,7 @@
       <form id="f-lista" class="tarjeta">
         <h2>Lista de cuentas (ED_CUENTAS)</h2>
         <textarea name="lista" rows="8" spellcheck="false" autocapitalize="off"></textarea>
-        <small>Una por línea: <code>usuario contraseña Nombre</code>. Para quitar una sin cambiar el número de las demás, el panel la deja como <code>borrada</code>.</small>
+        <small>Una por línea: <code>usuario contraseña Nombre</code>. <b>No borres líneas</b> (las de abajo cambiarían de número): para sacar a alguien usa <b>⋯ → 📦 Archivar</b> en su tarjeta (queda <code>archivada …</code>). Si cambiaste ED_CUENTAS a mano en GitHub, pega aquí la misma lista.</small>
         <button class="btn" type="submit">Guardar y subir a GitHub</button>
       </form>
       <div class="tarjeta">
@@ -103,6 +111,7 @@
   <nav class="tabs">
     <button data-t="t-cuentas" class="activo"><span>👥</span>Cuentas</button>
     <button data-t="t-corridas"><span>⚡</span>Corridas</button>
+    <button data-t="t-archivo"><span>📦</span>Archivo<em id="archivo-n" class="burbuja"></em></button>
     <button data-t="t-ajustes"><span>⚙</span>Ajustes</button>
   </nav>
 </section>
