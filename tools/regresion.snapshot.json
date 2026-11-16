@@ -793,6 +793,41 @@
     "ls": null,
     "v": []
   },
+  "toeicListen1": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"1/5\",\"mcq\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":1,\"como\":\"pantalla\"}}",
+    "trace": "click prMCQ__answerLabel:A | click tasksBtnext learning__pnItemLink learning__nextItemLink:",
+    "ls": "{\"Lesson 4: Preparing for Part 2: Question-Response||Step 3: Test\":{\"1\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"2\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"C\"]}]},\"3\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]},\"4\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"5\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]}}}",
+    "v": "A · global=B"
+  },
+  "toeicListen2": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"2/5\",\"mcq\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":1,\"como\":\"pantalla\"}}",
+    "trace": "click prMCQ__answerLabel:C | click tasksBtnext learning__pnItemLink learning__nextItemLink:",
+    "ls": "{\"Lesson 4: Preparing for Part 2: Question-Response||Step 3: Test\":{\"1\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"2\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"C\"]}]},\"3\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]},\"4\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"5\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]}}}",
+    "v": "C · global=B"
+  },
+  "toeicListen4": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"4/5\",\"mcq\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":1,\"como\":\"pantalla\"}}",
+    "trace": "click prMCQ__answerLabel:A | click tasksBtnext learning__pnItemLink learning__nextItemLink:",
+    "ls": "{\"Lesson 4: Preparing for Part 2: Question-Response||Step 3: Test\":{\"1\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"2\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"C\"]}]},\"3\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]},\"4\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"5\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]}}}",
+    "v": "A · global=B"
+  },
+  "toeicListenMovida": {
+    "kind": "test_question",
+    "r": "{\"did\":\"test_replay\",\"idx\":\"1/5\",\"mcq\":{\"did\":\"mcq_solved\",\"marked\":1,\"fromKnown\":1,\"como\":\"audio\"}}",
+    "trace": "click prMCQ__answerLabel:B | click tasksBtnext learning__pnItemLink learning__nextItemLink:",
+    "ls": "{\"Lesson 4: Preparing for Part 2: Question-Response||Step 3: Test\":{\"1\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}],\"media\":\"b3teakt01.mp3\"},\"2\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"C\"]}],\"media\":\"b3teakt02.mp3\"},\"3\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}],\"media\":\"b3teakt03.mp3\"},\"4\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}],\"media\":\"b3teakt04.mp3\"},\"5\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}],\"media\":\"b3teakt05.mp3\"}}}",
+    "v": "B · global=B"
+  },
+  "toeicListenCosecha": {
+    "kind": "test_review",
+    "r": "{\"harvested\":true,\"idx\":4,\"saved\":1}",
+    "trace": "click A:Correct Answer | click tasksBtnext learning__pnItemLink learning__nextItemLink:",
+    "ls": "{\"Lesson 4: Preparing for Part 2: Question-Response||Step 3: Test\":{\"1\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}]},\"2\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"C\"]}]},\"3\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"B\"]}]},\"4\":{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}],\"media\":\"b3teakt04.mp3\"}}}",
+    "v": "{\"mcq\":[{\"q\":\"Listen\",\"a\":[\"A\"]}],\"media\":\"b3teakt04.mp3\"} · global=no"
+  },
   "scoreGiveUp": {
     "kind": "test_score",
     "r": "\"ERR ED_TEST_NO_100: Lesson 1||Step 4: Test quedó en 40% tras 2 reintentos. Revísalo y vuelve a __ed.auto().\"",

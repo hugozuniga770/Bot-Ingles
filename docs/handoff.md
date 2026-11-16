@@ -1,4 +1,4 @@
-# Handoff — en qué punto exacto quedamos (actualizado: v21.19, 04/11/2026)
+# Handoff — en qué punto exacto quedamos (actualizado: v21.20, 16/11/2026)
 
 ## Estado en una frase
 La v21.8 se probó en ED real con **Jose** (cuenta 2: 1 % → 97 %), **Roy** (cuenta 3: 88 % → 97 %) y **Mateo**
@@ -116,6 +116,8 @@ Todo "a" está probado SOLO en simulación hasta ver el registro de la próxima 
 | 56 | Pedido: archivar cuentas con su contraseña; "todas" sin las archivadas | a* | Línea `archivada …`, pestaña 📦. *Simulación (panel en iPhone emulado) |
 | 57 | Pedido: lo aprendido vive en el proyecto, para mucho tiempo | a* | Baúl cifrado en la rama `datos`. *Probado con un repo falso (dos corridas a la vez); falta la 1.ª corrida real |
 | 58 | Zoom del iPhone al escribir en el panel | a | Campos a 16 px (comprobado en iPhone emulado) |
+| 59 | TOEIC 2 · U2 L4 "Question-Response" Test en 40 % (Admin, Nini, Carlitos; mismo lugar en las 3) | a | Las 5 preguntas se llaman "Listen"; el replay usaba el mapa global por texto → B en todas (2/5). Ahora manda lo cosechado por pantalla + huella del audio (`mediaSig`). Probado en ED real: Carlitos 100 % (`toeicListen*`, HTML real) |
+| 60 | Unit Tests de TOEIC: "unit_test_no_aparece" en las 3 cuentas | c | Se abren en otra ventana (ets.toeicolpc.com) con reloj y sin modo revisión → el bot no los ve ni cosecha. Quedan "a mano" (pendiente: marcarlos claro en el tablero para que el bot no gaste 6 pasos buscándolos) |
 | 52 | Lista de 100 mejoras (v21.18): todo menos seguridad 82–88 y la página de estudio | a* | Ver CHANGELOG v21.18. *Simulación (pantallas `mantenimiento`, `auditoriaFin`; panel en iPhone emulado); falta corrida real |
 
 ## Lo que NO puede hacer (y por qué) — afecta "Realización", no el promedio de tests

@@ -4,7 +4,7 @@
 //  Selectores cortos (q, qa, qv, qav), visibilidad (vis), texto (txt, norm, wc),
 //  esperas (sleep, waitFor) y clics (click, clickInFrame, setNative).
 //  DEPENDE DE: nada
-//  EXPONE:     sleep q qa txt norm vis qv qav wc mcqQuestionText waitFor click clickInFrame setNative
+//  EXPONE:     sleep q qa txt norm vis qv qav wc mcqQuestionText mediaSig waitFor click clickInFrame setNative
 // =====================================================================
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -33,6 +33,17 @@ const mcqQuestionText = set => {
   let best = null;
   for (const e of all) if (e.compareDocumentPosition(set) & Node.DOCUMENT_POSITION_FOLLOWING) best = e;
   return txt(best || all[0]);
+};
+
+// NUEVO v21.20 — "huella" del recurso de la pregunta: nombre del archivo de audio/video que suena y de las fotos propias
+// de la pregunta (no los dibujos genéricos de ED). Sirve para reconocer una pregunta que NO tiene texto propio: en los
+// tests de TOEIC "Question-Response" las 5 preguntas se llaman "Listen" (opciones A/B/C) y solo cambia el audio
+// (b3teakt01.mp3 … b3teakt05.mp3; visto en ED real el 16/11/2026, U2 L4 · Step 3).
+const mediaSig = () => {
+  const nombre = u => String(u || '').split(/[?#]/)[0].split('/').pop();
+  const av = qa('audio, video, audio source, video source').map(e => nombre(e.currentSrc || e.getAttribute('src') || '')).filter(Boolean);
+  const im = qa('.learning__resourcesArea img, .learning__RAIWrapper img').map(e => e.getAttribute('src') || '').filter(x => x && !/Images\/General\//i.test(x)).map(nombre).filter(Boolean);
+  return [...new Set([...av, ...im])].sort().join('|');
 };
 
 // AJUSTADA v21.14 (Hugo: "dales más tiempo a las cosas frágiles para cargar"): el tope de TODA espera se multiplica

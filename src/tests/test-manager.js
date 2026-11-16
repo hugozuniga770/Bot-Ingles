@@ -226,8 +226,18 @@ class TestManager {
     const entry = {};
     if (items.length) {
       entry.mcq = items;
+      // NUEVO v21.20: la huella del audio/foto de la pregunta (preguntas sin texto propio: "Listen" + A/B/C)
+      const media = mediaSig(); if (media) entry.media = media;
+      // AJUSTADA v21.20 — el mapa global por TEXTO de pregunta (ed:answers:v1) ya no guarda textos AMBIGUOS: si en este
+      // test la misma pregunta ("Listen") tiene respuestas distintas en otra pantalla, guardar una sola pisaba las demás
+      // (TOEIC 2 · U2 L4: quedaba "Listen" → B y el replay ponía B en las 5 → 40 %). La respuesta por pantalla sí se guarda.
+      const otras = [...Object.entries(ans2[key]).filter(([i]) => +i !== idx).flatMap(([, e]) => (e && e.mcq) || [])];
       for (const m of items) {
-        if (m.q && m.a.length) { ans[m.q] = m.a.length === 1 ? m.a[0] : m.a; saved++; }
+        if (!(m.q && m.a.length)) continue;
+        saved++;
+        const mismas = [...otras, ...items.filter(x => x !== m)].filter(x => x && x.a && x.a.length && norm(x.q) === norm(m.q));
+        if (mismas.some(x => JSON.stringify(x.a) !== JSON.stringify(m.a))) { delete ans[m.q]; continue; }
+        ans[m.q] = m.a.length === 1 ? m.a[0] : m.a;
       }
     }
     if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
@@ -367,7 +377,17 @@ class TestManager {
     const idx = c ? c.i : 1;
     const scr = (StorageManager.getAns2()[key] || {})[idx] || {};
     const out = { did: 'test_replay', idx: c && c.s };
-    if (qv('label.prMCQ__answerLabel')) out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null);
+    if (qv('label.prMCQ__answerLabel')) {
+      // AJUSTADA v21.20: se pasa TODO lo cosechado del test + la huella del audio de esta pregunta (ver MCQSolver.respuestaDelTest).
+      // Si lo cosechado trae audio, se espera un momento a que cargue el de ESTA pregunta (al pasar de pregunta el
+      // reproductor tarda en cambiar): primero el que se cosechó en esta pantalla; si no llega, cualquiera.
+      const todas = StorageManager.getAns2()[key] || {};
+      if (Object.values(todas).some(e => e && e.media)) {
+        const esperado = scr.media || null;
+        if (!(esperado && await waitFor(() => mediaSig() === esperado, 3000, 250))) await waitFor(() => mediaSig(), 1500, 250);
+      }
+      out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null, { todas, idx, media: mediaSig() });
+    }
     if (qv('.DDLOptions__selected')) out.fitb = await PracticeSolver.solveFITB(scr.fitb && scr.fitb.length ? scr.fitb : null);
     // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
     // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista

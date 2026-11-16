@@ -15,11 +15,40 @@ class MCQSolver {
   //   - `fallback`: respuestas del review por posición, por si el texto de la pregunta no coincide.
   //   - si el texto exacto de la opción no coincide, prueba por prefijo.
   // ---------------------------------------------------------------
-  static async solveMCQ(fallback = null) {
+  // NUEVO v21.20 — respuesta cosechada de ESTE test para una pregunta. Devuelve { a, como, ambigua } (a = null si no hay).
+  // POR QUÉ: Admin, Nini y Carlitos (TOEIC 2 · U2 L4 "Preparing for Part 2: Question-Response" · Step 3: Test) quedaban
+  // en 40 % siempre. Las 5 preguntas se llaman "Listen" y las respuestas correctas son A, C, B, A, B. La cosecha las
+  // guardaba bien por pantalla (ed:testAns:v2), pero el replay miraba PRIMERO el mapa global por texto de pregunta
+  // (ed:answers:v1["Listen"]), donde solo queda la última (B) → B en las cinco → 2 de 5 = 40 %.
+  // AHORA manda lo cosechado en este test, en este orden: 1) la pantalla con el MISMO audio/foto (sirve aunque ED
+  // cambie el orden de las preguntas); 2) la misma pantalla y posición si el texto de la pregunta coincide; 3) otra
+  // pantalla del test con ese texto, solo si el texto NO se repite con respuestas distintas. Si el texto es ambiguo
+  // (misma pregunta, respuestas distintas) el mapa global por texto NO se usa.
+  static respuestaDelTest(test, qText, pos) {
+    const r = { a: null, como: null, ambigua: false };
+    if (!test || !test.todas) return r;
+    const nq = norm(qText), items = [];
+    for (const [i, e] of Object.entries(test.todas)) (e && e.mcq || []).forEach((m, p) => { if (m && m.a && m.a.length) items.push({ idx: +i, pos: p, q: m.q, a: m.a, media: e.media || '' }); });
+    const iguales = items.filter(x => norm(x.q) === nq);
+    r.ambigua = new Set(iguales.map(x => JSON.stringify(x.a))).size > 1;
+    const sig = test.media || '';
+    const porMedia = sig ? iguales.filter(x => x.media === sig) : [];
+    const hit = porMedia.find(x => x.pos === pos) || (porMedia.length === 1 ? porMedia[0] : null);
+    if (hit) { r.a = hit.a; r.como = hit.idx === test.idx ? 'pantalla' : 'audio'; return r; }
+    const aqui = items.find(x => x.idx === test.idx && x.pos === pos && norm(x.q) === nq);
+    // la misma pantalla vale si no se sabe el audio de ahora o el de la cosecha (cosechas viejas no lo guardaban)
+    if (aqui && (!sig || !aqui.media || aqui.media === sig)) { r.a = aqui.a; r.como = 'pantalla'; return r; }
+    if (!r.ambigua && iguales.length) { r.a = iguales[0].a; r.como = 'texto'; return r; }
+    if (aqui) { r.a = aqui.a; r.como = 'pantalla?'; }
+    return r;
+  }
+
+  static async solveMCQ(fallback = null, test = null) {
     log('☑️ [MCQ / Checkboxes] Seleccionando opciones correctas...');
     let marked = 0, fromKnown = 0;
     const known = StorageManager.getAns();
     const sets = qa('.prMCQ__qaInnerSet');
+    const como = [];
 
     if (!sets.length) {
       const checkboxes = qav('input[type="checkbox"]');
@@ -68,8 +97,12 @@ class MCQSolver {
       if (checked) continue;
 
       const qText = mcqQuestionText(s);
-      let kv = known[qText];
-      if (kv == null && fallback) {
+      // AJUSTADA v21.20: primero lo cosechado en ESTE test (ver respuestaDelTest); el mapa global por texto solo si el
+      // texto de la pregunta no es ambiguo dentro del test. Sin datos del test → exactamente lo de antes.
+      const dt = this.respuestaDelTest(test, qText, sets.indexOf(s));
+      let kv = dt.a ? (dt.a.length === 1 ? dt.a[0] : dt.a) : (dt.ambigua ? null : known[qText]);
+      if (dt.a) como.push(dt.como);
+      if (kv == null && fallback && !dt.ambigua) {
         const hit = fallback.find(m => norm(m.q) === norm(qText)) || fallback[sets.indexOf(s)];
         if (hit && hit.a && hit.a.length) kv = hit.a.length === 1 ? hit.a[0] : hit.a;
       }
@@ -83,6 +116,8 @@ class MCQSolver {
       for (const l of targets) { click(l); marked++; await sleep(300); }
       if (!fallback && !fromKnown && marked && await practiceEnough(NavigationManager.curTask()?.n)) break;   // NUEVO v20.7
     }
-    return { did: 'mcq_solved', marked, fromKnown };
+    const out = { did: 'mcq_solved', marked, fromKnown };
+    if (como.length) out.como = como.join(',');
+    return out;
   }
 }

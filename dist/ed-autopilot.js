@@ -1,5 +1,5 @@
 /* =====================================================================
-   ED-Autopilot v21.19  —  ARCHIVO GENERADO, NO LO EDITES A MANO
+   ED-Autopilot v21.20  —  ARCHIVO GENERADO, NO LO EDITES A MANO
    ---------------------------------------------------------------------
    Fuente: src/ del repo github.com/hugozuniga770/Bot-Ingles  →  node build.js
    Pégalo en la consola (F12) de English Discoveries y luego: __ed.auto()
@@ -17,7 +17,7 @@
   //  EXPONE:     V
   // =====================================================================
 
-  const V = '21.19';   // ← ÚNICO lugar donde se cambia la versión
+  const V = '21.20';   // ← ÚNICO lugar donde se cambia la versión
 
   // NUEVO v21.7 — dentro de un MARCO (iframe) NO corre el bot completo. En la nube se inyectaba en todos los
   // marcos y llegaba a haber varios bots a la vez (corrida de Nelson, 01/11). En un marco solo se atiende el aviso
@@ -122,7 +122,7 @@
   //  Selectores cortos (q, qa, qv, qav), visibilidad (vis), texto (txt, norm, wc),
   //  esperas (sleep, waitFor) y clics (click, clickInFrame, setNative).
   //  DEPENDE DE: nada
-  //  EXPONE:     sleep q qa txt norm vis qv qav wc mcqQuestionText waitFor click clickInFrame setNative
+  //  EXPONE:     sleep q qa txt norm vis qv qav wc mcqQuestionText mediaSig waitFor click clickInFrame setNative
   // =====================================================================
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -151,6 +151,17 @@
     let best = null;
     for (const e of all) if (e.compareDocumentPosition(set) & Node.DOCUMENT_POSITION_FOLLOWING) best = e;
     return txt(best || all[0]);
+  };
+
+  // NUEVO v21.20 — "huella" del recurso de la pregunta: nombre del archivo de audio/video que suena y de las fotos propias
+  // de la pregunta (no los dibujos genéricos de ED). Sirve para reconocer una pregunta que NO tiene texto propio: en los
+  // tests de TOEIC "Question-Response" las 5 preguntas se llaman "Listen" (opciones A/B/C) y solo cambia el audio
+  // (b3teakt01.mp3 … b3teakt05.mp3; visto en ED real el 16/11/2026, U2 L4 · Step 3).
+  const mediaSig = () => {
+    const nombre = u => String(u || '').split(/[?#]/)[0].split('/').pop();
+    const av = qa('audio, video, audio source, video source').map(e => nombre(e.currentSrc || e.getAttribute('src') || '')).filter(Boolean);
+    const im = qa('.learning__resourcesArea img, .learning__RAIWrapper img').map(e => e.getAttribute('src') || '').filter(x => x && !/Images\/General\//i.test(x)).map(nombre).filter(Boolean);
+    return [...new Set([...av, ...im])].sort().join('|');
   };
 
   // AJUSTADA v21.14 (Hugo: "dales más tiempo a las cosas frágiles para cargar"): el tope de TODA espera se multiplica
@@ -2645,11 +2656,40 @@
     //   - `fallback`: respuestas del review por posición, por si el texto de la pregunta no coincide.
     //   - si el texto exacto de la opción no coincide, prueba por prefijo.
     // ---------------------------------------------------------------
-    static async solveMCQ(fallback = null) {
+    // NUEVO v21.20 — respuesta cosechada de ESTE test para una pregunta. Devuelve { a, como, ambigua } (a = null si no hay).
+    // POR QUÉ: Admin, Nini y Carlitos (TOEIC 2 · U2 L4 "Preparing for Part 2: Question-Response" · Step 3: Test) quedaban
+    // en 40 % siempre. Las 5 preguntas se llaman "Listen" y las respuestas correctas son A, C, B, A, B. La cosecha las
+    // guardaba bien por pantalla (ed:testAns:v2), pero el replay miraba PRIMERO el mapa global por texto de pregunta
+    // (ed:answers:v1["Listen"]), donde solo queda la última (B) → B en las cinco → 2 de 5 = 40 %.
+    // AHORA manda lo cosechado en este test, en este orden: 1) la pantalla con el MISMO audio/foto (sirve aunque ED
+    // cambie el orden de las preguntas); 2) la misma pantalla y posición si el texto de la pregunta coincide; 3) otra
+    // pantalla del test con ese texto, solo si el texto NO se repite con respuestas distintas. Si el texto es ambiguo
+    // (misma pregunta, respuestas distintas) el mapa global por texto NO se usa.
+    static respuestaDelTest(test, qText, pos) {
+      const r = { a: null, como: null, ambigua: false };
+      if (!test || !test.todas) return r;
+      const nq = norm(qText), items = [];
+      for (const [i, e] of Object.entries(test.todas)) (e && e.mcq || []).forEach((m, p) => { if (m && m.a && m.a.length) items.push({ idx: +i, pos: p, q: m.q, a: m.a, media: e.media || '' }); });
+      const iguales = items.filter(x => norm(x.q) === nq);
+      r.ambigua = new Set(iguales.map(x => JSON.stringify(x.a))).size > 1;
+      const sig = test.media || '';
+      const porMedia = sig ? iguales.filter(x => x.media === sig) : [];
+      const hit = porMedia.find(x => x.pos === pos) || (porMedia.length === 1 ? porMedia[0] : null);
+      if (hit) { r.a = hit.a; r.como = hit.idx === test.idx ? 'pantalla' : 'audio'; return r; }
+      const aqui = items.find(x => x.idx === test.idx && x.pos === pos && norm(x.q) === nq);
+      // la misma pantalla vale si no se sabe el audio de ahora o el de la cosecha (cosechas viejas no lo guardaban)
+      if (aqui && (!sig || !aqui.media || aqui.media === sig)) { r.a = aqui.a; r.como = 'pantalla'; return r; }
+      if (!r.ambigua && iguales.length) { r.a = iguales[0].a; r.como = 'texto'; return r; }
+      if (aqui) { r.a = aqui.a; r.como = 'pantalla?'; }
+      return r;
+    }
+
+    static async solveMCQ(fallback = null, test = null) {
       log('☑️ [MCQ / Checkboxes] Seleccionando opciones correctas...');
       let marked = 0, fromKnown = 0;
       const known = StorageManager.getAns();
       const sets = qa('.prMCQ__qaInnerSet');
+      const como = [];
 
       if (!sets.length) {
         const checkboxes = qav('input[type="checkbox"]');
@@ -2698,8 +2738,12 @@
         if (checked) continue;
 
         const qText = mcqQuestionText(s);
-        let kv = known[qText];
-        if (kv == null && fallback) {
+        // AJUSTADA v21.20: primero lo cosechado en ESTE test (ver respuestaDelTest); el mapa global por texto solo si el
+        // texto de la pregunta no es ambiguo dentro del test. Sin datos del test → exactamente lo de antes.
+        const dt = this.respuestaDelTest(test, qText, sets.indexOf(s));
+        let kv = dt.a ? (dt.a.length === 1 ? dt.a[0] : dt.a) : (dt.ambigua ? null : known[qText]);
+        if (dt.a) como.push(dt.como);
+        if (kv == null && fallback && !dt.ambigua) {
           const hit = fallback.find(m => norm(m.q) === norm(qText)) || fallback[sets.indexOf(s)];
           if (hit && hit.a && hit.a.length) kv = hit.a.length === 1 ? hit.a[0] : hit.a;
         }
@@ -2713,7 +2757,9 @@
         for (const l of targets) { click(l); marked++; await sleep(300); }
         if (!fallback && !fromKnown && marked && await practiceEnough(NavigationManager.curTask()?.n)) break;   // NUEVO v20.7
       }
-      return { did: 'mcq_solved', marked, fromKnown };
+      const out = { did: 'mcq_solved', marked, fromKnown };
+      if (como.length) out.como = como.join(',');
+      return out;
     }
   }
 
@@ -3885,8 +3931,18 @@
       const entry = {};
       if (items.length) {
         entry.mcq = items;
+        // NUEVO v21.20: la huella del audio/foto de la pregunta (preguntas sin texto propio: "Listen" + A/B/C)
+        const media = mediaSig(); if (media) entry.media = media;
+        // AJUSTADA v21.20 — el mapa global por TEXTO de pregunta (ed:answers:v1) ya no guarda textos AMBIGUOS: si en este
+        // test la misma pregunta ("Listen") tiene respuestas distintas en otra pantalla, guardar una sola pisaba las demás
+        // (TOEIC 2 · U2 L4: quedaba "Listen" → B y el replay ponía B en las 5 → 40 %). La respuesta por pantalla sí se guarda.
+        const otras = [...Object.entries(ans2[key]).filter(([i]) => +i !== idx).flatMap(([, e]) => (e && e.mcq) || [])];
         for (const m of items) {
-          if (m.q && m.a.length) { ans[m.q] = m.a.length === 1 ? m.a[0] : m.a; saved++; }
+          if (!(m.q && m.a.length)) continue;
+          saved++;
+          const mismas = [...otras, ...items.filter(x => x !== m)].filter(x => x && x.a && x.a.length && norm(x.q) === norm(m.q));
+          if (mismas.some(x => JSON.stringify(x.a) !== JSON.stringify(m.a))) { delete ans[m.q]; continue; }
+          ans[m.q] = m.a.length === 1 ? m.a[0] : m.a;
         }
       }
       if (fitb.some(Boolean)) { entry.fitb = fitb; saved += fitb.filter(Boolean).length; }
@@ -4026,7 +4082,17 @@
       const idx = c ? c.i : 1;
       const scr = (StorageManager.getAns2()[key] || {})[idx] || {};
       const out = { did: 'test_replay', idx: c && c.s };
-      if (qv('label.prMCQ__answerLabel')) out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null);
+      if (qv('label.prMCQ__answerLabel')) {
+        // AJUSTADA v21.20: se pasa TODO lo cosechado del test + la huella del audio de esta pregunta (ver MCQSolver.respuestaDelTest).
+        // Si lo cosechado trae audio, se espera un momento a que cargue el de ESTA pregunta (al pasar de pregunta el
+        // reproductor tarda en cambiar): primero el que se cosechó en esta pantalla; si no llega, cualquiera.
+        const todas = StorageManager.getAns2()[key] || {};
+        if (Object.values(todas).some(e => e && e.media)) {
+          const esperado = scr.media || null;
+          if (!(esperado && await waitFor(() => mediaSig() === esperado, 3000, 250))) await waitFor(() => mediaSig(), 1500, 250);
+        }
+        out.mcq = await PracticeSolver.solveMCQ(scr.mcq || null, { todas, idx, media: mediaSig() });
+      }
       if (qv('.DDLOptions__selected')) out.fitb = await PracticeSolver.solveFITB(scr.fitb && scr.fitb.length ? scr.fitb : null);
       // NUEVO v20.4: "ordenar" no es banco→huecos; se reordena con placeSequence(scr.seq).
       // OJO: NO se usa `scr.dnd` de cosechas viejas en ordenar: hasta v20.3 se cosechaba la vista

@@ -1,5 +1,23 @@
 # Changelog
 
+## v21.20 — test de TOEIC "Question-Response": cada pregunta su respuesta (40 % → 100 %)
+Tablero: Admin, Nini y Carlitos (TOEIC 2) quedaban con el test de **U2 L4 "Preparing for Part 2: Question-Response"
+en 40 %**, siempre en el mismo lugar. Lo vi en ED real el 16/11: ese test tiene 5 preguntas de audio y **las cinco se
+llaman "Listen"** (opciones A/B/C, una "None" escondida); solo cambia el audio (b3teakt01…05.mp3). Las correctas son
+A, C, B, A, B.
+- **Causa:** la cosecha guardaba bien cada respuesta por pantalla (`ed:testAns:v2`), pero el replay miraba primero el
+  mapa global por TEXTO de pregunta (`ed:answers:v1["Listen"]`), donde solo quedaba la última (B) → ponía B en las
+  cinco → 2 de 5 = 40 %.
+- **Arreglo (`exercises/mcq.js`, `tests/test-manager.js`, `utils/dom.js`):** en el replay manda lo cosechado en ESTE
+  test, no el mapa global. Cada pregunta se reconoce por su pantalla y, nuevo, por la **huella del audio** (`mediaSig`),
+  así funciona aunque ED cambie el orden de las preguntas. El mapa global por texto ya NO guarda textos ambiguos (misma
+  pregunta con respuestas distintas), para no pisar unas con otras.
+- **Probado:** en ED real, cuenta de Carlitos → **100 %** (cosechó A, C, B, A, B y puso cada una en su pregunta).
+  Regresión: 5 pantallas nuevas con el HTML REAL del test (`toeicListen*`); las otras 108 no cambian de comportamiento
+  (`comparar-con.sh` con la v21.19).
+- Los **Unit Tests** de TOEIC NO quedan arreglados: se abren en otra ventana (ets.toeicolpc.com) con reloj y sin
+  revisión; el bot no los ve. Siguen como "a mano".
+
 ## v21.19 — cuentas "fallidas / no encontradas", archivo de cuentas, baúl en el proyecto, zoom del iPhone
 Hugo (04/11): "cambié la clave manualmente en secrets y desde mi teléfono eliminé varias cuentas, y cuando corría nuevos
 usuarios salían fallidos, no encontrados" · "si quito usuarios debe quitarse bien ... los registros se mantienen" ·
